@@ -3,7 +3,7 @@
 // Loaded before app.js; it uses app.js's helpers (esc, ask, toast, pageTitle, bank, profile, $app) when it runs.
 const Admin = (() => {
   let cache = null;                       // { list, stats: Map(id -> {attempts, pct}) }
-  const view = { q: '', board: '', subject: '', status: '', show: 'active', tier: '', page: 0, sel: new Set() };
+  const view = { q: '', board: '', subject: '', status: '', show: 'active', tier: '', check: '', page: 0, sel: new Set() };
   const PAGE = 50;
   const role = () => (profile && profile.role) || '';
   const isEditor = () => role() === 'admin' || role() === 'reviewer';
@@ -65,11 +65,12 @@ const Admin = (() => {
         <div><label for="fs">Subject</label><select id="fs"></select></div>
         <div><label for="fst">Status</label><select id="fst"><option value="">All</option><option value="draft">Draft</option><option value="reviewed">Reviewed</option></select></div>
         <div><label for="fsh">Show</label><select id="fsh"><option value="active">Active</option><option value="archived">Archived</option><option value="all">Both</option></select></div>
-        <div><label for="ft">Tier</label><select id="ft"><option value="">All</option><option value="free">Free</option><option value="pro">Pro</option></select></div></form></div>
+        <div><label for="ft">Tier</label><select id="ft"><option value="">All</option><option value="free">Free</option><option value="pro">Pro</option></select></div>
+        <div><label for="fl">Checks</label><select id="fl"><option value="">All questions</option><option value="long">Correct answer much longer</option></select></div></form></div>
       <div id="bulk"></div><div class="card" id="qres"></div>`;
     const set = (id, v) => { document.getElementById(id).value = v; };
     const fillSubjects = () => { const s = document.getElementById('fs'); s.innerHTML = '<option value="">All</option>' + subjectsFor(view.board ? [view.board] : []).map(x => `<option${x === view.subject ? ' selected' : ''}>${esc(x)}</option>`).join(''); };
-    fillSubjects(); set('fst', view.status); set('fsh', view.show); set('ft', view.tier);
+    fillSubjects(); set('fst', view.status); set('fsh', view.show); set('ft', view.tier); set('fl', view.check || '');
     const on = (id, ev, fn) => document.getElementById(id).addEventListener(ev, fn);
     on('fq', 'input', e => { view.q = e.target.value; view.page = 0; paint(); });
     on('fb', 'change', e => { view.board = e.target.value; view.subject = ''; view.page = 0; fillSubjects(); paint(); });
@@ -77,6 +78,7 @@ const Admin = (() => {
     on('fst', 'change', e => { view.status = e.target.value; view.page = 0; paint(); });
     on('fsh', 'change', e => { view.show = e.target.value; view.page = 0; paint(); });
     on('ft', 'change', e => { view.tier = e.target.value; view.page = 0; paint(); });
+    on('fl', 'change', e => { view.check = e.target.value; view.page = 0; paint(); });
     on('backup', 'click', () => backup(c.list));
     paint();
   }
@@ -85,7 +87,7 @@ const Admin = (() => {
     const w = view.q.trim().toLowerCase();
     return cache.list.filter(q =>
       (view.show === 'all' || (view.show === 'archived') === q.archived) && (!view.board || q.boards.includes(view.board)) && (!view.subject || q.subject === view.subject) &&
-      (!view.status || q.status === view.status) && (!view.tier || q.tier === view.tier) &&
+      (!view.status || q.status === view.status) && (!view.tier || q.tier === view.tier) && (view.check !== 'long' || QValidate.lengthTell(q)) &&
       (!w || q.id.includes(w) || (q.topic || '').toLowerCase().includes(w) || q.stem.toLowerCase().includes(w)));
   };
 
@@ -98,7 +100,7 @@ const Admin = (() => {
       const s = cache.stats.get(q.id);
       return `<tr${q.archived ? ' class="dim"' : ''}><td><input type="checkbox" data-sel="${esc(q.id)}" aria-label="Select ${esc(q.id)}"${view.sel.has(q.id) ? ' checked' : ''}></td>
         <td><a href="#/admin/questions/edit/${esc(q.id)}">${esc(q.id)}</a><div class="muted small">${esc((q.stem || '').slice(0, 70))}${q.stem && q.stem.length > 70 ? '...' : ''}</div></td>
-        <td>${esc(q.subject)}<div class="muted small">${esc(q.topic || '')}</div></td><td>${tag(q)}</td><td>${esc(q.tier)}</td>
+        <td>${esc(q.subject)}<div class="muted small">${esc(q.topic || '')}</div></td><td>${tag(q)}${QValidate.lengthTell(q) ? ' <span class="tag" title="The correct answer is much longer than the other choices">Long answer</span>' : ''}</td><td>${esc(q.tier)}</td>
         <td>${s && s.attempts ? `${s.attempts} &middot; ${Math.round(s.pct)}%` : '-'}</td><td>${day(q.updatedAt)}<div class="muted small">${esc(q.updatedBy)}</div></td></tr>`;
     }).join('')}</tbody></table></div>
       <div class="row spread" style="margin-top:10px"><span class="muted" aria-live="polite">${rows.length} question${rows.length === 1 ? '' : 's'}${pages > 1 ? `, page ${view.page + 1} of ${pages}` : ''}</span>
