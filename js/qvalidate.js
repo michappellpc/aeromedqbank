@@ -9,6 +9,16 @@
   const FIELDS = ['id', 'status', 'reviewedBy', 'boards', 'subject', 'topic', 'difficulty', 'stem', 'image', 'imageAlt', 'options', 'answer', 'explanation', 'optionNotes', 'references', 'tier', 'archived'];
   const norm = s => String(s).toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
 
+  // The "length tell": the correct answer is the longest choice and clearly longer than the rest, which gives it away.
+  // Returns null, or { ratio } (how many times longer than the average of the other choices).
+  function lengthTell(q) {
+    if (!Array.isArray(q.options) || q.options.length < 3 || !q.options.some(o => o && o.id === q.answer)) return null;
+    const len = o => String((o && o.text) || '').trim().length, right = q.options.find(o => o.id === q.answer), others = q.options.filter(o => o !== right);
+    const mean = others.reduce((a, o) => a + len(o), 0) / others.length, L = len(right);
+    if (!mean || L <= Math.max(...others.map(len)) || L - mean < 15 || L / mean < 1.4) return null;
+    return { ratio: Math.round(10 * L / mean) / 10 };
+  }
+
   // check(q, ctx) -> [{ level: 'error' | 'warn', msg }]
   //   ctx.boards   [{id}]           known boards
   //   ctx.subjects { boardId: [] }  subjects per board
@@ -41,6 +51,7 @@
       if (q.options.some(o => !o.text || !String(o.text).trim())) err('every option needs text');
       if (new Set(q.options.map(o => norm(o.text))).size !== q.options.length) err('two options have identical text');
       if (!oi.includes(q.answer)) err('answer does not match an option id');
+      const lt = lengthTell(q); if (lt) warn(`the correct answer is ${lt.ratio} times longer than the other choices, which can give it away; make the choices similar in length`);
       if (q.options.some(o => /all of the above|none of the above/i.test(o.text))) warn('uses "all/none of the above"; consider rewriting');
       if (q.optionNotes) {
         for (const k of Object.keys(q.optionNotes)) if (!oi.includes(k)) err(`optionNotes has key "${k}" that is not an option id`);
@@ -126,5 +137,5 @@
     return { list: v };
   }
 
-  return { check, normalize, parsePaste, FIELDS, STATUS, TIERS, norm };
+  return { check, normalize, parsePaste, lengthTell, FIELDS, STATUS, TIERS, norm };
 });

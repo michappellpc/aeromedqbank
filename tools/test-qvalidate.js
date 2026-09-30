@@ -53,4 +53,17 @@ t('a missing comma says where', (() => { const r = p(arr.replace('"draft",', '"d
 t('plain words are refused, not crashed on', /not valid JSON/.test(p('hello there').error));
 t('a list containing something that is not a question', /Item 2/.test(p('[{"id":"a"}, 5]').error));
 
+
+console.log('Length tell');
+const withOpts = (texts, answer = 'A') => ({ ...good(), options: texts.map((t, i) => ({ id: 'ABCDEF'[i], text: t })), answer, optionNotes: undefined });
+const longRight = withOpts(['Start supplemental oxygen and descend to a lower altitude immediately', 'Observe', 'Give fluids', 'Wait']);
+t('a much longer correct answer is flagged', !!Q.lengthTell(longRight) && warns(run(longRight)).some(m => /times longer/.test(m)), JSON.stringify(Q.lengthTell(longRight)));
+t('it is only a warning', errs(run(longRight)).length === 0);
+t('evenly sized choices are not flagged', !Q.lengthTell(withOpts(['Give oxygen at once', 'Observe for an hour', 'Start IV fluids now', 'Wait and recheck'])));
+t('a longer WRONG answer is not flagged', !Q.lengthTell(withOpts(['Observe', 'Start supplemental oxygen and descend to a lower altitude immediately', 'Give fluids', 'Wait'])));
+t('short choices are never flagged, even when one is far longer in proportion', !Q.lengthTell(withOpts(['33%', '5%', '1%', '2%'])));
+t('a slightly longer correct answer is fine', !Q.lengthTell(withOpts(['Give oxygen and recheck saturation', 'Observe and reassure the patient', 'Start fluids and monitor closely', 'Wait and recheck later today'])));
+t('ties for longest are not flagged', !Q.lengthTell(withOpts(['Give oxygen'.padEnd(45, '.'), 'Observe it'.padEnd(45, '.'), 'Wait', 'Watch'])));
+t('needs at least three choices', !Q.lengthTell(withOpts(['Start supplemental oxygen and descend to a lower altitude immediately', 'No'])));
+t('the flagged answer can be any letter', !!Q.lengthTell(withOpts(['Observe', 'Give fluids', 'Start supplemental oxygen and descend to a lower altitude immediately', 'Wait'], 'C')));
 console.log(`\n${pass} passed, ${fail} failed`); process.exit(fail ? 1 : 0);

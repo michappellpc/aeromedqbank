@@ -55,6 +55,7 @@ Question style
 - Board-style clinical or operational vignette, 3-6 sentences, ending in one clear question.
 - Single best answer. 4 or 5 options (A-D or A-E). Plausible distractors that reflect real misconceptions.
 - No "all of the above" / "none of the above". No negative stems ("which is NOT").
+- Make every answer choice about the same length and level of detail. The correct answer must not be the longest or the most carefully worded; a choice that is obviously longer gives the answer away.
 - Vary the correct letter across the set. Vary difficulty (1 easy, 2 medium, 3 hard).
 - All patients and cases are invented. No real patient details.
 - Use standard units and values. Only state numbers you are certain of; if unsure, rewrite the question so it does not depend on the number.
