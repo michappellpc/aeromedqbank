@@ -464,7 +464,7 @@ $$
 begin
   if not public.is_active() then raise exception 'not active'; end if;
   if not exists (select 1 from public.programs where id = pid and active) then raise exception 'unknown program'; end if;
-  if exists (select 1 from public.profiles where id = auth.uid() and role in ('faculty', 'admin', 'reviewer')) then raise exception 'staff accounts are assigned by an administrator'; end if;
+  if exists (select 1 from public.profiles where id = auth.uid() and role = 'faculty') then raise exception 'faculty accounts are assigned by an administrator'; end if;
   update public.profiles set program_id = pid, program_status = 'pending'
     where id = auth.uid() and (program_id is distinct from pid);
 end $$;
@@ -479,6 +479,30 @@ create or replace function public.faculty_program_id() returns text
 $$ select program_id from public.profiles where id = auth.uid() and active and role = 'faculty' $$;
 
 -- Faculty see progress only: counts, percent correct by subject, last active. Never which answer was chosen, notes, or test history.
+-- The faculty view is built by two internal functions that take a program id. Faculty reach them through faculty_roster() and
+-- faculty_subject_stats() for their own program; an admin reaches them through preview_roster() / preview_subjects() to see exactly
+-- what faculty see for any program. They are not granted to anyone directly.
+create or replace function public._program_roster(fp text)
+  returns table (user_id uuid, email text, status text, attempts bigint, correct bigint, last_active timestamptz, joined timestamptz)
+  language sql stable security definer set search_path = public as
+$$
+  select p.id, p.email, p.program_status,
+         case when p.program_status = 'approved' then count(a.id) end,
+         case when p.program_status = 'approved' then count(a.id) filter (where a.ok) end,
+         case when p.program_status = 'approved' then greatest(max(a.at), p.last_seen) end, p.created_at
+  from public.profiles p left join public.attempts a on a.user_id = p.id and p.program_status = 'approved'
+  where p.program_id = fp and p.role <> 'faculty' and p.active
+  group by p.id order by p.email
+$$;
+create or replace function public._program_subjects(fp text)
+  returns table (user_id uuid, subject text, attempts bigint, correct bigint)
+  language sql stable security definer set search_path = public as
+$$
+  select a.user_id, q.subject, count(*), count(*) filter (where a.ok)
+  from public.attempts a join public.profiles p on p.id = a.user_id join public.questions q on q.id = a.question_id
+  where p.program_id = fp and p.program_status = 'approved' and p.role <> 'faculty' and p.active
+  group by a.user_id, q.subject
+$$;
 create or replace function public.faculty_roster()
   returns table (user_id uuid, email text, status text, attempts bigint, correct bigint, last_active timestamptz, joined timestamptz)
   language plpgsql stable security definer set search_path = public as
@@ -486,16 +510,8 @@ $$
 declare fp text := public.faculty_program_id();
 begin
   if fp is null then raise exception 'faculty only'; end if;
-  return query
-    select p.id, p.email, p.program_status,
-           case when p.program_status = 'approved' then count(a.id) end,
-           case when p.program_status = 'approved' then count(a.id) filter (where a.ok) end,
-           case when p.program_status = 'approved' then greatest(max(a.at), p.last_seen) end, p.created_at
-    from public.profiles p left join public.attempts a on a.user_id = p.id and p.program_status = 'approved'
-    where p.program_id = fp and p.role = 'member' and p.active
-    group by p.id order by p.email;
+  return query select * from public._program_roster(fp);
 end $$;
-
 create or replace function public.faculty_subject_stats()
   returns table (user_id uuid, subject text, attempts bigint, correct bigint)
   language plpgsql stable security definer set search_path = public as
@@ -503,11 +519,23 @@ $$
 declare fp text := public.faculty_program_id();
 begin
   if fp is null then raise exception 'faculty only'; end if;
-  return query
-    select a.user_id, q.subject, count(*), count(*) filter (where a.ok)
-    from public.attempts a join public.profiles p on p.id = a.user_id join public.questions q on q.id = a.question_id
-    where p.program_id = fp and p.program_status = 'approved' and p.role = 'member' and p.active
-    group by a.user_id, q.subject;
+  return query select * from public._program_subjects(fp);
+end $$;
+create or replace function public.preview_roster(pid text)
+  returns table (user_id uuid, email text, status text, attempts bigint, correct bigint, last_active timestamptz, joined timestamptz)
+  language plpgsql stable security definer set search_path = public as
+$$
+begin
+  if not public.is_admin() then raise exception 'admins only'; end if;
+  return query select * from public._program_roster(pid);
+end $$;
+create or replace function public.preview_subjects(pid text)
+  returns table (user_id uuid, subject text, attempts bigint, correct bigint)
+  language plpgsql stable security definer set search_path = public as
+$$
+begin
+  if not public.is_admin() then raise exception 'admins only'; end if;
+  return query select * from public._program_subjects(pid);
 end $$;
 
 create or replace function public.faculty_decide(uid uuid, approve boolean) returns void
@@ -526,7 +554,7 @@ $$
 declare fp text := public.faculty_program_id();
 begin
   if fp is null then raise exception 'faculty only'; end if;
-  update public.profiles set program_id = null, program_status = null where id = uid and program_id = fp and role = 'member';
+  update public.profiles set program_id = null, program_status = null where id = uid and program_id = fp and role <> 'faculty';
 end $$;
 
 -- ------------------------------------------------------------ feedback and support conversations
@@ -728,6 +756,7 @@ grant execute on function public.thread_messages(bigint), public.thread_team_rep
 grant execute on function public.my_threads(), public.my_thread_messages(bigint), public.my_thread_seen(bigint), public.my_unread_replies(), public.thread_member_reply(bigint, text) to authenticated;
 grant execute on function public.program_list() to anon, authenticated;
 grant execute on function public.my_program(), public.leave_program(), public.faculty_program_id(), public.faculty_roster(), public.faculty_subject_stats() to authenticated;
+grant execute on function public.preview_roster(text), public.preview_subjects(text) to authenticated;
 grant execute on function public.request_program(text), public.faculty_decide(uuid, boolean), public.faculty_remove(uuid) to authenticated;
 grant execute on function public.peer_stats(), public.peer_choices(), public.peer_min_users() to authenticated;
 grant execute on function public.set_peer_min_users(int) to authenticated;

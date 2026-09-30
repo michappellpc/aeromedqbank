@@ -343,7 +343,38 @@ root "select coalesce(program_id,'none') from profiles where email='res3@site.co
 eq  "a member can request a program (pending)"          "pending" "$(as b "select request_program('prog-two'); commit;" >/dev/null; root "select program_status from profiles where email='b@x'")"
 eq  "and leave it again"                                "none" "$(as b "select leave_program(); commit;" >/dev/null; root "select coalesce(program_id,'none') from profiles where email='b@x'")"
 eq  "an unknown program is refused"                     "yes" "$(as a "select request_program('nope');" 2>&1 | grep -q 'unknown program' && echo yes)"
-eq  "staff cannot request a program themselves"         "yes" "$(as admin "select request_program('prog-one');" 2>&1 | grep -q 'assigned by an administrator' && echo yes)"
+eq  "an admin can preview what a program's faculty see"  "res1@site.com" "$(as admin "select string_agg(email, '|' order by email) from preview_roster('prog-one');")"
+eq  "the preview shows the same numbers faculty see"      "2,1" "$(as admin "select attempts||','||correct from preview_roster('prog-one') where email='res1@site.com';")"
+eq  "a member cannot use the preview"                     "yes" "$(as a "select * from preview_roster('prog-one');" 2>&1 | grep -q 'admins only' && echo yes)"
+eq  "faculty cannot preview a program, even their own"    "yes" "$(psql -X -q -t -A -d $DB <<SQL 2>&1 | grep -q 'admins only' && echo yes
+begin; set local role authenticated; select set_config('request.jwt.claims','{"sub":"$F1"}',true) \gset
+select * from preview_subjects('prog-one');
+SQL
+)"
+eq  "the internal roster functions are not callable directly" "yes" "$(as admin "select * from _program_roster('prog-one');" 2>&1 | grep -q 'permission denied' && echo yes)"
+eq  "faculty cannot request a program themselves"      "yes" "$(psql -X -q -t -A -d $DB <<SQL 2>&1 | grep -q 'assigned by an administrator' && echo yes
+begin; set local role authenticated; select set_config('request.jwt.claims','{"sub":"$F1"}',true) \gset
+select request_program('prog-two');
+SQL
+)"
+eq  "an admin who is also a resident can ask to join"    "pending" "$(as admin "select request_program('prog-one'); commit;" >/dev/null; root "select program_status from profiles where email='admin@x'")"
+eq  "faculty see that resident on the roster"           "yes" "$(psql -X -q -t -A -d $DB <<SQL | grep -q 'admin@x' && echo yes
+begin; set local role authenticated; select set_config('request.jwt.claims','{"sub":"$F1"}',true) \gset
+select email from faculty_roster();
+SQL
+)"
+eq  "faculty can approve an admin resident"             "approved" "$(psql -X -q -t -A -d $DB <<SQL >/dev/null
+begin; set local role authenticated; select set_config('request.jwt.claims','{"sub":"$F1"}',true) \gset
+select faculty_decide('${U[admin]}', true);
+commit;
+SQL
+root "select program_status from profiles where email='admin@x'")"
+eq  "faculty can remove them again, and their role is untouched" "admin,none" "$(psql -X -q -t -A -d $DB <<SQL >/dev/null
+begin; set local role authenticated; select set_config('request.jwt.claims','{"sub":"$F1"}',true) \gset
+select faculty_remove('${U[admin]}');
+commit;
+SQL
+root "select role||','||coalesce(program_id,'none') from profiles where email='admin@x'")"
 eq  "only an admin can manage programs"                 "yes" "$(as a "insert into programs (id, name) values ('x1','Xray');" 2>&1 | grep -q 'row-level security' && echo yes)"
 eq  "an admin can add a program"                        "prog-three" "$(as admin "insert into programs (id, name) values ('prog-three','Program Three') returning id;")"
 eq  "the admin summary shows program and status"        "prog-one,approved" "$(as admin "select program_id||','||program_status from admin_member_summary() where email='res1@site.com';")"
