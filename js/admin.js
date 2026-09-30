@@ -353,10 +353,13 @@ const Admin = (() => {
         return { i, clean, dropped, errors: res.filter(r => r.level === 'error').map(r => r.msg), warns: res.filter(r => r.level === 'warn').map(r => r.msg), replaces: clean.id ? existing.get(clean.id) : null };
       });
       const good = items.filter(x => !x.errors.length), bad = items.length - good.length, repl = good.filter(x => x.replaces), reviewedRepl = repl.filter(x => x.replaces.status === 'reviewed' && !keep);
+      const mix = QValidate.difficultyMix(good.map(x => x.clean));
       const letters = {}; good.forEach(x => { letters[x.clean.answer] = (letters[x.clean.answer] || 0) + 1; });
       const top = Object.entries(letters).sort((a, b) => b[1] - a[1])[0], skew = good.length >= 8 && top && top[1] / good.length > 0.6;
       out.innerHTML = `<div class="card"><h3 style="margin-top:0">Check results</h3>
         <p><b>${good.length}</b> ready to save (${good.length - repl.length} new, ${repl.length} replacing existing)${bad ? `, <b>${bad}</b> need fixes and will be skipped` : ''}.${keep ? '' : ' Everything is saved as Draft, hidden from members until a reviewer marks it Reviewed.'}</p>
+        ${good.length ? `<p class="muted">Difficulty: ${mix[1]} easy, ${mix[2]} medium, ${mix[3]} hard.</p>` : ''}
+        ${mix.lowHard ? `<p class="notice">Only ${mix[3]} of ${good.length} are hard (level 3). Board exams lean harder than this, so ask Claude for more hard questions: more steps of reasoning, closer answer choices and less obvious vignettes.</p>` : ''}
         ${skew ? `<p class="notice">The correct answer is ${esc(top[0])} for ${top[1]} of ${good.length} questions. Ask Claude to vary the answer key.</p>` : ''}
         <div class="scroll" role="region" tabindex="0" aria-label="Import check results"><table><caption class="sr">Result for each question</caption><thead><tr><th scope="col">Question</th><th scope="col">Result</th><th scope="col">Details</th></tr></thead><tbody>${items.map(x => `<tr>
           <td>${esc(x.clean.id || '(no id)')}<div class="muted small">${esc(x.clean.subject || '')}${x.clean.topic ? ' &middot; ' + esc(x.clean.topic) : ''}</div></td>

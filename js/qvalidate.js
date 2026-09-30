@@ -19,6 +19,13 @@
     return { ratio: Math.round(10 * L / mean) / 10 };
   }
 
+  // How hard a batch is: counts of difficulty 1, 2 and 3, and whether too few are hard. Only meaningful for a batch of 8 or more.
+  function difficultyMix(list) {
+    const c = { 1: 0, 2: 0, 3: 0, n: 0 };
+    (list || []).forEach(q => { c.n++; c[[1, 2, 3].includes(q && q.difficulty) ? q.difficulty : 2]++; });
+    return { ...c, hardShare: c.n ? c[3] / c.n : 0, lowHard: c.n >= 8 && c[3] / c.n < 0.3 };
+  }
+
   // check(q, ctx) -> [{ level: 'error' | 'warn', msg }]
   //   ctx.boards   [{id}]           known boards
   //   ctx.subjects { boardId: [] }  subjects per board
@@ -137,5 +144,5 @@
     return { list: v };
   }
 
-  return { check, normalize, parsePaste, lengthTell, FIELDS, STATUS, TIERS, norm };
+  return { check, normalize, parsePaste, lengthTell, difficultyMix, FIELDS, STATUS, TIERS, norm };
 });

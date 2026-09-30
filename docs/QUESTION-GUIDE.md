@@ -56,7 +56,11 @@ Question style
 - Single best answer. 4 or 5 options (A-D or A-E). Plausible distractors that reflect real misconceptions.
 - No "all of the above" / "none of the above". No negative stems ("which is NOT").
 - Make every answer choice about the same length and level of detail. The correct answer must not be the longest or the most carefully worded; a choice that is obviously longer gives the answer away.
-- Vary the correct letter across the set. Vary difficulty (1 easy, 2 medium, 3 hard).
+- Vary the correct letter across the set.
+- Difficulty mix: about 10% easy (1), 40% medium (2) and 50% hard (3). Real board exams lean hard, and residents have said the questions were too easy, so do not default to recall. Set "difficulty" honestly for each question.
+- What makes a question hard (level 3): it asks the candidate to apply a rule to a new situation, not to recall a fact; it needs two or three steps of reasoning (for example interpret the finding, pick the diagnosis, then choose the action); the vignette includes some irrelevant details and leaves out the obvious clue; all the options are plausible and belong to the same category (for example four real treatments, or four real thresholds), so the candidate has to know the exact distinction; it tests an exception, a limit or a "first, best next step" judgement; or it needs a calculation, a table value or a regulation's exact wording.
+- Level 1 is a direct recall question with one clearly best answer. Level 2 needs one step of reasoning or recognising a standard presentation.
+- Do not make a question hard by making it tricky or vague. A hard question still has one defensible best answer, and its explanation should say why the close alternatives are wrong.
 - All patients and cases are invented. No real patient details.
 - Use standard units and values. Only state numbers you are certain of; if unsure, rewrite the question so it does not depend on the number.
 

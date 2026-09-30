@@ -66,4 +66,12 @@ t('a slightly longer correct answer is fine', !Q.lengthTell(withOpts(['Give oxyg
 t('ties for longest are not flagged', !Q.lengthTell(withOpts(['Give oxygen'.padEnd(45, '.'), 'Observe it'.padEnd(45, '.'), 'Wait', 'Watch'])));
 t('needs at least three choices', !Q.lengthTell(withOpts(['Start supplemental oxygen and descend to a lower altitude immediately', 'No'])));
 t('the flagged answer can be any letter', !!Q.lengthTell(withOpts(['Observe', 'Give fluids', 'Start supplemental oxygen and descend to a lower altitude immediately', 'Wait'], 'C')));
+
+console.log('Difficulty mix');
+const dq = (n1, n2, n3) => [...Array(n1).fill({ difficulty: 1 }), ...Array(n2).fill({ difficulty: 2 }), ...Array(n3).fill({ difficulty: 3 })];
+t('counts each level', (() => { const m = Q.difficultyMix(dq(2, 5, 3)); return m[1] === 2 && m[2] === 5 && m[3] === 3 && m.n === 10; })());
+t('a batch that is mostly easy or medium is flagged', Q.difficultyMix(dq(3, 6, 1)).lowHard === true);
+t('a batch with enough hard questions is not', Q.difficultyMix(dq(2, 4, 4)).lowHard === false);
+t('small batches are never flagged', Q.difficultyMix(dq(0, 5, 0)).lowHard === false);
+t('a missing difficulty counts as medium', Q.difficultyMix([{}, {}, { difficulty: 3 }])[2] === 2);
 console.log(`\n${pass} passed, ${fail} failed`); process.exit(fail ? 1 : 0);
