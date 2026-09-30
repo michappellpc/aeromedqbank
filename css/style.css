@@ -358,3 +358,4 @@ details.thread{margin:8px 0 12px}details.thread summary{cursor:pointer;color:var
 .stem mark.mk-h{background:#ffe27a;color:#1c1c1c;border-radius:2px}
 .stem s.mk-s{text-decoration:line-through;text-decoration-thickness:2px}
 @media (min-width:700px){.marktools .small{flex-basis:auto}}
+.filters input[type=search]{min-width:0}
