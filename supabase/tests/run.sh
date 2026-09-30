@@ -357,6 +357,16 @@ eq  "an admin can remove them again"                    "none" "$(as admin "sele
 eq  "a member cannot use the admin approve or remove"    "yes" "$(as a "select program_decide('prog-one', '$R3', true);" 2>&1 | grep -q 'admins only' && echo yes)"
 eq  "an admin can approve themselves into a program"    "approved" "$(as admin "select request_program('prog-one'); commit;" >/dev/null; as admin "select program_decide('prog-one', '${U[admin]}', true); commit;" >/dev/null; root "select program_status from profiles where email='admin@x'")"
 eq  "and leave again"                                   "none" "$(as admin "select leave_program(); commit;" >/dev/null; root "select coalesce(program_id,'none') from profiles where email='admin@x'")"
+eq  "a member can set a name to show in place of their email" "Dr Ada Lovelace" "$(as a "select set_my_name('  Dr   Ada Lovelace '); commit;" >/dev/null; root "select display_name from profiles where email='a@x'")"
+eq  "a name longer than 60 characters is refused"         "yes" "$(as a "select set_my_name('$(printf 'x%.0s' $(seq 1 61))');" 2>&1 | grep -q 'name too long' && echo yes)"
+eq  "a blank name clears it"                               "none" "$(as a "select set_my_name('   '); commit;" >/dev/null; root "select coalesce(display_name,'none') from profiles where email='a@x'")"
+eq  "anonymous visitors cannot set a name"                 "yes" "$(as anon "select set_my_name('x');" 2>&1 | grep -q 'permission denied' && echo yes)"
+eq  "faculty see the name on the roster"                   "Dr Res One" "$(root "update profiles set display_name='Dr Res One' where email='res1@site.com'" >/dev/null; psql -X -q -t -A -d $DB <<SQL
+begin; set local role authenticated; select set_config('request.jwt.claims','{"sub":"$F1"}',true) \gset
+select display_name from faculty_roster() where email='res1@site.com';
+SQL
+)"
+eq  "the admin preview shows the same name"                "Dr Res One" "$(as admin "select display_name from preview_roster('prog-one') where email='res1@site.com';")"
 eq  "faculty cannot request a program themselves"      "yes" "$(psql -X -q -t -A -d $DB <<SQL 2>&1 | grep -q 'assigned by an administrator' && echo yes
 begin; set local role authenticated; select set_config('request.jwt.claims','{"sub":"$F1"}',true) \gset
 select request_program('prog-two');

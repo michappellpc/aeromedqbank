@@ -297,6 +297,10 @@ const Cloud = (() => {
       clearSession(); imageUrls.forEach(u => URL.revokeObjectURL(u)); imageUrls.clear(); await cacheClear();
     },
 
+    async setMyName(nm) {
+      await api('/rest/v1/rpc/set_my_name', { method: 'POST', body: { nm } });
+      const p = jget(pKey()); if (p) { p.display_name = String(nm || '').trim().replace(/\s+/g, ' ') || null; jset(pKey(), p); }
+    },
     async profile() {
       try {
         const r = await api(`/rest/v1/profiles?select=email,display_name,role,plan,active&id=eq.${uid()}&limit=1`);

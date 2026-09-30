@@ -23,6 +23,12 @@ During a test, select text in the question and choose **Highlight** or **Strike 
 ## Related lessons
 Under each explanation (after answering in a tutor test, and on the review page) the app links the most relevant lesson. It matches by the words the question, its correct answer and its explanation share with each lesson's title, summary and text, and opens the lesson in a new tab so a test is not interrupted. If no lesson fits well, it links the lessons for that question's subject instead, and if there are none it shows nothing. This needs no setup and adds nothing to the questions. The matching is in `js/related.js`, with tests in `tools/test-related.js`.
 
+## Names instead of emails
+In **Settings > Your name**, a resident can add a name. Faculty of their program (and an admin using View as faculty) see that name in place of the email, on the roster, the subject grid and the CSV; blank shows the email. It is optional and the privacy policy says so. Admins also see the name under the email in the member list. Run the latest `supabase/schema.sql` to switch it on.
+
+## Sorting the question list
+Admin > Questions has a Difficulty column, a **Difficulty** filter (Easy, Medium, Hard) and a **Sort by** choice (ID, Hardest first, Easiest first).
+
 ## Support and replies (in the app, no email)
 The **Support** tab lets any signed-in member send the team a question (optional subject, then the message). Question feedback and Support share one system: the team answers from **Admin > Inbox** (filter by Support or Feedback, open the conversation, type a reply), and the member sees the reply under **Support** with a red count on the tab and a notice on the dashboard. Members can reply back. Reviewers can reply too without seeing who they are talking to; only admins see the sender. Nothing is sent by email. Run the latest `supabase/schema.sql` to switch this on.
 
