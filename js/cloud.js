@@ -329,6 +329,8 @@ const Cloud = (() => {
     previewSubjects: pid => api('/rest/v1/rpc/preview_subjects', { method: 'POST', body: { pid } }),
     facultyRoster: () => api('/rest/v1/rpc/faculty_roster', { method: 'POST', body: {} }),
     facultySubjects: () => api('/rest/v1/rpc/faculty_subject_stats', { method: 'POST', body: {} }),
+    programDecide: (pid, uid, approve) => api('/rest/v1/rpc/program_decide', { method: 'POST', body: { pid, uid, approve } }),
+    programRemove: (pid, uid) => api('/rest/v1/rpc/program_remove', { method: 'POST', body: { pid, uid } }),
     facultyDecide: (uid, approve) => api('/rest/v1/rpc/faculty_decide', { method: 'POST', body: { uid, approve } }),
     facultyRemove: uid => api('/rest/v1/rpc/faculty_remove', { method: 'POST', body: { uid } }),
     adminPrograms: () => api('/rest/v1/programs?select=*&order=name.asc'),

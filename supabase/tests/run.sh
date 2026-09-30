@@ -352,6 +352,11 @@ select * from preview_subjects('prog-one');
 SQL
 )"
 eq  "the internal roster functions are not callable directly" "yes" "$(as admin "select * from _program_roster('prog-one');" 2>&1 | grep -q 'permission denied' && echo yes)"
+eq  "an admin can approve someone into any program"    "approved" "$(as admin "select program_decide('prog-two', '$R3', true); commit;" >/dev/null 2>&1; root "update profiles set program_id='prog-two', program_status='pending' where email='res3@site.com'" >/dev/null; as admin "select program_decide('prog-two', '$R3', true); commit;" >/dev/null; root "select program_status from profiles where email='res3@site.com'")"
+eq  "an admin can remove them again"                    "none" "$(as admin "select program_remove('prog-two', '$R3'); commit;" >/dev/null; root "select coalesce(program_id,'none') from profiles where email='res3@site.com'")"
+eq  "a member cannot use the admin approve or remove"    "yes" "$(as a "select program_decide('prog-one', '$R3', true);" 2>&1 | grep -q 'admins only' && echo yes)"
+eq  "an admin can approve themselves into a program"    "approved" "$(as admin "select request_program('prog-one'); commit;" >/dev/null; as admin "select program_decide('prog-one', '${U[admin]}', true); commit;" >/dev/null; root "select program_status from profiles where email='admin@x'")"
+eq  "and leave again"                                   "none" "$(as admin "select leave_program(); commit;" >/dev/null; root "select coalesce(program_id,'none') from profiles where email='admin@x'")"
 eq  "faculty cannot request a program themselves"      "yes" "$(psql -X -q -t -A -d $DB <<SQL 2>&1 | grep -q 'assigned by an administrator' && echo yes
 begin; set local role authenticated; select set_config('request.jwt.claims','{"sub":"$F1"}',true) \gset
 select request_program('prog-two');

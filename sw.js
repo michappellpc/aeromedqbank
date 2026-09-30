@@ -1,6 +1,6 @@
 // Offline support. App files and questions: network first (always fresh when online), cached copy when offline.
 // Fonts and icons: cache first. Bump VERSION to force old caches to be dropped.
-const VERSION = 'qbank-v39';
+const VERSION = 'qbank-v40';
 const CORE = ['./', 'index.html', 'css/style.css', 'privacy.html', 'terms.html', 'js/store.js', 'js/cloud.js', 'js/qvalidate.js', 'js/lvalidate.js', 'js/lessons.js', 'js/program.js', 'js/admin.js', 'js/adminlessons.js', 'js/inbox.js', 'js/support.js', 'js/mascot.js', 'js/app.js', 'manifest.webmanifest',
   'fonts/stardos-stencil-latin-400-normal.woff2', 'fonts/stardos-stencil-latin-700-normal.woff2',
   'icons/logo.svg', 'icons/icon-192.png', 'icons/icon-512.png', 'data/manifest.json', 'data/config.json'];
