@@ -479,14 +479,18 @@ create or replace function public.faculty_program_id() returns text
 $$ select program_id from public.profiles where id = auth.uid() and active and role = 'faculty' $$;
 
 -- Faculty see progress only: counts, percent correct by subject, last active. Never which answer was chosen, notes, or test history.
+-- (the roster functions gained a column, so the old versions are dropped first)
+drop function if exists public.faculty_roster();
+drop function if exists public.preview_roster(text);
+drop function if exists public._program_roster(text);
 -- The faculty view is built by two internal functions that take a program id. Faculty reach them through faculty_roster() and
 -- faculty_subject_stats() for their own program; an admin reaches them through preview_roster() / preview_subjects() to see exactly
 -- what faculty see for any program. They are not granted to anyone directly.
 create or replace function public._program_roster(fp text)
-  returns table (user_id uuid, email text, status text, attempts bigint, correct bigint, last_active timestamptz, joined timestamptz)
+  returns table (user_id uuid, email text, display_name text, status text, attempts bigint, correct bigint, last_active timestamptz, joined timestamptz)
   language sql stable security definer set search_path = public as
 $$
-  select p.id, p.email, p.program_status,
+  select p.id, p.email, p.display_name, p.program_status,
          case when p.program_status = 'approved' then count(a.id) end,
          case when p.program_status = 'approved' then count(a.id) filter (where a.ok) end,
          case when p.program_status = 'approved' then greatest(max(a.at), p.last_seen) end, p.created_at
@@ -504,7 +508,7 @@ $$
   group by a.user_id, q.subject
 $$;
 create or replace function public.faculty_roster()
-  returns table (user_id uuid, email text, status text, attempts bigint, correct bigint, last_active timestamptz, joined timestamptz)
+  returns table (user_id uuid, email text, display_name text, status text, attempts bigint, correct bigint, last_active timestamptz, joined timestamptz)
   language plpgsql stable security definer set search_path = public as
 $$
 declare fp text := public.faculty_program_id();
@@ -522,7 +526,7 @@ begin
   return query select * from public._program_subjects(fp);
 end $$;
 create or replace function public.preview_roster(pid text)
-  returns table (user_id uuid, email text, status text, attempts bigint, correct bigint, last_active timestamptz, joined timestamptz)
+  returns table (user_id uuid, email text, display_name text, status text, attempts bigint, correct bigint, last_active timestamptz, joined timestamptz)
   language plpgsql stable security definer set search_path = public as
 $$
 begin
@@ -536,6 +540,17 @@ $$
 begin
   if not public.is_admin() then raise exception 'admins only'; end if;
   return query select * from public._program_subjects(pid);
+end $$;
+
+-- A member can choose a name to show in place of their email wherever a program's faculty look at them. Optional; blank clears it.
+create or replace function public.set_my_name(nm text) returns void
+  language plpgsql security definer set search_path = public as
+$$
+declare v text := nullif(btrim(regexp_replace(coalesce(nm, ''), '\s+', ' ', 'g')), '');
+begin
+  if not public.is_active() then raise exception 'not active'; end if;
+  if v is not null and char_length(v) > 60 then raise exception 'name too long'; end if;
+  update public.profiles set display_name = v where id = auth.uid();
 end $$;
 
 -- Admins can do what a program's faculty do, for any program: approve, decline and remove.
@@ -773,6 +788,7 @@ grant execute on function public.thread_messages(bigint), public.thread_team_rep
 grant execute on function public.my_threads(), public.my_thread_messages(bigint), public.my_thread_seen(bigint), public.my_unread_replies(), public.thread_member_reply(bigint, text) to authenticated;
 grant execute on function public.program_list() to anon, authenticated;
 grant execute on function public.my_program(), public.leave_program(), public.faculty_program_id(), public.faculty_roster(), public.faculty_subject_stats() to authenticated;
+grant execute on function public.set_my_name(text) to authenticated;
 grant execute on function public.preview_roster(text), public.preview_subjects(text), public.program_decide(text, uuid, boolean), public.program_remove(text, uuid) to authenticated;
 grant execute on function public.request_program(text), public.faculty_decide(uuid, boolean), public.faculty_remove(uuid) to authenticated;
 grant execute on function public.peer_stats(), public.peer_choices(), public.peer_min_users() to authenticated;

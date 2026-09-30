@@ -542,6 +542,10 @@ function settings() {
       <p>Signed in as <b>${esc(Cloud.session.email)}</b>${profile ? ` <span class="tag">${esc(profile.role === 'admin' ? 'Admin' : profile.role === 'reviewer' ? 'Reviewer' : profile.plan === 'pro' ? 'Member' : 'Free')}</span>` : ''}</p>
       <p class="muted" id="syncline"></p>
       <div class="row"><button id="syncnow">Sync now</button><button id="signout">Sign out</button></div></div>
+    <div class="card"><h3>Your name</h3>
+      <p class="muted">Optional. If you join a residency program, its faculty will see this name in place of your email. Leave it blank to show your email. Administrators can see it too.</p>
+      <form id="nm-form" class="row" style="align-items:flex-end;max-width:520px"><div style="flex:1;min-width:200px"><label for="nm">Name shown to faculty</label><input id="nm" type="text" maxlength="60" autocomplete="name" value="${esc((profile && profile.display_name) || '')}" placeholder="e.g. Dr. Jane Smith"></div><button class="primary" type="submit" id="nm-go">Save name</button></form>
+      <p class="notice" id="nm-msg" hidden role="alert"></p></div>
     <div id="prog-card"></div>
     <div class="card"><h3>Change password</h3>
       <form id="pw" style="max-width:380px"><label for="pw-cur">Current password</label><input id="pw-cur" type="password" autocomplete="current-password" required>
@@ -554,6 +558,14 @@ function settings() {
       <div class="row"><button id="exp">Export progress</button><button id="imp">Import progress</button><input type="file" id="file" accept="application/json" hidden><button class="danger" id="reset">Reset all progress</button></div></div>`}`;
   if (document.getElementById('drafts')) document.getElementById('drafts').onchange = e => { Store.data.settings.showDrafts = e.target.checked; Store.touchSettings(); };
   if (Cloud.enabled) Program.mountSettings(document.getElementById('prog-card'));
+  if (document.getElementById('nm-form')) document.getElementById('nm-form').onsubmit = async e => {
+    e.preventDefault(); const v = document.getElementById('nm').value.trim().replace(/\s+/g, ' '), msg = document.getElementById('nm-msg');
+    if (v.length > 60) { msg.textContent = 'Please keep it to 60 characters or fewer.'; msg.hidden = false; return; }
+    document.getElementById('nm-go').disabled = true; msg.hidden = true;
+    try { await Cloud.setMyName(v); if (profile) profile.display_name = v || null; document.getElementById('nm').value = v; toast(v ? 'Name saved.' : 'Name cleared. Faculty will see your email.'); }
+    catch (x) { msg.textContent = x.offline ? 'No connection. Nothing was saved.' : 'Could not save: ' + x.message; msg.hidden = false; }
+    document.getElementById('nm-go').disabled = false;
+  };
   document.getElementById('mascot').onchange = e => { Store.data.settings.mascot = e.target.checked; Store.save(); };
   document.getElementById('theme').onchange = e => { Store.data.settings.theme = e.target.value; Store.touchSettings(); applyTheme(); };
   if (!Cloud.enabled) {
@@ -744,7 +756,7 @@ async function adminPage() {
       <div class="card stat"><b>${tot ? pct(cor, tot) + '%' : '-'}</b><span>Group correct</span></div><div class="card stat"><b>${qs.length}</b><span>Questions in bank</span></div></div>
       <div class="card"><div class="row spread"><h2 style="margin:0">Members</h2><button id="csv">Download CSV</button></div>
         <div class="scroll" role="region" tabindex="0" aria-label="Data table"><table><caption class="sr">Members and their activity</caption><thead><tr><th scope="col">Email</th><th scope="col">Access</th><th scope="col">Answered</th><th scope="col">Correct</th><th scope="col">Last active</th></tr></thead><tbody>${mem.map(m =>
-        `<tr><td>${esc(m.email)}</td><td>${m.active ? esc(m.role === 'admin' ? 'Admin' : m.role === 'reviewer' ? 'Reviewer' : m.role === 'faculty' ? 'Faculty' : m.plan) : 'Not approved'}</td><td>${m.attempts}</td><td>${m.attempts ? pct(m.correct, m.attempts) + '%' : '-'}</td><td>${m.last_active ? new Date(m.last_active).toLocaleDateString() : '-'}</td></tr>`).join('')}</tbody></table></div></div>
+        `<tr><td>${esc(m.email)}${m.display_name ? `<div class="muted small">${esc(m.display_name)}</div>` : ''}</td><td>${m.active ? esc(m.role === 'admin' ? 'Admin' : m.role === 'reviewer' ? 'Reviewer' : m.role === 'faculty' ? 'Faculty' : m.plan) : 'Not approved'}</td><td>${m.attempts}</td><td>${m.attempts ? pct(m.correct, m.attempts) + '%' : '-'}</td><td>${m.last_active ? new Date(m.last_active).toLocaleDateString() : '-'}</td></tr>`).join('')}</tbody></table></div></div>
       <div id="prog-admin"></div>
       <div class="card"><h2>Group averages</h2>
         <form id="peerf" class="row" style="align-items:flex-end"><div><label for="pm">Show a group average once this many members have answered a question</label><input id="pm" type="number" min="5" max="1000" value="${peerMin}"></div><button class="primary" type="submit">Save</button></form>
