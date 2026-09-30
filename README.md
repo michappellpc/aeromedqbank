@@ -17,6 +17,9 @@ Off by default, so the demo works with no setup. To turn on accounts (self sign-
 ## Question feedback (in-app inbox)
 With accounts on, the **Feedback** button on every question opens a short form (what it is about, and a message). Messages go to **Admin > Inbox**, where admins and reviewers mark them read or resolved, add an internal note, and jump to the question. The Admin menu shows a red count of new messages. Only admins see who sent each message; a member can send at most 30 a day. Offline messages are saved and sent later. Without accounts (the demo site) the button still opens the Google Form set as `feedbackUrl` in `data/config.json`.
 
+## Highlighting and striking out
+During a test, select text in the question and choose **Highlight** or **Strike out** above it (choose it again on the same text to undo, or **Clear marks** to start over). Marks stay on your device and last for that test only. Answer choices can be crossed out with the ✕ beside each one.
+
 ## Support and replies (in the app, no email)
 The **Support** tab lets any signed-in member send the team a question (optional subject, then the message). Question feedback and Support share one system: the team answers from **Admin > Inbox** (filter by Support or Feedback, open the conversation, type a reply), and the member sees the reply under **Support** with a red count on the tab and a notice on the dashboard. Members can reply back. Reviewers can reply too without seeing who they are talking to; only admins see the sender. Nothing is sent by email. Run the latest `supabase/schema.sql` to switch this on.
 
