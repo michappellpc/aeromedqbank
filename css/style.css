@@ -350,3 +350,11 @@ label.chk .cnt{color:var(--muted);font-variant-numeric:tabular-nums}label.chk.ze
 .bubblerow.me .cbubble{background:var(--sel);border-color:var(--accent)}
 .cbubble .who{font-size:.78rem;color:var(--muted)}.cbubble p{margin:4px 0 0;white-space:pre-wrap;line-height:1.55}
 details.thread{margin:8px 0 12px}details.thread summary{cursor:pointer;color:var(--accent);font-weight:600}
+
+.marktools{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:10px}
+.marktools button{padding:5px 12px;min-height:34px}
+.marktools #mk-h{background:#ffe27a;color:#1c1c1c;border-color:#c9a400}
+.marktools .small{flex-basis:100%}
+.stem mark.mk-h{background:#ffe27a;color:#1c1c1c;border-radius:2px}
+.stem s.mk-s{text-decoration:line-through;text-decoration-thickness:2px}
+@media (min-width:700px){.marktools .small{flex-basis:auto}}

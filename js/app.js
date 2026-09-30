@@ -305,7 +305,7 @@ function create(preSubject, preStatus) {
     e.preventDefault();
     const p = pool(); const n = Math.min(p.length, Math.max(1, +document.getElementById('n').value || 1));
     const qids = shuffle(p).slice(0, n).map(q => q.id), mode = f.mode.value;
-    Store.data.active = { id: uid(), mode, qids, answers: {}, struck: {}, revealed: {}, idx: 0, started: Date.now(), elapsed: 0, limit: mode === 'timed' ? n * 90 : 0 };
+    Store.data.active = { id: uid(), mode, qids, answers: {}, struck: {}, marks: {}, revealed: {}, idx: 0, started: Date.now(), elapsed: 0, limit: mode === 'timed' ? n * 90 : 0 };
     Store.save(); location.hash = '#/test';
   };
 }
@@ -331,7 +331,8 @@ function renderTest() {
   <div class="card qcard">
     <div class="row spread"><div>${q.boards.map(b => `<span class="tag">${esc(boardName(b))}</span>`).join('')}${isDraft(q) ? '<span class="tag draft" title="Not yet reviewed by a physician">Draft</span>' : ''}<span class="muted">${esc(q.subject)}${q.topic && shown ? ' · ' + esc(q.topic) : ''}</span></div>
       <div class="muted">Question ${t.idx + 1} of ${t.qids.length}</div></div>
-    <p class="stem">${esc(q.stem)}</p>
+    <div class="marktools" role="group" aria-label="Mark up the question"><button type="button" id="mk-h" title="Highlight the selected text">Highlight</button><button type="button" id="mk-s" title="Strike out the selected text">Strike out</button><button type="button" id="mk-c" title="Remove your highlights and strikes from this question">Clear marks</button><span class="muted small">Select text in the question, then choose a tool. Marks last for this test.</span></div>
+    <p class="stem" id="stem">${markup(q.stem, t.marks && t.marks[id])}</p>
     ${imgTag(q)}
     <div id="opts" role="radiogroup" aria-label="Answer choices">${q.options.map(o => {
       let c = 'opt'; if (sel === o.id) c += ' sel'; if (struck.includes(o.id)) c += ' struck';
@@ -367,6 +368,33 @@ function renderTest() {
   if (refocus) { const f = $app.querySelector(`[data-opt="${refocus}"]`); if (f) f.focus(); refocus = null; }
 }
 
+// Highlights and strikes on the question text. Stored per question as character ranges, for the length of the test only.
+function markup(text, m) {
+  if (!m) return esc(text);
+  const n = text.length, flag = { h: new Uint8Array(n), s: new Uint8Array(n) };
+  for (const k of ['h', 's']) (m[k] || []).forEach(([a, b]) => { for (let i = a; i < b && i < n; i++) flag[k][i] = 1; });
+  let out = '', i = 0;
+  while (i < n) {
+    let j = i; while (j < n && flag.h[j] === flag.h[i] && flag.s[j] === flag.s[i]) j++;
+    let seg = esc(text.slice(i, j)); if (flag.s[i]) seg = `<s class="mk-s">${seg}</s>`; if (flag.h[i]) seg = `<mark class="mk-h">${seg}</mark>`;
+    out += seg; i = j;
+  }
+  return out;
+}
+function toggleMark(m, k, a, b, n) {   // mark a..b, or unmark it if all of it is already marked
+  const f = new Uint8Array(n); (m[k] || []).forEach(([x, y]) => { for (let i = x; i < y && i < n; i++) f[i] = 1; });
+  let all = true; for (let i = a; i < b; i++) if (!f[i]) all = false;
+  for (let i = a; i < b; i++) f[i] = all ? 0 : 1;
+  const out = []; for (let i = 0; i < n;) { if (!f[i]) { i++; continue; } let j = i; while (j < n && f[j]) j++; out.push([i, j]); i = j; }
+  m[k] = out;
+}
+function stemRange(el) {   // the selected text as character offsets inside the question text
+  const sel = getSelection(); if (!el || !sel.rangeCount) return null;
+  const r = sel.getRangeAt(0); if (r.collapsed || !el.contains(r.startContainer) || !el.contains(r.endContainer)) return null;
+  const pre = document.createRange(); pre.selectNodeContents(el); pre.setEnd(r.startContainer, r.startOffset);
+  const a = pre.toString().length; return [a, a + r.toString().length];
+}
+
 function elapsed(t) { return t.elapsed + (Date.now() - t.started) / 1000; }
 function startTimer(t) {
   $timer.hidden = false;
@@ -392,6 +420,18 @@ function bindTest(t, q) {
     e.stopPropagation(); const a = t.struck[id] ||= [], k = b.dataset.strike, i = a.indexOf(k); i < 0 ? a.push(k) : a.splice(i, 1); persist(t); renderTest();
     const again = $app.querySelector(`[data-strike="${k}"]`); if (again) again.focus();
   });
+  let lastSel = null;
+  document.onselectionchange = () => { const r = stemRange(document.getElementById('stem')); if (r) lastSel = r; };
+  const applyMark = k => {
+    const ms = t.marks ||= {}, stemEl = document.getElementById('stem');
+    if (k === 'c') { delete ms[id]; toast('Marks cleared.'); }
+    else {
+      const r = stemRange(stemEl) || lastSel; if (!r) return toast('Select some text in the question first.');
+      toggleMark(ms[id] ||= { h: [], s: [] }, k, r[0], Math.min(r[1], q.stem.length), q.stem.length);
+    }
+    persist(t); stemEl.innerHTML = markup(q.stem, ms[id]); getSelection().removeAllRanges(); lastSel = null;
+  };
+  [['mk-h', 'h'], ['mk-s', 's'], ['mk-c', 'c']].forEach(([b, k]) => { const e = document.getElementById(b); if (e) { e.onmousedown = ev => ev.preventDefault(); e.onclick = () => applyMark(k); } });
   bindZoom();
   $app.querySelectorAll('[data-go]').forEach(b => b.onclick = () => go(+b.dataset.go));
   const on = (i, fn) => { const e = document.getElementById(i); if (e) e.onclick = fn; };
