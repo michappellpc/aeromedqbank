@@ -329,6 +329,7 @@ function renderTest() {
   pageTitle(`Question ${t.idx + 1} of ${t.qids.length}`);
   const tutor = t.mode === 'tutor', shown = tutor && t.revealed[id], sel = t.answers[id], st = Store.qstat(id), locked0 = !!shown;
   const struck = t.struck[id] || [];
+  clearInterval(tick);   // every redraw starts a new clock; without this the old ones keep running and fight over the display
   if (t.limit) startTimer(t);
   else { $timer.hidden = false; tick = setInterval(() => $timer.textContent = fmt(elapsed(t)), 500); $timer.textContent = fmt(elapsed(t)); }
   const nav = t.qids.map((qid, i) => {
