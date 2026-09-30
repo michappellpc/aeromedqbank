@@ -325,6 +325,8 @@ const Cloud = (() => {
     async myProgram() { try { const r = await api('/rest/v1/rpc/my_program', { method: 'POST', body: {} }); return r && r[0] ? r[0] : null; } catch { return null; } },
     requestProgram: id => api('/rest/v1/rpc/request_program', { method: 'POST', body: { pid: id } }),
     leaveProgram: () => api('/rest/v1/rpc/leave_program', { method: 'POST', body: {} }),
+    previewRoster: pid => api('/rest/v1/rpc/preview_roster', { method: 'POST', body: { pid } }),
+    previewSubjects: pid => api('/rest/v1/rpc/preview_subjects', { method: 'POST', body: { pid } }),
     facultyRoster: () => api('/rest/v1/rpc/faculty_roster', { method: 'POST', body: {} }),
     facultySubjects: () => api('/rest/v1/rpc/faculty_subject_stats', { method: 'POST', body: {} }),
     facultyDecide: (uid, approve) => api('/rest/v1/rpc/faculty_decide', { method: 'POST', body: { uid, approve } }),
