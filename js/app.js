@@ -210,7 +210,6 @@ function dashboard() {
       <td style="width:22%"><div class="bar"><i style="width:${pct(cc, cc + ww)}%"></i></div></td></tr>`);
   }
   const active = Store.data.active;
-  const rk = Mascot.rankFor(c);
   const acc = c + w ? pct(c, c + w) : null, missed = all.filter(s => s.last === 'w').length;
   const hello = acc === null ? 'Welcome, Doc. Ready for your first set of questions?'
     : (acc >= 80 ? 'Strong average. Keep the pressure on.' : acc >= 60 ? 'Solid progress. Let\'s tighten up the weak spots.' : 'Every question is practice that counts.')
@@ -221,11 +220,6 @@ function dashboard() {
   ${bank.unreadReplies ? `<div class="card notice">You have <b>${bank.unreadReplies} new repl${bank.unreadReplies === 1 ? 'y' : 'ies'}</b> from the team. <a href="#/support">Open Support</a></div>` : ''}
   ${bank.program && bank.program.status === 'pending' ? `<div class="card notice">Waiting for faculty at <b>${esc(bank.program.name)}</b> to approve you. Until they do, they cannot see any of your progress. <a href="#/settings">Settings</a></div>` : ''}
   ${active ? `<div class="card row spread"><div><b>Test in progress</b> <span class="muted">(${Object.keys(active.answers).length}/${active.qids.length} answered)</span></div><a class="btn primary" href="#/test">Resume</a></div>` : ''}
-  <div class="card rank">
-    <div class="row" style="gap:14px;flex-wrap:nowrap"><span class="rankbadge" aria-hidden="true">${esc(rk.abbr)}</span>
-      <div style="flex:1;min-width:0"><div class="rank-title">${rk.name}</div>
-        <div class="muted">${rk.next ? `${c} correct &middot; ${rk.next.at - c} more to make ${rk.next.name}` : `${c} correct &middot; Top rank. Keep training.`}</div>
-        ${rk.next ? `<div class="bar" style="margin-top:6px"><i style="width:${pct(c - rk.at, rk.next.at - rk.at)}%"></i></div>` : ''}</div></div></div>
   <div class="grid">
     <div class="card stat"><b>${bank.questions.length}</b><span class="muted">Questions in bank</span></div>
     <div class="card stat"><b>${used}</b><span class="muted">Used (${pct(used, bank.questions.length)}%)</span></div>
