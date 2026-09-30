@@ -77,13 +77,6 @@ const Mascot = (() => {
     return `<div class="cover">${art}<div class="cover-shade"></div><div class="cover-body"><div class="cover-text" id="cover-text"></div><div class="scene-slot" id="scene-slot"></div></div></div>`;
   }
 
-  const RANKS = [
-    { at: 0, abbr: '2LT', name: 'Second Lieutenant' }, { at: 25, abbr: '1LT', name: 'First Lieutenant' },
-    { at: 75, abbr: 'CPT', name: 'Captain' }, { at: 200, abbr: 'MAJ', name: 'Major' },
-    { at: 500, abbr: 'LTC', name: 'Lieutenant Colonel' }, { at: 1000, abbr: 'COL', name: 'Colonel' }
-  ];
-  const rankFor = n => { let i = 0; RANKS.forEach((r, k) => { if (n >= r.at) i = k; }); return { ...RANKS[i], next: RANKS[i + 1] || null }; };
-
   const timers = [];
   const stop = () => { while (timers.length) clearInterval(timers.pop()); };
   const hash = s => { let h = 0; for (const ch of String(s)) h = (h * 31 + ch.charCodeAt(0)) | 0; return Math.abs(h); };
@@ -106,5 +99,5 @@ const Mascot = (() => {
     wrong: ['Not quite. Read the explanation, then regroup.', 'Review it and move on. The next one is yours.', 'Every miss is useful before the boards.', 'Better to learn it here than on exam day.'],
     tips: ['Rule out what you can first.', 'Trust your first read.', 'Read the last line of the stem twice.', 'Slow is smooth, smooth is fast.']
   };
-  return { sprite, scene, mount, stop, pick, lines, rankFor };
+  return { sprite, scene, mount, stop, pick, lines };
 })();
