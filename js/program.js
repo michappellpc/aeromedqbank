@@ -19,7 +19,7 @@ const Program = (() => {
 
   // ------------------------------------------------------------------ resident: Settings card
   async function mountSettings(box) {
-    if (!box || !profile || ['admin', 'reviewer'].includes(profile.role)) return;
+    if (!box || !profile) return;
     const [mine, all] = await Promise.all([Cloud.myProgram(), Cloud.programs()]);
     if (!document.body.contains(box)) return;
     if (profile.role === 'faculty') { box.innerHTML = `<div class="card"><h3>Residency program</h3><p>You are faculty for <b>${esc(mine ? mine.name : 'no program yet')}</b>. Open <a href="#/program">Program</a> to see your residents.</p></div>`; return; }
@@ -86,7 +86,7 @@ const Program = (() => {
     box.innerHTML = `<div class="card"><h2>Residency programs</h2>
       <p class="muted">Residents choose their program when they create an account (or in Settings) and its faculty approve them. Make someone faculty by editing their row under Approved emails and choosing the role <b>faculty</b> and a program.</p>
       ${list.length ? `<div class="scroll" role="region" tabindex="0" aria-label="Programs table"><table><caption class="sr">Programs</caption><thead><tr><th scope="col">Program</th><th scope="col">Residents</th><th scope="col">Waiting</th><th scope="col">Faculty</th><th scope="col">Shown at sign-up</th><th scope="col"><span class="sr">Actions</span></th></tr></thead>
-        <tbody>${list.map(p => `<tr><td>${esc(p.name)}<div class="muted small">${esc(p.id)}</div></td><td>${count(p.id, m => m.role === 'member' && m.program_status === 'approved')}</td><td>${count(p.id, m => m.program_status === 'pending')}</td><td>${count(p.id, m => m.role === 'faculty')}</td><td>${p.active ? 'Yes' : 'Hidden'}</td>
+        <tbody>${list.map(p => `<tr><td>${esc(p.name)}<div class="muted small">${esc(p.id)}</div></td><td>${count(p.id, m => m.role !== 'faculty' && m.program_status === 'approved')}</td><td>${count(p.id, m => m.program_status === 'pending')}</td><td>${count(p.id, m => m.role === 'faculty')}</td><td>${p.active ? 'Yes' : 'Hidden'}</td>
           <td><button data-pren="${esc(p.id)}">Rename</button> <button data-ptog="${esc(p.id)}">${p.active ? 'Hide' : 'Show'}</button> <button class="danger" data-pdel="${esc(p.id)}" aria-label="Delete ${esc(p.name)}">Delete</button></td></tr>`).join('')}</tbody></table></div>` : '<p class="muted">No programs yet. Add the first one below.</p>'}
       <form id="pgadd" class="row" style="margin-top:12px;align-items:flex-end"><div><label for="pg-name">New program name</label><input id="pg-name" type="text" maxlength="120" placeholder="e.g. Aerospace Medicine Residency, Wright-Patterson" autocomplete="off" required></div><button class="primary" type="submit">Add program</button></form>
       <p class="notice" id="pg-amsg" hidden role="alert"></p></div>`;

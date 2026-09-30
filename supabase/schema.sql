@@ -464,7 +464,7 @@ $$
 begin
   if not public.is_active() then raise exception 'not active'; end if;
   if not exists (select 1 from public.programs where id = pid and active) then raise exception 'unknown program'; end if;
-  if exists (select 1 from public.profiles where id = auth.uid() and role in ('faculty', 'admin', 'reviewer')) then raise exception 'staff accounts are assigned by an administrator'; end if;
+  if exists (select 1 from public.profiles where id = auth.uid() and role = 'faculty') then raise exception 'faculty accounts are assigned by an administrator'; end if;
   update public.profiles set program_id = pid, program_status = 'pending'
     where id = auth.uid() and (program_id is distinct from pid);
 end $$;
@@ -492,7 +492,7 @@ begin
            case when p.program_status = 'approved' then count(a.id) filter (where a.ok) end,
            case when p.program_status = 'approved' then greatest(max(a.at), p.last_seen) end, p.created_at
     from public.profiles p left join public.attempts a on a.user_id = p.id and p.program_status = 'approved'
-    where p.program_id = fp and p.role = 'member' and p.active
+    where p.program_id = fp and p.role <> 'faculty' and p.active
     group by p.id order by p.email;
 end $$;
 
@@ -506,7 +506,7 @@ begin
   return query
     select a.user_id, q.subject, count(*), count(*) filter (where a.ok)
     from public.attempts a join public.profiles p on p.id = a.user_id join public.questions q on q.id = a.question_id
-    where p.program_id = fp and p.program_status = 'approved' and p.role = 'member' and p.active
+    where p.program_id = fp and p.program_status = 'approved' and p.role <> 'faculty' and p.active
     group by a.user_id, q.subject;
 end $$;
 
@@ -526,7 +526,7 @@ $$
 declare fp text := public.faculty_program_id();
 begin
   if fp is null then raise exception 'faculty only'; end if;
-  update public.profiles set program_id = null, program_status = null where id = uid and program_id = fp and role = 'member';
+  update public.profiles set program_id = null, program_status = null where id = uid and program_id = fp and role <> 'faculty';
 end $$;
 
 -- ------------------------------------------------------------ feedback and support conversations
