@@ -1,0 +1,536 @@
+[
+ {
+  "id": "aem-hypoxia-types",
+  "status": "draft",
+  "tier": "free",
+  "boards": [
+   "aem"
+  ],
+  "subject": "Altitude & Decompression",
+  "order": 1,
+  "title": "Hypoxia: the four types, and how fast it takes hold",
+  "summary": "What fails in each type, why a normal pulse oximeter can mislead you, and how quickly consciousness is lost at altitude.",
+  "blocks": [
+   {
+    "type": "text",
+    "text": "Hypoxia means the tissues are not getting enough oxygen. The four types are defined by **which step of oxygen delivery fails**: getting oxygen into the blood, carrying it, moving it, or using it."
+   },
+   {
+    "type": "table",
+    "caption": "The four types of hypoxia",
+    "columns": [
+     "Type",
+     "What fails",
+     "Typical causes in flight",
+     "Arterial PO2",
+     "Pulse oximeter",
+     "First response"
+    ],
+    "rows": [
+     [
+      "Hypoxic",
+      "Oxygen getting into the blood (low alveolar PO2)",
+      "Altitude, loss of cabin pressure, oxygen system failure, hypoventilation",
+      "Low",
+      "Low",
+      "100% oxygen, descend, restore pressure"
+     ],
+     [
+      "Hypemic",
+      "Oxygen-carrying capacity of the blood",
+      "Carbon monoxide, anemia, blood loss, methemoglobinemia",
+      "Normal",
+      "**Can read falsely normal** (CO)",
+      "Remove the source, 100% oxygen, treat the cause"
+     ],
+     [
+      "Stagnant",
+      "Blood flow (the oxygen is there but is not moved)",
+      "High sustained +Gz, shock, cold, prolonged sitting",
+      "Normal",
+      "Normal until flow is very low",
+      "Relieve the cause (unload G, restore circulation)"
+     ],
+     [
+      "Histotoxic",
+      "Cells cannot use the oxygen",
+      "Cyanide, alcohol, narcotics",
+      "Normal",
+      "Normal or high",
+      "Remove the toxin; specific antidote if available"
+     ]
+    ]
+   },
+   {
+    "type": "callout",
+    "kind": "warning",
+    "title": "The pulse oximeter trap",
+    "text": "Standard two-wavelength pulse oximeters cannot tell carboxyhemoglobin from oxyhemoglobin, so **carbon monoxide poisoning can show a normal saturation**. A normal reading does not rule out hypemic hypoxia."
+   },
+   {
+    "type": "heading",
+    "text": "Time of useful consciousness (TUC)"
+   },
+   {
+    "type": "text",
+    "text": "TUC is how long a person can act sensibly after losing adequate oxygen. It shortens **steeply** with altitude, so at high altitude there are only seconds. Exercise and **rapid decompression shorten it further** (rapid decompression roughly halves it)."
+   },
+   {
+    "type": "chart",
+    "kind": "bar",
+    "title": "Time of useful consciousness by altitude",
+    "xLabel": "Altitude (feet)",
+    "yLabel": "TUC (seconds)",
+    "yScale": "log",
+    "categories": [
+     "18,000",
+     "22,000",
+     "25,000",
+     "28,000",
+     "30,000",
+     "35,000",
+     "40,000",
+     "45,000",
+     "50,000"
+    ],
+    "series": [
+     {
+      "name": "TUC, seconds",
+      "values": [
+       1500,
+       450,
+       240,
+       165,
+       90,
+       45,
+       17.5,
+       12,
+       7.5
+      ]
+     }
+    ],
+    "note": "Midpoint of the published range, approximate resting values from FAA guidance (sources differ a little). The scale is logarithmic because the range is so wide: about 25 minutes at 18,000 ft against about 8 seconds at 50,000 ft."
+   },
+   {
+    "type": "compare",
+    "title": "Hypoxia or hyperventilation? They overlap, so treat as hypoxia first",
+    "items": [
+     {
+      "title": "Hypoxia",
+      "tone": "bad",
+      "points": [
+       "Onset is gradual, often painless",
+       "Euphoria, poor judgment, slowed thinking",
+       "Blue lips and nail beds are late and unreliable",
+       "Vision dims; coordination worsens"
+      ]
+     },
+     {
+      "title": "Hyperventilation",
+      "tone": "neutral",
+      "points": [
+       "Usually brought on by anxiety or pain",
+       "Fast breathing, tingling of fingers and lips, lightheadedness",
+       "Muscle spasm (tetany) if it goes on",
+       "Settles when breathing is slowed"
+      ]
+     }
+    ]
+   },
+   {
+    "type": "steps",
+    "title": "If you suspect hypoxia in the aircraft",
+    "steps": [
+     {
+      "title": "Recognise it",
+      "text": "Know your own early signs from chamber training."
+     },
+     {
+      "title": "100% oxygen now",
+      "text": "Do not wait to be sure. Mask on, regulator on 100%."
+     },
+     {
+      "title": "Check the equipment",
+      "text": "Mask fit, connections, regulator setting, cabin pressure."
+     },
+     {
+      "title": "Descend if it does not clear",
+      "text": "Use the emergency descent procedure for your aircraft."
+     },
+     {
+      "title": "Get evaluated after landing",
+      "text": "Report the event; look for a physiological cause."
+     }
+    ]
+   },
+   {
+    "type": "callout",
+    "kind": "pearl",
+    "text": "Hypoxia is **painless** and impairs the very judgment needed to notice it. That is why aircrew rehearse their personal symptoms in a chamber and cross-check each other."
+   }
+  ],
+  "references": [
+   "Fundamentals of Aerospace Medicine, 5th ed. (Davis, Stepanek, Fogarty, Blue, eds.), 2021",
+   "FAA Pilot's Handbook of Aeronautical Knowledge, FAA-H-8083-25C, Aeromedical Factors"
+  ]
+ },
+ {
+  "id": "aem-gas-laws-and-pressure",
+  "status": "draft",
+  "tier": "free",
+  "boards": [
+   "aem"
+  ],
+  "subject": "Aviation Physiology",
+  "order": 1,
+  "title": "Gas laws in flight and the oxygen you actually breathe",
+  "summary": "Which gas law explains which in-flight problem, and how inspired oxygen falls with altitude.",
+  "blocks": [
+   {
+    "type": "stats",
+    "items": [
+     {
+      "value": "18,000 ft",
+      "label": "barometric pressure is about **half** of sea level (about 380 mmHg)"
+     },
+     {
+      "value": "~34,000 ft",
+      "label": "100% oxygen gives the inspired PO2 of **sea-level air**"
+     },
+     {
+      "value": "~63,000 ft",
+      "label": "Armstrong line: pressure about 47 mmHg, body fluids can vaporise"
+     }
+    ]
+   },
+   {
+    "type": "text",
+    "text": "The **fraction** of oxygen in air stays at about 21% at all altitudes. What falls is the **pressure**, so the oxygen partial pressure falls with it."
+   },
+   {
+    "type": "table",
+    "caption": "The gas laws that matter in flight",
+    "columns": [
+     "Law",
+     "Statement",
+     "Flight example",
+     "Clinical result"
+    ],
+    "rows": [
+     [
+      "Boyle",
+      "At constant temperature, volume varies inversely with pressure (P1V1 = P2V2)",
+      "Trapped gas expands on ascent and shrinks on descent",
+      "Gut distension, sinus and ear pain, dental pain, expansion of a pneumothorax"
+     ],
+     [
+      "Dalton",
+      "Total pressure is the sum of the partial pressures of each gas",
+      "Oxygen stays 21% but its partial pressure falls as total pressure falls",
+      "Hypoxic hypoxia"
+     ],
+     [
+      "Henry",
+      "Dissolved gas is proportional to its partial pressure over the liquid",
+      "Lower ambient pressure lets dissolved nitrogen come out of solution",
+      "Decompression sickness"
+     ],
+     [
+      "Charles",
+      "At constant pressure, volume varies directly with absolute temperature",
+      "Gas in a cold cabin or a warming cylinder changes volume",
+      "Small effect in practice; matters for oxygen cylinders"
+     ]
+    ]
+   },
+   {
+    "type": "heading",
+    "text": "Inspired oxygen by altitude"
+   },
+   {
+    "type": "chart",
+    "kind": "bar",
+    "title": "Inspired oxygen pressure breathing air and breathing 100% oxygen",
+    "xLabel": "Altitude (feet)",
+    "yLabel": "Inspired PO2 (mmHg)",
+    "categories": [
+     "0",
+     "5,000",
+     "8,000",
+     "10,000",
+     "14,000",
+     "18,000",
+     "25,000",
+     "30,000",
+     "35,000"
+    ],
+    "series": [
+     {
+      "name": "Breathing air (21%)",
+      "values": [
+       149,
+       123,
+       109,
+       100,
+       84,
+       70,
+       49,
+       38,
+       28
+      ]
+     },
+     {
+      "name": "Breathing 100% oxygen",
+      "values": [
+       713,
+       585,
+       518,
+       476,
+       399,
+       333,
+       235,
+       179,
+       132
+      ]
+     }
+    ],
+    "note": "Inspired PO2 = fraction of oxygen x (barometric pressure - 47 mmHg water vapour), using standard-atmosphere pressures. Values are rounded."
+   },
+   {
+    "type": "callout",
+    "kind": "key",
+    "text": "Breathing 100% oxygen keeps inspired PO2 at or above the sea-level air value up to about **34,000 ft**. Above that, oxygen must be delivered under **pressure** (pressure breathing or a pressurised cabin or suit)."
+   },
+   {
+    "type": "callout",
+    "kind": "tip",
+    "title": "Exam tip",
+    "text": "Match the law to the disorder: **Boyle** = trapped gas, **Dalton** = hypoxia, **Henry** = decompression sickness."
+   }
+  ],
+  "references": [
+   "Fundamentals of Aerospace Medicine, 5th ed. (Davis, Stepanek, Fogarty, Blue, eds.), 2021",
+   "FAA Pilot's Handbook of Aeronautical Knowledge, FAA-H-8083-25C, Aeromedical Factors"
+  ]
+ },
+ {
+  "id": "om-hierarchy-of-controls",
+  "status": "draft",
+  "tier": "free",
+  "boards": [
+   "om"
+  ],
+  "subject": "Industrial Hygiene",
+  "order": 1,
+  "title": "The hierarchy of controls",
+  "summary": "Five ways to control a workplace hazard, from most to least effective, with a solvent and a noise example.",
+  "blocks": [
+   {
+    "type": "text",
+    "text": "Controls are ranked by how reliably they work. The most effective ones act on the **hazard itself** and do not depend on people remembering to do something."
+   },
+   {
+    "type": "steps",
+    "title": "From most to least effective",
+    "steps": [
+     {
+      "title": "Elimination",
+      "text": "Physically remove the hazard."
+     },
+     {
+      "title": "Substitution",
+      "text": "Replace it with something less hazardous."
+     },
+     {
+      "title": "Engineering controls",
+      "text": "Isolate people from the hazard (ventilation, enclosure, guarding)."
+     },
+     {
+      "title": "Administrative controls",
+      "text": "Change how people work (rotation, training, scheduling, signage)."
+     },
+     {
+      "title": "Personal protective equipment",
+      "text": "Protect the worker with equipment. The last line of defence."
+     }
+    ]
+   },
+   {
+    "type": "table",
+    "caption": "Worked examples",
+    "columns": [
+     "Level",
+     "Solvent vapour example",
+     "Noise example"
+    ],
+    "rows": [
+     [
+      "Elimination",
+      "Remove the degreasing step from the process",
+      "Remove the noisy process or buy the part pre-finished"
+     ],
+     [
+      "Substitution",
+      "Water-based cleaner in place of a chlorinated solvent",
+      "Replace a loud machine with a quieter model"
+     ],
+     [
+      "Engineering",
+      "Local exhaust ventilation or an enclosed parts washer",
+      "Enclosure, mufflers, vibration damping"
+     ],
+     [
+      "Administrative",
+      "Limit time in the area, training, housekeeping",
+      "Rotate jobs to limit time, restrict access to loud areas"
+     ],
+     [
+      "PPE",
+      "Respirator and chemical-resistant gloves",
+      "Earplugs or earmuffs with a fit check"
+     ]
+    ]
+   },
+   {
+    "type": "callout",
+    "kind": "key",
+    "text": "PPE ranks last because it **does not remove the hazard**, depends on correct fit and use every time, and can fail without warning."
+   },
+   {
+    "type": "callout",
+    "kind": "pearl",
+    "text": "OSHA's respiratory protection standard states that the primary way to control harmful airborne exposure is engineering controls where feasible. Respirators are used when those controls are not feasible, while they are being put in place, or in emergencies."
+   }
+  ],
+  "references": [
+   "NIOSH Hierarchy of Controls (CDC/NIOSH)",
+   "OSHA 29 CFR 1910.134, Respiratory Protection",
+   "Textbook of Occupational and Environmental Medicine, current edition"
+  ]
+ },
+ {
+  "id": "pm-screening-test-performance",
+  "status": "draft",
+  "tier": "free",
+  "boards": [
+   "pm"
+  ],
+  "subject": "Biostatistics",
+  "order": 1,
+  "title": "Test performance: sensitivity, specificity and predictive values",
+  "summary": "The 2x2 table, the formulas, and why the same test performs very differently in different populations.",
+  "blocks": [
+   {
+    "type": "text",
+    "text": "Every screening or diagnostic test is judged against a reference standard. Sort the results into a **2x2 table**, and every measure below follows from it."
+   },
+   {
+    "type": "table",
+    "caption": "The 2x2 table",
+    "columns": [
+     "",
+     "Disease present",
+     "Disease absent"
+    ],
+    "rows": [
+     [
+      "Test positive",
+      "True positive (TP)",
+      "False positive (FP)"
+     ],
+     [
+      "Test negative",
+      "False negative (FN)",
+      "True negative (TN)"
+     ]
+    ]
+   },
+   {
+    "type": "table",
+    "caption": "What each measure answers",
+    "columns": [
+     "Measure",
+     "Formula",
+     "Question it answers"
+    ],
+    "rows": [
+     [
+      "Sensitivity",
+      "TP / (TP + FN)",
+      "Of people **with** the disease, how many test positive?"
+     ],
+     [
+      "Specificity",
+      "TN / (TN + FP)",
+      "Of people **without** the disease, how many test negative?"
+     ],
+     [
+      "Positive predictive value (PPV)",
+      "TP / (TP + FP)",
+      "If the test is positive, how likely is disease?"
+     ],
+     [
+      "Negative predictive value (NPV)",
+      "TN / (TN + FN)",
+      "If the test is negative, how likely is no disease?"
+     ],
+     [
+      "Positive likelihood ratio",
+      "Sensitivity / (1 - specificity)",
+      "How much a positive result raises the odds of disease"
+     ]
+    ]
+   },
+   {
+    "type": "callout",
+    "kind": "tip",
+    "title": "Mnemonics",
+    "text": "**SnNout**: a highly **sen**sitive test, when **n**egative, rules **out** disease. **SpPin**: a highly **sp**ecific test, when **p**ositive, rules **in** disease."
+   },
+   {
+    "type": "heading",
+    "text": "Predictive values depend on prevalence"
+   },
+   {
+    "type": "text",
+    "text": "Sensitivity and specificity are properties of the test. **PPV and NPV change with how common the disease is** in the group tested. The same test gives many false positives when the disease is rare."
+   },
+   {
+    "type": "chart",
+    "kind": "line",
+    "title": "PPV of a test with 90% sensitivity and 90% specificity",
+    "xLabel": "Disease prevalence",
+    "yLabel": "Positive predictive value (%)",
+    "categories": [
+     "1%",
+     "5%",
+     "10%",
+     "20%",
+     "50%"
+    ],
+    "series": [
+     {
+      "name": "PPV (%)",
+      "values": [
+       8.3,
+       32.1,
+       50,
+       69.2,
+       90
+      ]
+     }
+    ],
+    "note": "At 1% prevalence, about 9 of every 10 positive results are false positives."
+   },
+   {
+    "type": "callout",
+    "kind": "pearl",
+    "text": "This is why broad screening of low-risk people produces many false positives, and why a positive screen is usually followed by a more specific confirmatory test."
+   }
+  ],
+  "references": [
+   "Gordis Epidemiology, current edition",
+   "Jekel's Epidemiology, Biostatistics, Preventive Medicine, and Public Health, current edition"
+  ]
+ }
+]

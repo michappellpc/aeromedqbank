@@ -1,0 +1,147 @@
+[
+  {
+    "id": "sample-001",
+    "boards": [
+      "aem"
+    ],
+    "subject": "Altitude & Decompression",
+    "topic": "Hypoxia",
+    "difficulty": 1,
+    "stem": "PLACEHOLDER: Which type of hypoxia results from a reduced partial pressure of inspired oxygen at altitude?",
+    "options": [
+      {
+        "id": "A",
+        "text": "Hypoxic hypoxia"
+      },
+      {
+        "id": "B",
+        "text": "Hypemic hypoxia"
+      },
+      {
+        "id": "C",
+        "text": "Stagnant hypoxia"
+      },
+      {
+        "id": "D",
+        "text": "Histotoxic hypoxia"
+      }
+    ],
+    "answer": "A",
+    "explanation": "Hypoxic hypoxia is caused by decreased alveolar PO2 (e.g., altitude). Hypemic = reduced O2-carrying capacity; stagnant = reduced perfusion; histotoxic = impaired cellular utilization.",
+    "references": [
+      "Sample reference - replace"
+    ],
+    "status": "draft",
+    "optionNotes": {
+      "A": "Correct: low inspired PO2 at altitude is hypoxic hypoxia.",
+      "B": "Wrong: hypemic means reduced oxygen-carrying capacity (anemia, CO).",
+      "C": "Wrong: stagnant means reduced blood flow (e.g. sustained G).",
+      "D": "Wrong: histotoxic means cells cannot use oxygen (e.g. cyanide)."
+    }
+  },
+  {
+    "id": "sample-002",
+    "boards": [
+      "om"
+    ],
+    "subject": "Occupational Lung Disease",
+    "topic": "Pneumoconioses",
+    "difficulty": 1,
+    "stem": "PLACEHOLDER: Eggshell calcification of hilar nodes is most characteristic of which exposure?",
+    "options": [
+      {
+        "id": "A",
+        "text": "Asbestos"
+      },
+      {
+        "id": "B",
+        "text": "Silica"
+      },
+      {
+        "id": "C",
+        "text": "Beryllium"
+      },
+      {
+        "id": "D",
+        "text": "Coal dust"
+      },
+      {
+        "id": "E",
+        "text": "Cotton dust"
+      }
+    ],
+    "answer": "B",
+    "explanation": "Silicosis classically shows eggshell calcification of hilar lymph nodes.",
+    "references": [
+      "Sample reference - replace"
+    ],
+    "status": "draft"
+  },
+  {
+    "id": "sample-003",
+    "boards": [
+      "pm"
+    ],
+    "subject": "Biostatistics",
+    "topic": "Screening tests",
+    "difficulty": 2,
+    "stem": "PLACEHOLDER: A screening test has 90% sensitivity and 80% specificity in a population with 10% prevalence. What is the positive predictive value?",
+    "options": [
+      {
+        "id": "A",
+        "text": "33%"
+      },
+      {
+        "id": "B",
+        "text": "50%"
+      },
+      {
+        "id": "C",
+        "text": "80%"
+      },
+      {
+        "id": "D",
+        "text": "90%"
+      }
+    ],
+    "answer": "A",
+    "explanation": "Per 1000 people: 100 diseased, 90 TP; 900 healthy, 180 FP. PPV = 90 / (90+180) = 33%.",
+    "references": [
+      "Sample reference - replace"
+    ],
+    "status": "draft"
+  },
+  {
+    "id": "sample-004",
+    "boards": [
+      "aem",
+      "om"
+    ],
+    "subject": "Human Factors & Fatigue",
+    "topic": "Circadian rhythm",
+    "difficulty": 2,
+    "stem": "PLACEHOLDER: Which countermeasure is best supported for reducing fatigue-related errors in rotating night-shift workers?",
+    "options": [
+      {
+        "id": "A",
+        "text": "Strategic napping and scheduled bright-light exposure"
+      },
+      {
+        "id": "B",
+        "text": "Chronic high-dose caffeine"
+      },
+      {
+        "id": "C",
+        "text": "Alcohol before sleep"
+      },
+      {
+        "id": "D",
+        "text": "Extending shifts to 16 hours"
+      }
+    ],
+    "answer": "A",
+    "explanation": "Strategic naps and timed light exposure help circadian adaptation and alertness; the other options worsen sleep or performance.",
+    "references": [],
+    "status": "draft"
+  }
+]

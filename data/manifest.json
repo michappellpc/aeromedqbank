@@ -1,0 +1,14 @@
+{
+  "boards": [
+    { "id": "aem", "name": "Aerospace Medicine" },
+    { "id": "om",  "name": "Occupational Medicine" },
+    { "id": "pm",  "name": "General Preventive Medicine & Public Health" }
+  ],
+  "subjects": {
+    "aem": ["Aviation Physiology", "Altitude & Decompression", "Acceleration & Spatial Disorientation", "Aeromedical Standards & Waivers", "Space Medicine", "Aircraft Accident Investigation", "Human Factors & Fatigue"],
+    "om":  ["Toxicology", "Occupational Lung Disease", "Ergonomics & Musculoskeletal", "Workers' Compensation & Disability", "Hearing Conservation & Noise", "Regulations (OSHA/ADA/FMLA)", "Medical Surveillance", "Industrial Hygiene"],
+    "pm":  ["Biostatistics", "Epidemiology", "Health Policy & Management", "Environmental Health", "Infectious Disease & Immunization", "Screening & Prevention", "Behavioral Health & Health Promotion", "Public Health Emergency Preparedness"]
+  },
+  "files": ["questions/sample.json"],
+  "lessons": ["lessons/sample.json"]
+}

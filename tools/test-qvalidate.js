@@ -1,0 +1,56 @@
+#!/usr/bin/env node
+// Unit tests for js/qvalidate.js:  node tools/test-qvalidate.js
+const Q = require('../js/qvalidate.js');
+let pass = 0, fail = 0;
+const t = (name, cond, extra = '') => { cond ? pass++ : fail++; console.log(`  ${cond ? 'pass' : 'FAIL'}  ${name}${cond ? '' : '   ' + extra}`); };
+const boards = [{ id: 'aem' }, { id: 'om' }, { id: 'pm' }], subjects = { aem: ['Altitude & Decompression'], om: ['Toxicology'], pm: ['Biostatistics'] };
+const good = () => ({ id: 'aem-altitude-001', status: 'draft', boards: ['aem'], subject: 'Altitude & Decompression', topic: 'T', difficulty: 2, stem: 'Stem one?',
+  options: [{ id: 'A', text: 'a' }, { id: 'B', text: 'b' }, { id: 'C', text: 'c' }], answer: 'A', explanation: 'Because.', optionNotes: { A: 'y', B: 'n', C: 'n' }, references: ['Ref'] });
+const run = (q, over = {}) => Q.check(q, { boards, subjects, ids: new Set(), stems: new Map(), ...over });
+const errs = r => r.filter(x => x.level === 'error').map(x => x.msg), warns = r => r.filter(x => x.level === 'warn').map(x => x.msg);
+
+console.log('Rules');
+t('a good question has no errors or warnings', run(good()).length === 0, JSON.stringify(run(good())));
+t('missing stem', errs(run({ ...good(), stem: ' ' })).includes('missing stem'));
+t('answer must be one of the options', errs(run({ ...good(), answer: 'D' })).includes('answer does not match an option id'));
+t('subject must belong to the board', errs(run({ ...good(), subject: 'Toxicology' })).some(m => /not listed for board/.test(m)));
+t('a subject from ANY chosen board is enough', errs(run({ ...good(), boards: ['aem', 'om'], subject: 'Toxicology' })).length === 0);
+t('bad id characters', errs(run({ ...good(), id: 'Bad_ID' })).some(m => /lowercase/.test(m)));
+t('duplicate id inside a batch', (() => { const c = { ids: new Set(), stems: new Map() }; run(good(), c); return errs(run({ ...good(), stem: 'Other stem' }, c)).includes('duplicate id'); })());
+t('duplicate stem is caught, but the same question is not a duplicate of itself', (() => { const c = { ids: new Set(), stems: new Map([[Q.norm('Stem one?'), 'aem-altitude-001']]) }; return errs(run({ ...good(), id: 'aem-altitude-002' }, c)).some(m => /stem duplicates aem-altitude-001/.test(m)) && errs(run(good(), { ...c, ids: new Set() })).length === 0; })());
+t('needs 2 to 6 options', errs(run({ ...good(), options: [{ id: 'A', text: 'x' }] })).includes('need between 2 and 6 options'));
+t('option letters must be A-F', errs(run({ ...good(), options: [{ id: 'A', text: 'a' }, { id: 'G', text: 'g' }] })).includes('option ids must be letters A-F'));
+t('identical option text', errs(run({ ...good(), options: [{ id: 'A', text: 'same' }, { id: 'B', text: 'Same.' }] })).includes('two options have identical text'));
+t('"none of the above" is a warning, not an error', warns(run({ ...good(), options: [{ id: 'A', text: 'a' }, { id: 'B', text: 'None of the above' }] })).some(m => /none of the above/.test(m)));
+t('missing notes for wrong options is a warning', warns(run({ ...good(), optionNotes: { A: 'y' } })).some(m => /missing for wrong answer/.test(m)));
+t('reviewed with no reviewer is a warning', warns(run({ ...good(), status: 'reviewed' })).includes('reviewed but no reviewedBy'));
+t('tier must be free or pro', errs(run({ ...good(), tier: 'gold' })).includes('tier must be "free" or "pro"') && errs(run({ ...good(), tier: 'free' })).length === 0);
+t('an image needs a description', errs(run({ ...good(), image: 'private:ok.png' })).includes('image needs imageAlt (a text description)'));
+t('private image names are checked', errs(run({ ...good(), image: 'private:Bad Name.png', imageAlt: 'x' })).some(m => /private image name/.test(m)));
+t('the caller can add its own file checks', errs(run({ ...good(), image: 'private:ok.png', imageAlt: 'x' }, { imageFiles: () => [{ level: 'error', msg: 'file missing' }] })).includes('file missing'));
+
+console.log('Cleaning');
+const n = Q.normalize({ ...good(), extra: 1, note: 'x', stem: '  padded  ', references: [' a ', '', 'b'] });
+t('unknown fields are dropped and reported', n.dropped.join() === 'extra,note' && !('extra' in n.clean));
+t('text is trimmed and empty references removed', n.clean.stem === 'padded' && n.clean.references.join('|') === 'a|b');
+
+console.log('Reading pasted text');
+const arr = JSON.stringify([good()], null, 2);
+const p = s => Q.parsePaste(s);
+t('a plain JSON list', p(arr).list && p(arr).list.length === 1);
+t('a chat reply with a code fence, text before, and a table after', p(`Here are your questions:\n\n\`\`\`json\n${arr}\n\`\`\`\n\n| id | fact |\n|---|---|\n| a | b |`).list.length === 1);
+t('a fence with no language name', p('```\n' + arr + '\n```').list.length === 1);
+t('JSON with explanation text around it and no fence', p(`Sure!\n${arr}\nHope that helps [really].`).list.length === 1);
+t('prose with brackets before the list is skipped', p(`[Note] here you go:\n${arr}`).list.length === 1);
+t('brackets inside quoted text do not confuse it', (() => { const q = { ...good(), stem: 'Which of [these] is right? \\"]\\" trick' }; return p(`Here:\n${JSON.stringify([q])}\ndone [x]`).list[0].stem === q.stem; })());
+t('a single question object becomes a list of one', p(JSON.stringify(good())).list.length === 1);
+t('an object with a "questions" list', p(JSON.stringify({ questions: [good(), { ...good(), id: 'aem-altitude-002' }] })).list.length === 2);
+t('a byte-order mark is ignored', p('﻿' + arr).list.length === 1);
+t('empty input asks for input', /Nothing pasted/.test(p('   ').error));
+t('an empty list is refused', /empty/.test(p('[]').error));
+t('a reply that got cut off says where and why', (() => { const r = p(arr.slice(0, arr.length - 30)); return /not valid JSON/.test(r.error) && /line \d+/.test(r.error); })(), JSON.stringify(p(arr.slice(0, arr.length - 30))));
+t('a missing comma says where', (() => { const r = p(arr.replace('"draft",', '"draft"')); return /not valid JSON/.test(r.error) && /line \d+/.test(r.error); })(), JSON.stringify(p(arr.replace('"draft",', '"draft"'))));
+t('plain words are refused, not crashed on', /not valid JSON/.test(p('hello there').error));
+t('a list containing something that is not a question', /Item 2/.test(p('[{"id":"a"}, 5]').error));
+
+console.log(`\n${pass} passed, ${fail} failed`); process.exit(fail ? 1 : 0);

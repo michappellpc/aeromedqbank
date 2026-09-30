@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AeroMedQBank</title>
+<meta name="theme-color" content="#2b3319">
+<meta name="description" content="Board-prep question bank for aerospace, occupational, and preventive medicine residents.">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/svg+xml" href="icons/logo.svg">
+<link rel="icon" type="image/png" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="AeroMedQBank">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<header class="top">
+  <h1 class="sr" id="page-title">AeroMedQBank</h1>
+  <a class="brand" href="#/"><img class="logo" src="icons/logo.svg" alt="" width="30" height="30"><span class="wordmark">AeroMed<b>QBank</b></span></a>
+  <nav>
+    <a href="#/">Dashboard</a>
+    <a href="#/create">New Test</a>
+    <a href="#/lessons">Lessons</a>
+    <a href="#/history">History</a>
+    <a href="#/support" id="nav-support" hidden>Support<span id="support-badge" class="navbadge" hidden></span></a>
+    <a href="#/program" id="nav-program" hidden>Program</a>
+    <a href="#/admin" id="nav-admin" hidden>Admin</a>
+    <a href="#/settings">Settings</a>
+  </nav>
+  <div id="timer" class="timer" hidden></div>
+</header>
+<main id="app" aria-live="polite"></main>
+<footer class="foot">Unofficial study tool. Not affiliated with or endorsed by the U.S. Army or the Department of Defense. Practice questions are for education only. <a href="privacy.html">Privacy</a> &middot; <a href="terms.html">Terms</a></footer>
+<script src="js/store.js"></script>
+<script src="js/cloud.js"></script>
+<script src="js/qvalidate.js"></script>
+<script src="js/lvalidate.js"></script>
+<script src="js/mascot.js"></script>
+<script src="js/lessons.js"></script>
+<script src="js/program.js"></script>
+<script src="js/admin.js"></script>
+<script src="js/adminlessons.js"></script>
+<script src="js/inbox.js"></script>
+<script src="js/support.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

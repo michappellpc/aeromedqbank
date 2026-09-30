@@ -1,0 +1,31 @@
+name: Validate question bank
+on:
+  push:
+  pull_request:
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - name: Validate demo questions
+        run: node tools/validate.js --summary
+      - name: Test the shared question checker
+        run: node tools/test-qvalidate.js
+      - name: Test the lesson rules and sample lessons
+        run: node tools/test-lvalidate.js
+  database-rules:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env: { POSTGRES_PASSWORD: postgres }
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 10
+    env: { PGHOST: localhost, PGPORT: '5432', PGUSER: postgres, PGPASSWORD: postgres }
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test the privacy rules
+        run: bash supabase/tests/run.sh

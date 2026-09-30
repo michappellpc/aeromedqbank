@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AeroMedQBank question file",
+  "description": "A JSON array of questions. tools/validate.js enforces extra rules (subject must belong to the board, no duplicate stems, image files must exist).",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "required": ["id", "status", "boards", "subject", "stem", "options", "answer", "explanation"],
+    "additionalProperties": false,
+    "properties": {
+      "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$", "description": "Unique. Example: aem-hypoxia-014" },
+      "status": { "enum": ["draft", "reviewed"], "description": "AI-written or unchecked questions MUST be draft. Only a physician reviewer sets reviewed." },
+      "reviewedBy": { "type": "string", "description": "Reviewer initials or name. Required in practice when status is reviewed." },
+      "boards": { "type": "array", "minItems": 1, "items": { "enum": ["aem", "om", "pm"] } },
+      "subject": { "type": "string", "description": "Must match a subject in data/manifest.json for one of the boards." },
+      "topic": { "type": "string" },
+      "difficulty": { "enum": [1, 2, 3] },
+      "stem": { "type": "string", "description": "Clinical vignette and question. Plain text; blank lines are kept." },
+      "image": { "type": "string", "description": "Path under the site root, e.g. images/audiogram-01.png" },
+      "imageAlt": { "type": "string", "description": "Text description of the image. Required if image is set." },
+      "options": {
+        "type": "array", "minItems": 2, "maxItems": 6,
+        "items": { "type": "object", "required": ["id", "text"], "additionalProperties": false,
+          "properties": { "id": { "enum": ["A", "B", "C", "D", "E", "F"] }, "text": { "type": "string" } } }
+      },
+      "answer": { "enum": ["A", "B", "C", "D", "E", "F"] },
+      "explanation": { "type": "string", "description": "Why the answer is right, including the teaching point." },
+      "optionNotes": { "type": "object", "description": "One sentence per option id explaining why it is right or wrong.", "additionalProperties": { "type": "string" } },
+      "references": { "type": "array", "items": { "type": "string" }, "description": "Real, checkable sources only." }
+    }
+  }
+}
