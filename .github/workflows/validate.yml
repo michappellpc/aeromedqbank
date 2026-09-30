@@ -13,6 +13,8 @@ jobs:
         run: node tools/validate.js --summary
       - name: Test the shared question checker
         run: node tools/test-qvalidate.js
+      - name: Test the related-lesson matching
+        run: node tools/test-related.js
       - name: Test the lesson rules and sample lessons
         run: node tools/test-lvalidate.js
   database-rules:

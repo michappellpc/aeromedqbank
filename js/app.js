@@ -23,6 +23,17 @@ function refreshPeer() { if (!Cloud.enabled || Date.now() - peerAt < 300000) ret
 const mascotOn = () => Store.data.settings.mascot !== false;
 const showDrafts = () => Store.data.settings.showDrafts !== false;
 const notesText = q => q.optionNotes ? '\n\nAnswer choices:\n' + q.options.filter(o => q.optionNotes[o.id]).map(o => esc(`${o.id}. ${q.optionNotes[o.id]}`)).join('\n') : '';
+// A link under an explanation to the most relevant lesson, or to the subject's lessons if none fits well.
+const relatedCache = new Map();
+function relatedLesson(q) {
+  const lessons = bank.lessons || [], key = q.id + '|' + lessons.length;
+  if (!relatedCache.has(key)) relatedCache.set(key, lessons.length ? Related.match(q, lessons) : null);
+  const m = relatedCache.get(key);
+  const tab = '<span class="sr"> (opens in a new tab)</span>';
+  if (m) return `\n\n<span class="relatedlesson">Study this: <a href="#/lesson/${encodeURIComponent(m.lesson.id)}" target="_blank" rel="noopener">${esc(m.lesson.title)}${tab}</a></span>`;
+  if (lessons.some(l => l.subject === q.subject)) return `\n\n<span class="relatedlesson">More to read: <a href="#/lessons/${encodeURIComponent(q.subject)}" target="_blank" rel="noopener">Lessons on ${esc(q.subject)}${tab}</a></span>`;
+  return '';
+}
 const csvCell = v => { let s = String(v ?? ''); if (/^[=+\-@\t\r]/.test(s)) s = "'" + s; return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
 const privImg = q => (q.image && q.image.startsWith('private:') ? q.image.slice(8) : null);
 const imgTag = q => !q.image ? '' : privImg(q)
@@ -341,7 +352,7 @@ function renderTest() {
       return `<div class="optrow"><div class="${c}" data-opt="${esc(o.id)}" role="radio" aria-checked="${sel === o.id}" ${locked0 ? 'aria-disabled="true"' : ''} tabindex="${tab}"><span class="k">${esc(o.id)}.</span><span class="txt">${esc(o.text)}${struck.includes(o.id) ? '<span class="sr"> (crossed out)</span>' : ''}${shown && o.id === q.answer ? '<span class="sr"> (correct answer)</span>' : ''}</span>${shown ? pickBadge(id, o.id) : ''}</div>
         ${shown ? '' : `<button class="x" data-strike="${esc(o.id)}" aria-pressed="${struck.includes(o.id)}" aria-label="Cross out choice ${esc(o.id)}" title="Cross out">✕</button>`}</div>`;
     }).join('')}</div>
-    ${shown ? `<div class="expl"><b>${sel === q.answer ? 'Correct' : 'Incorrect'}.</b> Correct answer: ${esc(q.answer)}.${peerLine(id) ? '\n' + peerLine(id) : ''}\n\n${esc(q.explanation)}${notesText(q)}${q.references && q.references.length ? `\n\n<span class="muted">References: ${q.references.map(esc).join('; ')}</span>` : ''}</div>` : ''}
+    ${shown ? `<div class="expl"><b>${sel === q.answer ? 'Correct' : 'Incorrect'}.</b> Correct answer: ${esc(q.answer)}.${peerLine(id) ? '\n' + peerLine(id) : ''}\n\n${esc(q.explanation)}${notesText(q)}${relatedLesson(q)}${q.references && q.references.length ? `\n\n<span class="muted">References: ${q.references.map(esc).join('; ')}</span>` : ''}</div>` : ''}
     <div class="row" style="margin-top:14px">
       ${tutor && !shown ? `<button class="primary" id="submit" ${sel ? '' : 'disabled'}>Submit</button>` : ''}
       <button id="prev" ${t.idx ? '' : 'disabled'}>← Prev</button>
@@ -502,7 +513,7 @@ function review(id) {
       <p class="stem">${esc(q.stem)}</p>
       ${q.options.map(o => `<div class="opt ${o.id === q.answer ? 'correct' : o.id === mine ? 'wrong' : ''}"><span class="k">${esc(o.id)}.</span><span class="txt">${esc(o.text)}</span>${pickBadge(qid, o.id)}</div>`).join('')}
       ${imgTag(q)}
-      <div class="expl">${peerLine(qid) ? peerLine(qid) + '\n\n' : ''}${esc(q.explanation)}${notesText(q)}</div>
+      <div class="expl">${peerLine(qid) ? peerLine(qid) + '\n\n' : ''}${esc(q.explanation)}${notesText(q)}${relatedLesson(q)}</div>
       <div class="row" style="margin-top:10px"><button data-fb="${esc(qid)}" title="Report a problem or suggest a change to this question">✎ Feedback</button></div></div>`;
   }).join('');
   bindZoom();
