@@ -359,3 +359,5 @@ details.thread{margin:8px 0 12px}details.thread summary{cursor:pointer;color:var
 .stem s.mk-s{text-decoration:line-through;text-decoration-thickness:2px}
 @media (min-width:700px){.marktools .small{flex-basis:auto}}
 .filters input[type=search]{min-width:0}
+.relatedlesson{display:inline-block;margin-top:2px}
+.relatedlesson a{font-weight:600}

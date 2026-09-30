@@ -20,6 +20,9 @@ With accounts on, the **Feedback** button on every question opens a short form (
 ## Highlighting and striking out
 During a test, select text in the question and choose **Highlight** or **Strike out** above it (choose it again on the same text to undo, or **Clear marks** to start over). Marks stay on your device and last for that test only. Answer choices can be crossed out with the ✕ beside each one.
 
+## Related lessons
+Under each explanation (after answering in a tutor test, and on the review page) the app links the most relevant lesson. It matches by the words the question, its correct answer and its explanation share with each lesson's title, summary and text, and opens the lesson in a new tab so a test is not interrupted. If no lesson fits well, it links the lessons for that question's subject instead, and if there are none it shows nothing. This needs no setup and adds nothing to the questions. The matching is in `js/related.js`, with tests in `tools/test-related.js`.
+
 ## Support and replies (in the app, no email)
 The **Support** tab lets any signed-in member send the team a question (optional subject, then the message). Question feedback and Support share one system: the team answers from **Admin > Inbox** (filter by Support or Feedback, open the conversation, type a reply), and the member sees the reply under **Support** with a red count on the tab and a notice on the dashboard. Members can reply back. Reviewers can reply too without seeing who they are talking to; only admins see the sender. Nothing is sent by email. Run the latest `supabase/schema.sql` to switch this on.
 
