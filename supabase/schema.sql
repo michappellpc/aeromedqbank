@@ -538,6 +538,23 @@ begin
   return query select * from public._program_subjects(pid);
 end $$;
 
+-- Admins can do what a program's faculty do, for any program: approve, decline and remove.
+create or replace function public.program_decide(pid text, uid uuid, approve boolean) returns void
+  language plpgsql security definer set search_path = public as
+$$
+begin
+  if not public.is_admin() then raise exception 'admins only'; end if;
+  if approve then update public.profiles set program_status = 'approved' where id = uid and program_id = pid and program_status = 'pending';
+  else update public.profiles set program_id = null, program_status = null where id = uid and program_id = pid and program_status = 'pending'; end if;
+end $$;
+create or replace function public.program_remove(pid text, uid uuid) returns void
+  language plpgsql security definer set search_path = public as
+$$
+begin
+  if not public.is_admin() then raise exception 'admins only'; end if;
+  update public.profiles set program_id = null, program_status = null where id = uid and program_id = pid and role <> 'faculty';
+end $$;
+
 create or replace function public.faculty_decide(uid uuid, approve boolean) returns void
   language plpgsql security definer set search_path = public as
 $$
@@ -756,7 +773,7 @@ grant execute on function public.thread_messages(bigint), public.thread_team_rep
 grant execute on function public.my_threads(), public.my_thread_messages(bigint), public.my_thread_seen(bigint), public.my_unread_replies(), public.thread_member_reply(bigint, text) to authenticated;
 grant execute on function public.program_list() to anon, authenticated;
 grant execute on function public.my_program(), public.leave_program(), public.faculty_program_id(), public.faculty_roster(), public.faculty_subject_stats() to authenticated;
-grant execute on function public.preview_roster(text), public.preview_subjects(text) to authenticated;
+grant execute on function public.preview_roster(text), public.preview_subjects(text), public.program_decide(text, uuid, boolean), public.program_remove(text, uuid) to authenticated;
 grant execute on function public.request_program(text), public.faculty_decide(uuid, boolean), public.faculty_remove(uuid) to authenticated;
 grant execute on function public.peer_stats(), public.peer_choices(), public.peer_min_users() to authenticated;
 grant execute on function public.set_peer_min_users(int) to authenticated;
