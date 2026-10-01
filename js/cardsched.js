@@ -34,7 +34,8 @@
   // Today's session: cards that are due (oldest first), then new cards up to what is left of today's new-card allowance.
   function queue(cards, states, now, opts = {}) {
     const newLeft = Math.max(0, (opts.newPerDay ?? 10) - (opts.newSeenToday || 0));
-    const due = cards.filter(c => isDue(states[c.id], now)).sort((a, b) => states[a.id].due.localeCompare(states[b.id].due) || a.id.localeCompare(b.id));
+    let due = cards.filter(c => isDue(states[c.id], now)).sort((a, b) => states[a.id].due.localeCompare(states[b.id].due) || a.id.localeCompare(b.id));
+    if (opts.maxReviews > 0) due = due.slice(0, opts.maxReviews);                      // 0 or missing means no limit
     const fresh = cards.filter(c => isNew(states[c.id])).sort((a, b) => a.id.localeCompare(b.id)).slice(0, newLeft);
     return [...due, ...fresh];
   }
@@ -43,5 +44,18 @@
     return { due: cards.filter(c => isDue(states[c.id], now)).length, new: q.filter(c => isNew(states[c.id])).length, newTotal: cards.filter(c => isNew(states[c.id])).length,
       learned: cards.filter(c => states[c.id] && states[c.id].reps >= 3).length, total: cards.length };
   }
-  return { rate, preview, queue, counts, isDue, isNew, today, addDays };
+  // The member's choices, tidied: anything out of range falls back to the default
+  const DEFAULTS = { newPerDay: 10, maxReviews: 0, order: 'due', intervals: true, reverse: false };
+  const MAX_REVIEW_CHOICES = [0, 20, 50, 100, 200];
+  function settings(raw) {
+    const r = raw || {}, n = Number(r.newPerDay);
+    return {
+      newPerDay: Number.isInteger(n) && n >= 0 && n <= 100 ? n : DEFAULTS.newPerDay,
+      maxReviews: MAX_REVIEW_CHOICES.includes(Number(r.maxReviews)) ? Number(r.maxReviews) : DEFAULTS.maxReviews,
+      order: r.order === 'shuffle' ? 'shuffle' : 'due',
+      intervals: r.intervals !== false,
+      reverse: r.reverse === true
+    };
+  }
+  return { rate, preview, queue, counts, isDue, isNew, today, addDays, settings, DEFAULTS, MAX_REVIEW_CHOICES };
 });

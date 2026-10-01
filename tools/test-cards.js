@@ -54,4 +54,15 @@ t('a lesson link must look like a lesson id, and an unknown one is only a warnin
 t('missing references is a warning', warns(run({ ...good(), references: [] })).includes('no references'));
 t('normalize drops unknown fields and trims', (() => { const n = V.normalize({ id: ' a-1 ', front: ' F ', back: 'B', junk: 1, status: undefined }); return n.clean.id === 'a-1' && n.clean.front === 'F' && n.dropped.includes('junk') && n.clean.status === 'draft'; })());
 t('a pasted { cards: [...] } reply is understood', (() => { const p = QV.parsePaste('```json\n{"cards":[{"id":"x"}]}\n```', 'card'); return p.list && p.list.length === 1; })());
+
+console.log('Settings');
+t('missing settings fall back to the defaults', JSON.stringify(S.settings(null)) === JSON.stringify(S.DEFAULTS) && S.DEFAULTS.newPerDay === 10);
+t('good values are kept', (() => { const x = S.settings({ newPerDay: 25, maxReviews: 50, order: 'shuffle', intervals: false, reverse: true }); return x.newPerDay === 25 && x.maxReviews === 50 && x.order === 'shuffle' && x.intervals === false && x.reverse === true; })());
+t('zero new cards a day is allowed', S.settings({ newPerDay: 0 }).newPerDay === 0);
+t('out-of-range or odd values are ignored', (() => { const x = S.settings({ newPerDay: 500, maxReviews: 7, order: 'weird', intervals: 'no', reverse: 'yes' }); return x.newPerDay === 10 && x.maxReviews === 0 && x.order === 'due' && x.intervals === true && x.reverse === false; })());
+t('a fractional or negative number of new cards is ignored', S.settings({ newPerDay: 2.5 }).newPerDay === 10 && S.settings({ newPerDay: -1 }).newPerDay === 10);
+const many = Array.from({ length: 30 }, (_, i) => ({ id: 'c' + String(i).padStart(2, '0') })), dueStates = Object.fromEntries(many.map(c => [c.id, { e: 2.5, i: 1, due: '2026-09-30', reps: 1, lapses: 0 }]));
+t('the review limit caps what is due in a session', S.queue(many, dueStates, D0, { maxReviews: 20 }).length === 20 && S.queue(many, dueStates, D0, { maxReviews: 0 }).length === 30 && S.queue(many, dueStates, D0).length === 30);
+t('the cap keeps the most overdue cards', (() => { const s2 = { ...dueStates, c29: { e: 2.5, i: 1, due: '2026-09-01', reps: 1, lapses: 0 } }; return S.queue(many, s2, D0, { maxReviews: 5 })[0].id === 'c29'; })());
+t('zero new cards means none in the session', S.queue(many, {}, D0, { newPerDay: 0 }).length === 0);
 console.log(`\n${pass} passed, ${fail} failed`); process.exit(fail ? 1 : 0);
