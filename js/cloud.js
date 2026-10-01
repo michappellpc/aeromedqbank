@@ -455,7 +455,7 @@ const Cloud = (() => {
     queueAttempt(question_id, ok, chosen) { change(q => q.attempts.push({ question_id, ok, ...(chosen ? { chosen: String(chosen).slice(0, 3) } : {}), client_id: cid(), at: new Date().toISOString() })); },
     queueMark(question_id) { change(q => { const s = Store.qstat(question_id) || {}; q.marks[question_id] = { flagged: !!s.flagged, note: s.note || '', updated_at: new Date().toISOString() }; }); },
     queueTest(rec) { change(q => { q.tests[rec.id] = rec; }); },
-    queueSettings() { change(q => { const s = Store.data.settings; q.settings = { data: { theme: s.theme, showDrafts: s.showDrafts !== false }, updated_at: new Date().toISOString() }; }); },
+    queueSettings() { change(q => { const s = Store.data.settings; q.settings = { data: { theme: s.theme, showDrafts: s.showDrafts !== false, ...(s.cards ? { cards: s.cards } : {}) }, updated_at: new Date().toISOString() }; }); },
     queueCard(id, st) { change(q => { (q.cards ||= {})[id] = st; }); },
     queueReset() { change(q => { Object.assign(q, blankQueue(), { reset: true }); }); },
     sync, pending, get lastSync() { return lastSync; },
