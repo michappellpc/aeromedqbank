@@ -496,3 +496,13 @@ body{line-height:1.55}
 main h2{line-height:1.25}
 .muted.small,.small{line-height:1.45}
 @media(max-width:600px){nav button.navmore:hover:not(:disabled){background:none;border-color:transparent;border-top-color:transparent}nav button.navmore.on:hover{border-top-color:var(--hdrfg)}}
+
+/* ---- Calculator ---- */
+.calc{position:fixed;z-index:30;top:84px;right:16px;width:300px;max-width:calc(100vw - 24px);background:var(--card);border:1px solid var(--line);border-radius:var(--r);box-shadow:0 10px 32px rgba(0,0,0,.3);padding:10px 12px 12px}
+.calc[hidden]{display:none}
+.calchead{cursor:move;touch-action:none;display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}.calcx{padding:2px 9px;min-height:30px}
+.calcin{width:100%;font:600 1.15rem var(--font);font-variant-numeric:tabular-nums;text-align:right;padding:8px 10px;box-sizing:border-box}
+.calcout{min-height:1.5em;text-align:right;color:var(--muted);font-variant-numeric:tabular-nums;margin:4px 2px 6px}.calcout.err{color:var(--bad)}
+.calckeys{display:grid;grid-template-columns:repeat(5,1fr);gap:5px}.calckeys button{padding:9px 0;min-height:40px;text-align:center;font-size:.95rem}.calckeys .num{font-weight:600}
+.calchist{list-style:none;margin:8px 0 0;padding:0;max-height:92px;overflow:auto;font-size:.8rem}.calchist button{width:100%;text-align:right;border:0;background:none;padding:3px 4px;color:var(--muted);min-height:0}.calchist button:hover{background:var(--sel)}
+@media(max-width:600px){.calc{top:auto;right:8px;left:8px;width:auto;max-width:none;bottom:calc(66px + env(safe-area-inset-bottom,0px))}.calckeys button{min-height:44px}}
