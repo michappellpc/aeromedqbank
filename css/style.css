@@ -534,3 +534,14 @@ mark.hl{background:#ffe27a;color:#1c1c1c;border-radius:2px;padding:0 1px;cursor:
   body{background:#fff;color:#000}.card{box-shadow:none;border:1px solid #999;break-inside:avoid}.weakitem{break-inside:avoid}
   a{color:#000;text-decoration:none}
 }
+
+/* ---- Admin > Difficulty ---- */
+.itemhist{width:100%;max-width:640px;height:auto;display:block}.itemhist .axis{font:12px var(--font);fill:var(--muted)}.itemhist .lastv{fill:var(--fg);font-weight:700}
+.itemtable td{vertical-align:top}.pctcell{display:flex;align-items:center;gap:8px;min-width:130px}.pctcell .bar{flex:1;min-width:50px}
+.flagchip{display:inline-block;padding:1px 8px;margin:1px 2px 1px 0;border-radius:99px;font-size:.74rem;font-weight:600;background:var(--sel);color:var(--fg);border:1px solid var(--line);white-space:nowrap}
+.flagchip.f-miskey,.flagchip.f-negdisc{background:#f4cbc0;color:#5a1b0e;border-color:#d9a190}.flagchip.f-tooeasy,.flagchip.f-toohard,.flagchip.f-mislabeled{background:#f6e6b5;color:#4a3608;border-color:#d9c277}
+:root[data-theme=dark] .flagchip.f-miskey,:root[data-theme=dark] .flagchip.f-negdisc{background:#5e2a1e;color:#f4cbc0;border-color:#8a4a3a}:root[data-theme=dark] .flagchip.f-tooeasy,:root[data-theme=dark] .flagchip.f-toohard,:root[data-theme=dark] .flagchip.f-mislabeled{background:#5a4610;color:#f6e6b5;border-color:#8a7020}
+@media(prefers-color-scheme:dark){:root:not([data-theme=light]) .flagchip.f-miskey,:root:not([data-theme=light]) .flagchip.f-negdisc{background:#5e2a1e;color:#f4cbc0;border-color:#8a4a3a}:root:not([data-theme=light]) .flagchip.f-tooeasy,:root:not([data-theme=light]) .flagchip.f-toohard,:root:not([data-theme=light]) .flagchip.f-mislabeled{background:#5a4610;color:#f6e6b5;border-color:#8a7020}}
+.detailrow>td{background:var(--sel);padding:12px 14px}.detail{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:20px}@media(max-width:800px){.detail{grid-template-columns:1fr}}
+.optdist{list-style:none;margin:0;padding:0;display:grid;gap:6px}.optdist li{display:grid;grid-template-columns:24px minmax(0,1fr) 90px 70px;gap:8px;align-items:center}.optdist .k{font-weight:700}.optdist .pickn{text-align:right}
+@media(max-width:600px){.optdist li{grid-template-columns:24px minmax(0,1fr) 70px}.optdist li .bar{display:none}}

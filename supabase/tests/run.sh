@@ -562,4 +562,40 @@ eq  "nobody signed out can call it"                          "yes" "$(as anon "s
 eq  "an admin can preview the same analysis"                 "2,qi-1" "$(as admin "select (select count(*) from preview_topics('prog-ins', 0))||','||(select question_id from preview_questions('prog-ins', 0) limit 1);")"
 eq  "faculty cannot use the preview, even for their own program" "yes" "$(asfac "select * from preview_topics('prog-ins', 0);" | grep -q 'admins only' && echo yes)"
 eq  "the internal helpers cannot be called directly"         "yes" "$(as a "select * from _program_topics('prog-ins', 0);" 2>&1 | grep -q 'permission denied' && echo yes)"
+echo; echo "Question analytics"
+root "insert into allowed_emails (email, role, plan) select 'ia' || g || '@site.com', 'member', 'pro' from generate_series(1, 24) g;
+  insert into auth.users (id, email) select ('00000000-0000-0000-0004-' || lpad(g::text, 12, '0'))::uuid, 'ia' || g || '@site.com' from generate_series(1, 24) g;
+  insert into questions (id, boards, subject, stem, options, answer, explanation, tier, status)
+    select 'it-' || g, '{aem}', 'S', 'item stem ' || g, '[{\"id\":\"A\",\"text\":\"x\"},{\"id\":\"B\",\"text\":\"y\"}]', 'A', 'why', 'free', 'reviewed' from generate_series(1, 30) g;
+  insert into questions (id, boards, subject, stem, options, answer, explanation, tier, status) values ('it-none','{aem}','S','never answered','[{\"id\":\"A\",\"text\":\"x\"},{\"id\":\"B\",\"text\":\"y\"}]','A','why','free','reviewed');
+  -- member i gets question k right when k <= 5 + i, so skill rises with i and each question separates the strong from the weak
+  insert into attempts (user_id, question_id, ok, client_id, chosen)
+    select ('00000000-0000-0000-0004-' || lpad(i::text, 12, '0'))::uuid, 'it-' || k, k <= 5 + i, 'ia-' || i || '-' || k, case when k <= 5 + i then 'A' else 'B' end
+    from generate_series(1, 24) i, generate_series(1, 30) k;
+  insert into attempts (user_id, question_id, ok, client_id, chosen) values ('00000000-0000-0000-0004-000000000001', 'it-15', true, 'ia-repeat', 'A');" >/dev/null
+IA="select first_n||','||first_correct||','||disc||','||(picks->>'A')||','||(picks->>'B')||','||attempts||','||users from admin_item_analysis() where question_id"
+eq  "first tries, correct, how well it separates strong from weak, and the picks" "24,15,1.00,15,9,25,24" "$(as admin "$IA = 'it-15';")"
+eq  "a question everyone gets right does not separate anyone"  "24,24,0.00" "$(as admin "select first_n||','||first_correct||','||disc from admin_item_analysis() where question_id = 'it-1';")"
+eq  "a repeat try adds to the attempts but not to the first tries" "25,24,24" "$(as admin "select attempts||','||users||','||first_n from admin_item_analysis() where question_id = 'it-15';")"
+eq  "a question nobody answered has no numbers"                "0,0," "$(as admin "select first_n||','||attempts||','||coalesce(disc::text,'') from admin_item_analysis() where question_id = 'it-none';")"
+eq  "a question with a very hard wording has none right"       "0" "$(as admin "select first_correct from admin_item_analysis() where question_id = 'it-30';")"
+eq  "a reviewer can use the analysis too"                     "24" "$(as rev "select first_n from admin_item_analysis() where question_id = 'it-15';")"
+eq  "a member cannot"                                         "yes" "$(as a "select * from admin_item_analysis();" 2>&1 | grep -q 'editors only' && echo yes)"
+eq  "nobody signed out can"                                   "yes" "$(as anon "select * from admin_item_analysis();" 2>&1 | grep -q 'permission denied' && echo yes)"
+root "insert into attempts (user_id, question_id, ok, client_id, chosen) values ('${U[admin]}', 'it-15', true, 'adm-1', 'A');" >/dev/null
+eq  "staff answers are left out"                              "24" "$(as admin "select users from admin_item_analysis() where question_id = 'it-15';")"
+eq  "unless asked for"                                        "25" "$(as admin "select users from admin_item_analysis(false, true) where question_id = 'it-15';")"
+eq  "changing the difficulty label keeps a reviewed question live" "reviewed,3" "$(as admin "update questions set difficulty = 3 where id = 'it-15' returning status||','||difficulty; commit;" | head -1)"
+eq  "changing a label or topic does not count as a rewrite"   "0" "$(as admin "update questions set topic = 'New topic' where id = 'it-15'; select count(*) from question_revisions where question_id = 'it-15'; commit;")"
+eq  "rewriting the stem records how the old wording did"       "24,15,admin@x" "$(as admin "update questions set stem = 'a harder stem' where id = 'it-15'; select first_n||','||first_correct||','||revised_by from question_revisions where question_id = 'it-15'; commit;")"
+eq  "and marks when the wording changed"                      "true" "$(root "select (revised_at is not null)::text from questions where id = 'it-15';")"
+eq  "counting only answers since the rewrite starts from none" "0,24" "$(as admin "select (select first_n from admin_item_analysis(true) where question_id = 'it-15')||','||(select first_n from admin_item_analysis(false) where question_id = 'it-15');")"
+root "insert into attempts (user_id, question_id, ok, client_id, chosen) values ('00000000-0000-0000-0004-000000000003', 'it-15', false, 'ia-after', 'B');" >/dev/null
+eq  "a new answer to the new wording is counted on its own"    "1,0" "$(as admin "select first_n||','||first_correct from admin_item_analysis(true) where question_id = 'it-15';")"
+eq  "a rewrite by the upload tool is recorded too"             "1,0,upload tool" "$(root "update questions set explanation = 'a new explanation' where id = 'it-15'; select first_n||','||first_correct||','||revised_by from question_revisions where question_id = 'it-15' order by id desc limit 1;" | tail -1)"
+eq  "so the history has two rows"                             "2" "$(as admin "select count(*) from question_revisions where question_id = 'it-15';")"
+eq  "a member cannot read the rewrite history"                "0" "$(as a "select count(*) from question_revisions;")"
+eq  "or write to it"                                          "yes" "$(as a "insert into question_revisions (question_id) values ('it-15');" 2>&1 | grep -q 'permission denied' && echo yes)"
+eq  "an editor cannot edit it by hand either"                 "yes" "$(as admin "update question_revisions set first_n = 99;" 2>&1 | grep -q 'permission denied' && echo yes)"
+eq  "deleting a question removes its history"                 "0" "$(root "delete from questions where id = 'it-15'; select count(*) from question_revisions where question_id = 'it-15';")"
 echo; echo "$PASS passed, $FAIL failed"; [[ $FAIL -eq 0 ]]

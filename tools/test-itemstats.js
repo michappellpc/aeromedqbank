@@ -1,0 +1,61 @@
+#!/usr/bin/env node
+// Tests for the item-analysis logic (js/itemstats.js):  node tools/test-itemstats.js
+const S = require('../js/itemstats.js');
+let pass = 0, fail = 0;
+const t = (name, cond, extra = '') => { cond ? pass++ : fail++; console.log(`  ${cond ? 'pass' : 'FAIL'}  ${name}${cond ? '' : '   ' + extra}`); };
+const mk = (id, diff, answer = 'A') => ({ id, subject: 'S', topic: 'T', difficulty: diff, status: 'reviewed', answer, stem: 'stem ' + id, explanation: 'why', options: [{ id: 'A', text: 'right' }, { id: 'B', text: 'wrong b' }, { id: 'C', text: 'wrong c' }, { id: 'D', text: 'wrong d' }] });
+const row = (id, n, c, disc, picks, extra = {}) => ({ question_id: id, attempts: n, users: n, first_n: n, first_correct: c, disc, picks, last_at: null, revised_at: null, ...extra });
+
+console.log('One question');
+let a = S.analyze(row('q1', 40, 36, 0.3, { A: 36, B: 2, C: 1, D: 1 }), mk('q1', 2));
+t('percent, band and gap to its label', a.pct === 90 && a.band === 1 && a.gap === 11 && a.suggested === 1, JSON.stringify([a.pct, a.band, a.gap]));
+t('too easy, label does not match', a.flags.includes('tooeasy') && a.flags.includes('mislabeled'), a.flags.join());
+t('choices that are almost never picked are noted', a.dead.join() === 'C,D' && a.flags.includes('deadopt'), a.dead.join());
+a = S.analyze(row('q2', 40, 8, 0.25, { A: 8, B: 20, C: 6, D: 6 }), mk('q2', 2));
+t('a wrong choice picked more than the right one asks for a check of the key', a.flags.includes('miskey') && a.topWrong.id === 'B' && a.topWrong.share === 50, a.flags.join());
+t('very hard is flagged and the label gap is negative', a.flags.includes('toohard') && a.gap === -35 && a.band === 3, JSON.stringify([a.gap, a.band]));
+a = S.analyze(row('q3', 50, 30, -0.2, { A: 30, B: 10, C: 5, D: 5 }), mk('q3', 2));
+t('stronger members doing worse is flagged', a.flags.includes('negdisc'));
+a = S.analyze(row('q4', 50, 30, 0.05, { A: 30, B: 10, C: 5, D: 5 }), mk('q4', 2));
+t('almost no separation is flagged as weak', a.flags.includes('lowdisc') && !a.flags.includes('negdisc'));
+a = S.analyze(row('q5', 12, 6, null, { A: 6, B: 6 }), mk('q5', 2));
+t('too few first tries is not judged', !a.enough && a.pct === 50 && a.band === null && a.gap === null && a.flags.join() === 'fewdata', a.flags.join());
+t('no data at all is handled', S.analyze(row('q6', 0, 0, null, {}), mk('q6', 2)).pct === null);
+a = S.analyze(row('q7', 40, 24, 0.4, { A: 24, B: 6, C: 5, D: 5 }), mk('q7', 2));
+t('a question inside its band has no gap and no flags', a.pct === 60 && a.gap === 0 && a.flags.length === 0, a.flags.join());
+t('the long-answer check is passed in', S.analyze(row('q8', 40, 24, 0.4, { A: 24, B: 6, C: 5, D: 5 }), mk('q8', 2), { lengthTell: () => true }).flags.includes('longans'));
+t('the bands can be changed', S.analyze(row('q9', 40, 24, 0.4, { A: 24, B: 6, C: 5, D: 5 }), mk('q9', 2), { bands: { 1: [70, 100], 2: [40, 59], 3: [0, 39] } }).gap === 1);
+t('the most worrying questions score highest', S.analyze(row('x', 40, 8, 0.25, { A: 8, B: 20, C: 6, D: 6 }), mk('x', 2)).attention > S.analyze(row('y', 40, 24, 0.4, { A: 24, B: 6, C: 5, D: 5 }), mk('y', 2)).attention);
+
+console.log('The whole bank');
+const items = [['a', 1, 95], ['b', 1, 85], ['c', 2, 90], ['d', 2, 60], ['e', 3, 30], ['f', 3, 50]].map(([id, d, p]) => S.analyze(row(id, 50, Math.round(p / 2), 0.3, { A: 1 }), mk(id, d)));
+items.push(S.analyze(row('g', 5, 3, null, {}), mk('g', 2)));
+const sm = S.summarize(items);
+t('only questions with enough answers are judged', sm.judged === 6 && sm.total === 7 && sm.few === 1);
+t('the average and the answer-weighted average', sm.mean === 68.7 && sm.weighted === 68.7, JSON.stringify([sm.mean, sm.weighted]));
+t('average by label, with how many sit in their band', sm.byLabel[0].avg === 91 && sm.byLabel[0].inBand === 2 && sm.byLabel[1].avg === 75 && sm.byLabel[1].inBand === 1 && sm.byLabel[2].avg === 40 && sm.byLabel[2].inBand === 2, JSON.stringify(sm.byLabel));
+t('the histogram counts every judged question once', sm.hist.reduce((x, h) => x + h.count, 0) === 6 && sm.hist[9].count === 2 && sm.hist[3].count === 1);
+t('counts of too easy, too hard and mislabelled', sm.tooEasy === 2 && sm.tooHard === 1 && sm.mislabeled === 1, JSON.stringify([sm.tooEasy, sm.tooHard, sm.mislabeled]));
+t('by subject', sm.bySubject.length === 1 && sm.bySubject[0].avg === 69);
+t('empty is fine', S.summarize([]).mean === null && S.summarize([]).judged === 0);
+
+console.log('Reaching a target average');
+let plan = S.shiftPlan(items, 60);
+t('a bank that is too easy: the easiest are rewritten first', plan.direction === 'harder' && plan.ids[0] === 'a' && plan.k >= 1, JSON.stringify(plan));
+t('and the plan reaches the target', plan.reached && plan.to <= 60.5, JSON.stringify(plan));
+plan = S.shiftPlan(items, 75);
+t('a bank that is too hard: the hardest are rewritten first', plan.direction === 'easier' && plan.ids[0] === 'e' && plan.reached, JSON.stringify(plan));
+t('already at the target means nothing to do', S.shiftPlan(items, 68.5).direction === 'none');
+t('no judged questions gives no plan', S.shiftPlan([], 60) === null);
+t('archived questions are left out of the plan', (() => { const z = items.map(i => i.id === 'a' ? { ...i, archived: true } : i); return !S.shiftPlan(z, 60).ids.includes('a'); })());
+
+console.log('Request for an AI rewrite and the export');
+const sel = items.slice(0, 2), prompt = S.rewritePrompt(sel, 'harder', { target: 65 });
+t('the request says which way and the target', /HARDER/.test(prompt) && /about 65%/.test(prompt) && /2 board-prep questions/.test(prompt));
+t('it carries each question\'s numbers', /- a: 96% correct on the first try \(50 members\)/.test(prompt) && /labelled Easy/.test(prompt));
+t('it carries the questions as JSON marked draft', (() => { const j = JSON.parse(prompt.slice(prompt.indexOf('The questions:') + 15)); return j.length === 2 && j[0].id === 'a' && j[0].status === 'draft' && Array.isArray(j[0].options); })());
+t('the easier request differs', /EASIER/.test(S.rewritePrompt(sel, 'easier')) && /clearer and more direct/.test(S.rewritePrompt(sel, 'easier')));
+const csv = S.csv(items);
+t('the CSV has a header and a row per question', csv.split('\r\n').length === 8 && /^﻿id,subject,topic,label,first_try_percent/.test(csv.split('\r\n')[0]));
+t('the CSV names flags in words', /Too easy/.test(csv) && !/fewdata/.test(csv));
+console.log(`\n${pass} passed, ${fail} failed`); process.exit(fail ? 1 : 0);
