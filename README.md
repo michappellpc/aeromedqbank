@@ -41,6 +41,19 @@ The home screen has an **Exam countdown** card: the member adds their exam date 
 ## Quieting the ram during tests
 The question screen has a **Hide ram** button (and **Show ram** to bring it back), so the talking ram is not a distraction mid-test. It only affects tests: the dashboard and results keep the ram. The same choice is in Settings ("Show the ram while I take a test"), is saved to the account and follows the member between devices. Turning the mascot off entirely in Settings still removes it everywhere.
 
+## Admin > Difficulty (tuning the average)
+
+For tuning how hard the bank is. Difficulty is the share of members who get a question right on their **first try** (repeat tries are recall, not difficulty), over active members only (admins, reviewers and faculty are left out unless you tick the box, because they test questions rather than study them). Each question shows its first-try percent, its **separation** (how much better the top 27% of members do than the bottom 27%: 1 is perfect, near 0 tells you little, below 0 means the key may be wrong), and which choices members pick.
+
+- **Headlines:** the average first-try percent against your target, a histogram of where the questions sit, the average by label (Easy, Medium, Hard) against the band each is meant to mean (adjustable), and the average by subject.
+- **Reaching your target:** how many questions to rewrite, easiest first when the average is too high and hardest first when it is too low, and a button to select them.
+- **Flags:** too easy, too hard, label does not match, weak separator, check the answer (a wrong choice is picked more than the right one, or stronger members do worse), unused choice, long answer, few answers.
+- **Filter and sort** by search, subject, label, flag, live or draft, enough answers, a percent range, and 11 sort orders (needs attention, easiest, hardest, furthest off its label, best or weakest separation, most or fewest answers, recently rewritten).
+- **Actions on a selection:** Copy rewrite request (harder or easier; puts the questions, their numbers and the rules for a good rewrite on the clipboard to paste into a chat, then bring the rewrites back with Import from a chat), Set label from data (keeps live questions live), Mark draft, Archive, Copy IDs, CSV.
+- **Did the rewrite work?** Each time a question's wording changes (editor, import or upload tool) the database records how the old wording had done and the date. Switch Count to "Only answers since it was last rewritten" to see the new wording on its own, and open Details for the history.
+
+Changing only the difficulty label no longer sends a live question back to draft. Run the latest `supabase/schema.sql` to switch this on.
+
 ## Program insights (faculty)
 
 On the Program page, **Open insights** shows how the residents do as a group: the topics they are weakest in, ranked by how far under 70% the program is, how far behind all members, how many residents struggle and how many answers back it up; the lessons that would help most for each weak topic (matched on the topic's name and the wording of its questions, with "No lesson yet" when nothing covers it); the questions the program misses most with the wrong answer picked most; a weekly trend; and residents who may need a check-in (quiet for two weeks, or under half right over 20 or more answers). There is a time range (all time, 90, 30 or 14 days), a CSV download and a print view. Admins see the same through View as faculty.

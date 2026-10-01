@@ -159,6 +159,20 @@ alter table public.profiles add column if not exists program_id text references 
 alter table public.profiles add column if not exists program_status text check (program_status in ('pending', 'approved'));
 alter table public.questions add column if not exists archived boolean not null default false;
 alter table public.questions add column if not exists updated_by text;
+-- When the wording (stem, choices, answer, explanation or picture) last changed. Null = never rewritten. Lets the admin tables count only answers to the current wording.
+alter table public.questions add column if not exists revised_at timestamptz;
+
+-- One row each time a question's wording changes: how members had done on the old wording (first try per member), so a rewrite can be judged.
+create table if not exists public.question_revisions (
+  id            bigint generated always as identity primary key,
+  question_id   text not null references public.questions (id) on delete cascade,
+  revised_at    timestamptz not null default now(),
+  revised_by    text,
+  era_start     timestamptz,                -- the previous wording dated from here (null = from the beginning)
+  first_n       int not null default 0,     -- members who had answered the old wording, counting each member's first try
+  first_correct int not null default 0
+);
+create index if not exists question_revisions_q on public.question_revisions (question_id, revised_at desc);
 
 -- ------------------------------------------------------------ question feedback (the in-app inbox)
 -- Members send a short message about a question. Admins and reviewers read it in Admin > Inbox. Only admins see who sent it.
@@ -342,6 +356,7 @@ alter table public.lessons         enable row level security;
 alter table public.flashcards      enable row level security;
 alter table public.card_reviews    enable row level security;
 alter table public.highlights      enable row level security;
+alter table public.question_revisions enable row level security;
 alter table public.my_cards        enable row level security;
 alter table public.programs        enable row level security;
 alter table public.attempts        enable row level security;
@@ -363,6 +378,7 @@ drop policy if exists cards_read         on public.flashcards;
 drop policy if exists cards_edit         on public.flashcards;
 drop policy if exists card_reviews_own   on public.card_reviews;
 drop policy if exists highlights_own     on public.highlights;
+drop policy if exists revisions_read     on public.question_revisions;
 drop policy if exists my_cards_own       on public.my_cards;
 drop policy if exists attempts_read      on public.attempts;
 drop policy if exists attempts_insert    on public.attempts;
@@ -382,6 +398,7 @@ create policy lessons_edit    on public.lessons        for all    to authenticat
 create policy cards_read      on public.flashcards     for select to authenticated using (public.is_active() and not archived and status = 'reviewed');
 create policy cards_edit      on public.flashcards     for all    to authenticated using (public.can_edit()) with check (public.can_edit());
 create policy card_reviews_own on public.card_reviews  for all    to authenticated using (user_id = auth.uid() and public.is_active()) with check (user_id = auth.uid() and public.is_active());
+create policy revisions_read   on public.question_revisions for select to authenticated using (public.can_edit());
 create policy highlights_own   on public.highlights    for all to authenticated using (user_id = auth.uid() and public.is_active()) with check (user_id = auth.uid() and public.is_active());
 create policy my_cards_own     on public.my_cards      for all to authenticated using (user_id = auth.uid() and public.is_active()) with check (user_id = auth.uid() and public.is_active());
 create policy attempts_read   on public.attempts       for select to authenticated using (user_id = auth.uid() and public.is_active());
@@ -402,6 +419,7 @@ grant select, insert, update, delete on public.lessons        to authenticated;
 grant select, insert, update, delete on public.flashcards     to authenticated;
 grant select, insert, update, delete on public.card_reviews   to authenticated;
 grant select, insert, update, delete on public.highlights     to authenticated;
+grant select                         on public.question_revisions to authenticated;
 grant select, insert, update, delete on public.my_cards       to authenticated;
 grant select, insert, update, delete on public.programs       to authenticated;
 grant select, insert                 on public.feedback       to authenticated;
@@ -434,6 +452,16 @@ $$
 declare who text;
 begin
   new.updated_at := now();
+  if tg_op = 'UPDATE' and (new.stem, new.options, new.answer, new.explanation, new.option_notes, new.image)
+       is distinct from (old.stem, old.options, old.answer, old.explanation, old.option_notes, old.image) then
+    -- the wording changed: remember how it had been doing, and start counting afresh for the new wording
+    new.revised_at := now();
+    insert into public.question_revisions (question_id, revised_by, era_start, first_n, first_correct)
+      select old.id, coalesce((select email from public.profiles where id = auth.uid()), 'upload tool'), old.revised_at, count(*), count(*) filter (where f.ok)
+      from (select distinct on (a.user_id) a.ok from public.attempts a join public.profiles p on p.id = a.user_id
+            where a.question_id = old.id and p.role = 'member' and (old.revised_at is null or a.at >= old.revised_at)
+            order by a.user_id, a.at, a.id) f;
+  end if;
   if auth.uid() is null then                       -- the upload tool (service key)
     if new.updated_by is null then new.updated_by := 'upload tool'; end if;
     return new;
@@ -441,9 +469,9 @@ begin
   select email into who from public.profiles where id = auth.uid();
   new.updated_by := who;
   if tg_op = 'UPDATE' and old.status = 'reviewed' and new.status = 'reviewed'
-     and (new.stem, new.options, new.answer, new.explanation, new.option_notes, new.refs, new.image, new.image_alt, new.subject, new.boards, new.topic, new.difficulty)
-         is distinct from (old.stem, old.options, old.answer, old.explanation, old.option_notes, old.refs, old.image, old.image_alt, old.subject, old.boards, old.topic, old.difficulty)
-  then new.status := 'draft'; end if;
+     and (new.stem, new.options, new.answer, new.explanation, new.option_notes, new.refs, new.image, new.image_alt, new.subject, new.boards, new.topic)
+         is distinct from (old.stem, old.options, old.answer, old.explanation, old.option_notes, old.refs, old.image, old.image_alt, old.subject, old.boards, old.topic)
+  then new.status := 'draft'; end if;      -- (the difficulty label is advice, not wording, so changing it keeps a question live)
   if new.status <> 'reviewed' then new.reviewed_by := null;
   elsif tg_op = 'INSERT' or old.status <> 'reviewed' then new.reviewed_by := who;      -- whoever marks it reviewed
   else new.reviewed_by := old.reviewed_by; end if;                                      -- nobody can rewrite it later
@@ -580,6 +608,46 @@ begin
            case when count(a.id) = 0 then null else round(100.0 * count(a.id) filter (where a.ok) / count(a.id), 1) end
     from public.questions q left join public.attempts a on a.question_id = q.id
     group by q.id order by q.id;
+end $$;
+
+-- Item analysis for the admin Difficulty tab. One row per question. Each member's FIRST try is what counts for difficulty (repeat tries are
+-- recall, not difficulty). disc is how well the question separates strong from weak members: the share of the top 27% (by first-try accuracy on
+-- everything, members with at least 20 answers) who got it right minus the share of the bottom 27%; null until at least 5 members sit in each
+-- group. picks is how many first tries chose each option. since_edit counts only answers given since the wording last changed. Staff
+-- accounts (admins, reviewers) and faculty are left out unless include_staff, because they test questions rather than study them.
+drop function if exists public.admin_item_analysis(boolean, boolean);
+create function public.admin_item_analysis(since_edit boolean default false, include_staff boolean default false)
+  returns table (question_id text, attempts bigint, users bigint, first_n bigint, first_correct bigint, disc numeric, picks jsonb, last_at timestamptz, revised_at timestamptz)
+  language plpgsql stable security definer set search_path = public as
+$$
+begin
+  if not public.can_edit() then raise exception 'editors only'; end if;
+  return query
+  with base as (
+    select a.id, a.user_id, a.question_id, a.ok, a.chosen, a.at
+    from public.attempts a
+    join public.questions q on q.id = a.question_id
+    join public.profiles p on p.id = a.user_id
+    where p.active and (coalesce(include_staff, false) or p.role = 'member')
+      and (not coalesce(since_edit, false) or q.revised_at is null or a.at >= q.revised_at)),
+  first as (select distinct on (b.user_id, b.question_id) b.user_id, b.question_id, b.ok, b.chosen from base b order by b.user_id, b.question_id, b.at, b.id),
+  skill as (select f.user_id, avg(f.ok::int) as acc from first f group by f.user_id having count(*) >= 20),
+  ranked as (select s.user_id, percent_rank() over (order by s.acc) as pr from skill s),
+  grp as (
+    select f.question_id,
+           count(*) filter (where r.pr >= 0.73) as hi_n, avg(f.ok::int) filter (where r.pr >= 0.73) as hi,
+           count(*) filter (where r.pr <= 0.27) as lo_n, avg(f.ok::int) filter (where r.pr <= 0.27) as lo
+    from first f join ranked r on r.user_id = f.user_id group by f.question_id),
+  tot as (select b.question_id, count(*) as n, count(distinct b.user_id) as u, max(b.at) as last_at from base b group by b.question_id),
+  fst as (select f.question_id, count(*) as n, count(*) filter (where f.ok) as c from first f group by f.question_id),
+  pk as (select z.question_id, jsonb_object_agg(z.chosen, z.n) as picks from (select f.question_id, f.chosen, count(*) as n from first f where f.chosen is not null group by 1, 2) z group by z.question_id)
+  select q.id, coalesce(t.n, 0), coalesce(t.u, 0), coalesce(f.n, 0), coalesce(f.c, 0),
+         case when g.hi_n >= 5 and g.lo_n >= 5 then round((g.hi - g.lo)::numeric, 2) end,
+         coalesce(k.picks, '{}'::jsonb), t.last_at, q.revised_at
+  from public.questions q
+  left join tot t on t.question_id = q.id left join fst f on f.question_id = q.id
+  left join grp g on g.question_id = q.id left join pk k on k.question_id = q.id
+  order by q.id;
 end $$;
 
 -- ------------------------------------------------------------ programs: residents and faculty
@@ -1056,7 +1124,7 @@ create trigger questions_options_changed after update of options on public.quest
 revoke execute on all functions in schema public from public, anon;
 grant execute on function public.is_active(), public.is_admin(), public.can_edit(), public.has_plan(text) to authenticated;
 grant execute on function public.my_progress(), public.touch_seen(), public.reset_my_progress() to authenticated;
-grant execute on function public.admin_member_summary(), public.admin_question_stats() to authenticated;
+grant execute on function public.admin_member_summary(), public.admin_question_stats(), public.admin_item_analysis(boolean, boolean) to authenticated;
 grant execute on function public.signup_open() to anon, authenticated;
 grant execute on function public.feedback_inbox(), public.feedback_unread_count() to authenticated;
 grant execute on function public.feedback_set(bigint, text, text) to authenticated;

@@ -21,6 +21,8 @@ jobs:
         run: node tools/test-hl.js
       - name: Program insights tests
         run: node tools/test-insights.js
+      - name: Item analysis tests
+        run: node tools/test-itemstats.js
       - name: Test the related-lesson matching
         run: node tools/test-related.js
       - name: Test the lesson rules and sample lessons
