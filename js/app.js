@@ -263,6 +263,26 @@ function focusAreas() {
   return `<div class="card" id="focus"><h2>Focus areas</h2>${body}</div>`;
 }
 
+// ---------- charts (plain SVG, no library) ----------
+const scoreColor = p => p >= 80 ? 'var(--good)' : p >= 60 ? 'var(--gold)' : 'var(--bad)';
+function ring(p, size = 132) {                       // score ring: the number is always printed in the middle, so colour is never the only signal
+  const r = 52, C = 2 * Math.PI * r;
+  return `<svg class="ring" width="${size}" height="${size}" viewBox="0 0 120 120" role="img" aria-label="Score ${p} percent"><circle cx="60" cy="60" r="${r}" fill="none" stroke="var(--line)" stroke-width="12"/>
+    <circle cx="60" cy="60" r="${r}" fill="none" stroke="${scoreColor(p)}" stroke-width="12" stroke-linecap="round" stroke-dasharray="${(C * p / 100).toFixed(1)} ${C.toFixed(1)}" transform="rotate(-90 60 60)"/>
+    <text x="60" y="68" text-anchor="middle" class="ringtxt">${p}%</text></svg>`;
+}
+function trendChart(tests) {                          // last scores, oldest to newest
+  const list = tests.slice(0, 12).reverse().map(t => pct(t.correct, t.total));
+  if (list.length < 2) return '';
+  const W = 640, H = 150, L = 52, R = 12, T = 16, B = 16, x = i => L + (W - L - R) * i / (list.length - 1), y = v => T + (H - T - B) * (1 - v / 100);
+  const pts = list.map((v, i) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ');
+  return `<svg class="trend" viewBox="0 0 ${W} ${H}" role="img" aria-label="Your last ${list.length} test scores, oldest to newest: ${list.join('%, ')}%">
+    ${[0, 50, 100].map(v => `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" class="grid0"/><text x="${L - 5}" y="${y(v) + 4}" text-anchor="end" class="axis">${v}</text>`).join('')}
+    <polyline points="${pts}" fill="none" stroke="var(--link)" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+    ${list.map((v, i) => `<circle cx="${x(i).toFixed(1)}" cy="${y(v).toFixed(1)}" r="${i === list.length - 1 ? 4.5 : 3}" fill="var(--card)" stroke="var(--link)" stroke-width="2"/>`).join('')}
+    <text x="${x(list.length - 1).toFixed(1)}" y="${(y(list[list.length - 1]) - 9).toFixed(1)}" text-anchor="end" class="axis lastv">${list[list.length - 1]}%</text></svg>`;
+}
+
 function dashboard() {
   pageTitle('Dashboard');
   const st = Store.data.q, all = Object.values(st);
@@ -287,7 +307,7 @@ function dashboard() {
   ${Mascot.scene(bank.config.coverImage)}
   ${bank.unreadReplies ? `<div class="card notice">You have <b>${bank.unreadReplies} new repl${bank.unreadReplies === 1 ? 'y' : 'ies'}</b> from the team. <a href="#/support">Open Support</a></div>` : ''}
   ${bank.program && bank.program.status === 'pending' ? `<div class="card notice">Waiting for faculty at <b>${esc(bank.program.name)}</b> to approve you. Until they do, they cannot see any of your progress. <a href="#/settings">Settings</a></div>` : ''}
-  ${active ? `<div class="card row spread"><div><b>Test in progress</b> <span class="muted">(${Object.keys(active.answers).length}/${active.qids.length} answered)</span></div><a class="btn primary" href="#/test">Resume</a></div>` : ''}
+  ${active ? `<div class="card continue"><div class="contbody"><b>Continue where you left off</b><span class="muted">${esc(active.mode === 'timed' ? 'Timed' : 'Tutor')} test, question ${Math.min(active.idx + 1, active.qids.length)} of ${active.qids.length} (${Object.keys(active.answers).length} answered)</span><div class="bar" aria-hidden="true"><i style="width:${pct(Object.keys(active.answers).length, active.qids.length)}%"></i></div></div><a class="btn primary" href="#/test">Resume</a></div>` : ''}
   ${examCard(bank.questions.length - used)}
   <div class="grid">
     <div class="card stat"><b>${bank.questions.length}</b><span class="muted">Questions in bank</span></div>
@@ -295,6 +315,7 @@ function dashboard() {
     <div class="card stat"><b>${c + w ? pct(c, c + w) + '%' : '—'}</b><span class="muted">Overall correct</span></div>
     ${all.some(s => s.flagged) ? `<a class="card stat statlink" href="#/flagged"><b>${all.filter(s => s.flagged).length}</b><span class="muted">Flagged &rsaquo; review</span></a>` : `<div class="card stat"><b>0</b><span class="muted">Flagged</span></div>`}
   </div>
+  ${Store.data.tests.length >= 2 ? `<div class="card"><h2>Recent scores</h2>${trendChart(Store.data.tests)}</div>` : ''}
   ${cardsNotice()}
   ${focusAreas()}
   <div class="card"><h2>Performance by subject</h2>
@@ -583,12 +604,18 @@ function results(id) {
   const by = {};
   r.qids.forEach(qid => { const q = bank.byId[qid]; if (!q) return; const o = by[q.subject] ||= { c: 0, n: 0 }; o.n++; if (r.answers[qid] === q.answer) o.c++; });
   const p = pct(r.correct, r.total);
-  $app.innerHTML = `<div class="card"><div id="res-mascot"></div><h2>Results</h2>
-    <div class="grid"><div class="stat"><b>${pct(r.correct, r.total)}%</b><span class="muted">${r.correct}/${r.total} correct</span></div>
+  const subj = Object.entries(by).sort((a, b) => pct(a[1].c, a[1].n) - pct(b[1].c, b[1].n) || a[0].localeCompare(b[0]));
+  const weak = subj.find(([, o]) => o.c < o.n);
+  const prev = Store.data.tests.filter(x => x.id !== r.id && x.date < r.date).slice(0, 5), prevAvg = prev.length ? Math.round(prev.reduce((a, x) => a + pct(x.correct, x.total), 0) / prev.length) : null;
+  $app.innerHTML = `<div class="card resulthead"><div id="res-mascot"></div><h2>Results</h2><div class="resrow">
+    ${ring(p)}
+    <div class="grid resstats"><div class="stat"><b>${r.correct}/${r.total}</b><span class="muted">Correct</span></div>
     <div class="stat"><b>${fmt(r.seconds)}</b><span class="muted">Time</span></div>
-    <div class="stat"><b>${r.mode}</b><span class="muted">Mode</span></div>${groupTile(r)}</div></div>
-    <div class="card"><h3>By subject</h3><table><tbody>${Object.entries(by).map(([s, o]) => `<tr><td>${esc(s)}</td><td>${o.c}/${o.n}</td><td>${pct(o.c, o.n)}%</td></tr>`).join('')}</tbody></table></div>
-    <a class="btn primary" href="#/review/${r.id}">Review questions</a> <a class="btn" href="#/create">New test</a>`;
+    <div class="stat"><b>${esc(r.mode)}</b><span class="muted">Mode</span></div>
+    ${prevAvg !== null ? `<div class="stat"><b>${p - prevAvg >= 0 ? '+' : '−'}${Math.abs(p - prevAvg)}</b><span class="muted">Points vs your last ${prev.length} test${prev.length === 1 ? '' : 's'}</span></div>` : ''}
+    ${groupTile(r)}</div></div></div>
+    <div class="card"><h3>By subject <span class="muted small">weakest first</span></h3><ul class="subjbars">${subj.map(([sname, o]) => { const v = pct(o.c, o.n); return `<li><div class="sbtop"><span>${esc(sname)}</span><span class="muted">${o.c}/${o.n} &middot; <b>${v}%</b></span></div><div class="bar sbar" aria-hidden="true"><i style="width:${v}%;background:${scoreColor(v)}"></i></div></li>`; }).join('')}</ul></div>
+    <div class="row"><a class="btn primary" href="#/review/${r.id}">Review questions</a>${weak ? `<a class="btn" href="#/create/${encodeURIComponent(weak[0])}">Practice ${esc(weak[0])}</a>` : ''}<a class="btn" href="#/create">New test</a></div>`;
   if (mascotOn()) Mascot.mount(document.getElementById('res-mascot'), p >= 80 ? { pose: 'cheer', msg: 'Outstanding. That is board-ready work.' } : p >= 60 ? { pose: 'happy', msg: 'Solid work. Review the misses and go again.' } : { pose: 'sad', msg: 'Rough exercise. Review makes it stick, and I\'m with you for the next rep.' });
 }
 
