@@ -11,7 +11,7 @@ const man = JSON.parse(fs.readFileSync(path.join(dir, 'manifest.json'), 'utf8'))
 let errors = 0, warns = 0, n = 0;
 const err = (id, m) => { errors++; console.error(`ERROR [${id}] ${m}`); };
 const warn = (id, m) => { warns++; console.warn(`warn  [${id}] ${m}`); };
-let lengthTells = 0; const ids = new Set(), stems = new Map(), tally = { status: {}, board: {}, subject: {}, answers: {} };
+let lengthTells = 0; const allQs = []; const ids = new Set(), stems = new Map(), tally = { status: {}, board: {}, subject: {}, answers: {} };
 const bump = (o, k) => o[k] = (o[k] || 0) + 1;
 
 // data files on disk that the manifest does not list would silently never load
@@ -36,12 +36,17 @@ for (const f of man.files) {
     };
     for (const r of QValidate.check(q, { boards: man.boards, subjects: man.subjects, ids, stems, label: id, imageFiles })) (r.level === 'error' ? err : warn)(id, r.msg);
     if (QValidate.lengthTell(q)) lengthTells++;
+    allQs.push(q);
     if (Array.isArray(q.options) && q.options.length >= 2 && q.options.length <= 6 && q.options.some(o => o.id === q.answer)) bump(tally.answers, q.answer);
     bump(tally.status, q.status || '?'); (q.boards || []).forEach(b => bump(tally.board, b)); bump(tally.subject, q.subject);
   }
 }
 const tot = Object.values(tally.answers).reduce((a, b) => a + b, 0);
 if (tot >= 20) for (const [k, v] of Object.entries(tally.answers)) if (v / tot > .4) warn('bank', `answer "${k}" is correct for ${Math.round(100 * v / tot)}% of questions; shuffle the key`);
+for (let i = 0; i < allQs.length; i++) {      // near-copies inside the bank
+  const near = QValidate.nearDuplicate(allQs[i].stem, allQs.slice(0, i));
+  if (near) warn(allQs[i].id || '?', `reads like a reworded copy of ${near.id} (${Math.round(near.score * 100)}% the same wording)`);
+}
 if (summary) tally.longAnswer = lengthTells;
 if (summary) console.log('\n' + JSON.stringify(tally, null, 2));
 console.log(`${n} questions checked: ${errors} error(s), ${warns} warning(s).`);

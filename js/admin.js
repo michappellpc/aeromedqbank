@@ -296,6 +296,7 @@ const Admin = (() => {
       const raw = read(), { clean } = QValidate.normalize(raw), stems = new Map(c.list.filter(x => x.id !== clean.id).map(x => [QValidate.norm(x.stem), x.id]));
       const res = QValidate.check(clean, { boards: bank.boards, subjects: bank.subjects, ids: new Set(), stems, label: clean.id, recordsReviewer: true });
       const errors = res.filter(r => r.level === 'error').map(r => r.msg), warns = res.filter(r => r.level === 'warn').map(r => r.msg);
+      if (!errors.length && clean.stem) { const near = QValidate.nearDuplicate(clean.stem, c.list.filter(x => x.id !== clean.id)); if (near) warns.push(`reads like a reworded copy of ${near.id} (${Math.round(near.score * 100)}% the same wording)`); }
       if (isNew && clean.id && c.list.some(x => x.id === clean.id)) errors.unshift(`the id "${clean.id}" is already used by another question`);
       if (errors.length) return showErrors(errors.map(m => m.charAt(0).toUpperCase() + m.slice(1)));
       const btn = el('save'); btn.disabled = true;
@@ -348,19 +349,29 @@ const Admin = (() => {
       if (parsed.error) { out.innerHTML = `<div class="card"><div class="errbox" role="alert"><b>${esc(parsed.error)}</b></div></div>`; return; }
       if (parsed.list.length > 500) { out.innerHTML = '<div class="card"><div class="errbox" role="alert">That is more than 500 questions. Please import in smaller batches.</div></div>'; return; }
       const keep = el('keep').checked, ids = new Set(), stems = new Map(c.list.map(q => [QValidate.norm(q.stem), q.id]));
+      const earlier = [];   // questions already seen in this paste, so two near-copies inside one batch are caught too
       const items = parsed.list.map((raw, i) => {
         const { clean, dropped } = QValidate.normalize(raw);
         if (!keep) { clean.status = 'draft'; delete clean.reviewedBy; delete clean.archived; } else if (!clean.status) clean.status = 'draft';
         delete clean.reviewedBy;                                  // the database records reviewers itself
         const res = QValidate.check(clean, { boards: bank.boards, subjects: bank.subjects, ids, stems, label: clean.id || `item ${i + 1}`, recordsReviewer: true,
           imageFiles: img => (String(img).startsWith('private:') ? [{ level: 'warn', msg: 'has a picture; attach it on the question\'s edit page after saving' }] : []) });
-        return { i, clean, dropped, errors: res.filter(r => r.level === 'error').map(r => r.msg), warns: res.filter(r => r.level === 'warn').map(r => r.msg), replaces: clean.id ? existing.get(clean.id) : null };
+        const warns = res.filter(r => r.level === 'warn').map(r => r.msg), errs = res.filter(r => r.level === 'error').map(r => r.msg);
+        let copyOf = null;
+        if (!errs.length && clean.stem) {
+          const near = QValidate.nearDuplicate(clean.stem, c.list.filter(x => x.id !== clean.id)) || QValidate.nearDuplicate(clean.stem, earlier);
+          if (near) { copyOf = near; warns.push(`reads like a reworded copy of ${near.id} (${Math.round(near.score * 100)}% the same wording). Saving it adds a second question; if it should replace that one, give it the same id, or archive the old one afterwards`); }
+          earlier.push({ id: clean.id || `item ${i + 1}`, stem: clean.stem });
+        }
+        return { i, clean, dropped, errors: errs, warns, copyOf, replaces: clean.id ? existing.get(clean.id) : null };
       });
       const good = items.filter(x => !x.errors.length), bad = items.length - good.length, repl = good.filter(x => x.replaces), reviewedRepl = repl.filter(x => x.replaces.status === 'reviewed' && !keep);
+      const copies = good.filter(x => x.copyOf).length;
       const letters = {}; good.forEach(x => { letters[x.clean.answer] = (letters[x.clean.answer] || 0) + 1; });
       const top = Object.entries(letters).sort((a, b) => b[1] - a[1])[0], skew = good.length >= 8 && top && top[1] / good.length > 0.6;
       out.innerHTML = `<div class="card"><h3 style="margin-top:0">Check results</h3>
         <p><b>${good.length}</b> ready to save (${good.length - repl.length} new, ${repl.length} replacing existing)${bad ? `, <b>${bad}</b> need fixes and will be skipped` : ''}.${keep ? '' : ' Everything is saved as Draft, hidden from members until a reviewer marks it Reviewed.'}</p>
+        ${copies ? `<p class="notice">${copies} of these ${copies === 1 ? 'reads' : 'read'} like a reworded copy of a question you already have. Check the notes below before saving, so you do not end up with duplicates.</p>` : ''}
         ${skew ? `<p class="notice">The correct answer is ${esc(top[0])} for ${top[1]} of ${good.length} questions. Ask Claude to vary the answer key.</p>` : ''}
         <div class="scroll" role="region" tabindex="0" aria-label="Import check results"><table><caption class="sr">Result for each question</caption><thead><tr><th scope="col">Question</th><th scope="col">Result</th><th scope="col">Details</th></tr></thead><tbody>${items.map(x => `<tr>
           <td>${esc(x.clean.id || '(no id)')}<div class="muted small">${esc(x.clean.subject || '')}${x.clean.topic ? ' &middot; ' + esc(x.clean.topic) : ''}</div></td>
@@ -372,6 +383,7 @@ const Admin = (() => {
         el('go').disabled = true;
         try {
           await Cloud.saveQuestions(good.map(x => x.clean)); refresh();
+          good.forEach(x => { const i = c.list.findIndex(q => q.id === x.clean.id); const saved = { ...x.clean, status: keep ? x.clean.status : 'draft' }; if (i >= 0) c.list[i] = saved; else c.list.push(saved); existing.set(saved.id, saved); });   // so "Import more" checks against what was just saved
           out.innerHTML = `<div class="card"><p><b>Saved ${good.length} question${good.length === 1 ? '' : 's'}.</b>${bad ? ` ${bad} were skipped because they needed fixes.` : ''}</p><div class="row"><a class="btn primary" href="#/admin/questions">Go to the list</a><button id="again">Import more</button></div></div>`;
           el('paste').value = ''; el('pfile').value = ''; el('again').onclick = () => { out.innerHTML = ''; el('paste').focus(); }; toast(`Saved ${good.length} question${good.length === 1 ? '' : 's'}.`);
         } catch (e) { el('go').disabled = false; toast(e.offline ? 'No connection. Nothing was saved.' : 'Could not save: ' + e.message); }

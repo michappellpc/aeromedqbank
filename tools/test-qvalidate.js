@@ -66,4 +66,14 @@ t('a slightly longer correct answer is fine', !Q.lengthTell(withOpts(['Give oxyg
 t('ties for longest are not flagged', !Q.lengthTell(withOpts(['Give oxygen'.padEnd(45, '.'), 'Observe it'.padEnd(45, '.'), 'Wait', 'Watch'])));
 t('needs at least three choices', !Q.lengthTell(withOpts(['Start supplemental oxygen and descend to a lower altitude immediately', 'No'])));
 t('the flagged answer can be any letter', !!Q.lengthTell(withOpts(['Observe', 'Give fluids', 'Start supplemental oxygen and descend to a lower altitude immediately', 'Wait'], 'C')));
+
+console.log('Reworded copies');
+const base = 'A 34-year-old fighter pilot reports tingling in both hands and light-headedness at 25,000 feet during an altitude chamber flight. Which type of hypoxia is the most likely cause of these symptoms?';
+const bank = [{ id: 'aem-001', stem: base }, { id: 'aem-002', stem: 'A flight surgeon reviews a screening test with 90% sensitivity and 80% specificity in a population with 10% prevalence. What is the positive predictive value?' }];
+t('a lightly reworded question is flagged', (() => { const n = Q.nearDuplicate('A 34-year-old fighter pilot reports tingling in both hands and light-headedness at 25,000 feet during an altitude chamber flight. Which kind of hypoxia is the most probable cause of the symptoms?', bank); return n && n.id === 'aem-001' && n.score >= 0.6; })());
+t('the identical stem scores 1', Q.nearDuplicate(base, bank).score === 1);
+t('a different question on a nearby topic is not flagged', Q.nearDuplicate('A 41-year-old helicopter pilot develops ear pain and vertigo during rapid descent from altitude. Which structure is most likely affected by the pressure change?', bank) === null);
+t('an unrelated question is not flagged', Q.nearDuplicate('Which regulation sets the permissible exposure limit for noise in general industry workplaces?', bank) === null);
+t('it picks the closest match', Q.nearDuplicate(base + ' Assume normal oxygen saturation.', bank).id === 'aem-001');
+t('an empty list or stem is safe', Q.nearDuplicate(base, []) === null && Q.nearDuplicate('', bank) === null);
 console.log(`\n${pass} passed, ${fail} failed`); process.exit(fail ? 1 : 0);
