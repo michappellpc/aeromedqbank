@@ -326,20 +326,29 @@ function create(preSubject, preStatus) {
   pageTitle('New test');
   const boardBoxes = bank.boards.map(b => `<label class="chk"><input type="checkbox" name="board" value="${b.id}" checked> ${esc(b.name)} <span class="cnt" data-cnt="board:${b.id}"></span></label>`).join('');
   const subjects = [...new Set(Object.values(bank.subjects).flat())];
-  const subjBoxes = subjects.map(s => `<label class="chk"><input type="checkbox" name="subj" value="${esc(s)}" checked> ${esc(s)} <span class="cnt" data-cnt="subj:${esc(s)}"></span></label>`).join('');
-  $app.innerHTML = `<div class="card"><h2>New test</h2><form id="f">
-    <fieldset><legend>Mode</legend>
-      <label class="chk"><input type="radio" name="mode" value="tutor" checked> Tutor (feedback after each question)</label>
-      <label class="chk"><input type="radio" name="mode" value="timed"> Timed (feedback at the end, ~90 s/question)</label></fieldset>
-    <fieldset><legend>Board</legend>${boardBoxes}</fieldset>
-    <fieldset><legend>Subjects</legend><div class="row"><button type="button" id="all">All</button><button type="button" id="none">None</button></div>${subjBoxes}</fieldset>
-    <fieldset><legend>Question status</legend>
-      ${[['unused', 'Unused'], ['incorrect', 'Previously incorrect'], ['flagged', 'Flagged'], ['all', 'All']].map(([v, l], i) => `<label class="chk"><input type="checkbox" name="status" value="${v}" ${i == 0 ? 'checked' : ''}> ${l} <span class="cnt" data-cnt="status:${v}"></span></label>`).join('')}</fieldset>
-    <fieldset><legend>Difficulty</legend>
-      ${[['1', 'Easy'], ['2', 'Medium'], ['3', 'Hard']].map(([v, l]) => `<label class="chk"><input type="checkbox" name="diff" value="${v}" checked> ${l} <span class="cnt" data-cnt="diff:${v}"></span></label>`).join('')}
-      <p><label for="order">Order of questions</label> <select id="order" style="width:auto"><option value="random">Random</option><option value="easy">Easiest first</option><option value="hard">Hardest first</option></select></p></fieldset>
-    <p><label for="n">Number of questions</label> <input type="number" id="n" min="1" value="20"> <span class="muted" id="avail" aria-live="polite"></span></p>
-    <button class="primary" id="go">Start test</button></form></div>`;
+  const subjGroups = bank.boards.map(b => {
+    const list = (bank.subjects[b.id] || []).filter(x => subjects.includes(x));
+    return list.length ? `<details class="subjgroup" open><summary><span class="sgname">${esc(b.name)}</span> <span class="muted sgsel" data-sg="${list.map(esc).join('|')}"></span></summary><div class="subjgrid">${list.map(x => `<label class="chk"><input type="checkbox" name="subj" value="${esc(x)}" checked> ${esc(x)} <span class="cnt" data-cnt="subj:${esc(x)}"></span></label>`).join('')}</div></details>` : '';
+  }).join('');
+  const choice = (name, v, title, hint, on) => `<label class="choice"><input type="radio" name="${name}" value="${v}"${on ? ' checked' : ''}><span class="choicebody"><b>${title}</b><span class="muted small">${hint}</span></span></label>`;
+  $app.innerHTML = `<div class="pagehead"><div><h2 class="pagetitle">New test</h2><p class="muted">Choose what to practise. The summary on the right updates as you go.</p></div></div>
+  <form id="f" class="newlayout"><div class="newmain">
+    <fieldset class="card"><legend>Mode</legend><div class="choices">
+      ${choice('mode', 'tutor', 'Tutor', 'Feedback after each question', true)}${choice('mode', 'timed', 'Timed', 'Feedback at the end, about 90 s per question', false)}</div></fieldset>
+    <fieldset class="card"><legend>Board</legend><div class="chips">${boardBoxes}</div></fieldset>
+    <fieldset class="card"><legend>Subjects</legend><div class="row"><button type="button" id="all">Select all</button><button type="button" id="none">Clear</button><span class="muted small" id="subjsum" aria-live="polite"></span></div>${subjGroups}</fieldset>
+    <fieldset class="card"><legend>Question status</legend><div class="chips">
+      ${[['unused', 'Unused'], ['incorrect', 'Previously incorrect'], ['flagged', 'Flagged'], ['all', 'All']].map(([v, l], i) => `<label class="chk"><input type="checkbox" name="status" value="${v}" ${i == 0 ? 'checked' : ''}> ${l} <span class="cnt" data-cnt="status:${v}"></span></label>`).join('')}</div></fieldset>
+    <fieldset class="card"><legend>Difficulty</legend><div class="chips">
+      ${[['1', 'Easy'], ['2', 'Medium'], ['3', 'Hard']].map(([v, l]) => `<label class="chk"><input type="checkbox" name="diff" value="${v}" checked> ${l} <span class="cnt" data-cnt="diff:${v}"></span></label>`).join('')}</div></fieldset>
+    </div>
+    <aside class="card newsum" aria-label="Test summary"><h2 class="navh">Your test</h2>
+      <p class="bigcount"><span id="availn">0</span> <span class="muted">questions available</span></p>
+      <p><label for="n">Number of questions</label><input type="number" id="n" min="1" value="20"></p>
+      <div class="quick" role="group" aria-label="Quick pick the number of questions">${[10, 20, 40].map(k => `<button type="button" data-q="${k}">${k}</button>`).join('')}<button type="button" data-q="all">All</button></div>
+      <p><label for="order">Order of questions</label><select id="order"><option value="random">Random</option><option value="easy">Easiest first</option><option value="hard">Hardest first</option></select></p>
+      <p class="muted small" id="avail" aria-live="polite"></p>
+      <button class="primary wide" id="go">Start test</button></aside></form>`;
   const f = document.getElementById('f');
   if (preSubject) {                                  // arrived from a lesson: practise just that subject
     const want = decodeURIComponent(preSubject);
@@ -364,7 +373,9 @@ function create(preSubject, preStatus) {
   const pool = () => { const bs = vals('board'), ss = vals('subj'), stt = vals('status'), ds = vals('diff'); return bank.questions.filter(q => fits(q, bs, ss, stt, ds)); };
   const upd = () => {
     const p = pool().length, bs = vals('board'), ss = vals('subj'), stt = vals('status'), ds = vals('diff');
-    document.getElementById('avail').textContent = `(${p} available)`; document.getElementById('go').disabled = !p;
+    document.getElementById('avail').textContent = `${p} available`; document.getElementById('availn').textContent = p; document.getElementById('go').disabled = !p;
+    document.getElementById('subjsum').textContent = `${ss.length} of ${subjects.length} selected`;
+    f.querySelectorAll('[data-sg]').forEach(e => { const l = e.dataset.sg.split('|'); e.textContent = `${l.filter(x => ss.includes(x)).length} of ${l.length}`; });
     f.querySelectorAll('[data-cnt]').forEach(span => {
       const [kind, key] = span.dataset.cnt.split(/:(.*)/s);
       const n = bank.questions.filter(q => kind === 'board' ? q.boards.includes(key) && fits(q, null, ss, stt, ds)
@@ -375,6 +386,7 @@ function create(preSubject, preStatus) {
     });
   };
   f.addEventListener('change', upd); upd();
+  f.querySelectorAll('[data-q]').forEach(b => b.onclick = () => { const p = pool().length; document.getElementById('n').value = b.dataset.q === 'all' ? Math.max(1, p) : Math.min(+b.dataset.q, Math.max(1, p)); });
   document.getElementById('all').onclick = () => { f.querySelectorAll('[name=subj]').forEach(e => e.checked = true); upd(); };
   document.getElementById('none').onclick = () => { f.querySelectorAll('[name=subj]').forEach(e => e.checked = false); upd(); };
   f.onsubmit = e => {
@@ -428,8 +440,8 @@ function renderTest() {
       <button id="next" ${t.idx < t.qids.length - 1 ? '' : 'disabled'}>Next →</button>
       <button class="flagbtn ${st && st.flagged ? 'on' : ''}" id="flag">⚑ Flag</button>
       <button id="fbk" title="Report a problem or suggest a change to this question">✎ Feedback</button>
-      <span style="flex:1"></span>${mascotOn() ? `<button id="ram" type="button" aria-pressed="${!quizMascotOn()}" title="${quizMascotOn() ? 'Hide the ram while you take tests' : 'Show the ram again'}">${quizMascotOn() ? 'Hide ram' : 'Show ram'}</button>` : ''}<button class="danger" id="end">End test</button>
-    <div id="coach" class="coach"></div>
+      <span style="flex:1"></span><button class="danger" id="end">End test</button>
+    ${mascotOn() ? `<div id="coach" class="coach"><div id="coachm"></div><button id="ram" type="button" class="ramtog" aria-pressed="${!quizMascotOn()}" title="${quizMascotOn() ? 'Hide the ram while you take tests' : 'Show the ram again'}">${quizMascotOn() ? 'Hide ram' : 'Show ram'}</button></div>` : ''}
     </div>
     <details style="margin-top:12px"><summary>Notes</summary><textarea id="note" rows="3" placeholder="Your notes on this question">${esc(st ? st.note : '')}</textarea></details>
   </div></div>
@@ -444,7 +456,7 @@ function renderTest() {
       ? { pose: streak >= 3 ? 'cheer' : 'happy', msg: streak >= 3 ? `${streak} in a row. Nicely done.` : Mascot.pick(L.correct, id) }
       : { pose: 'sad', msg: Mascot.pick(L.wrong, id) })
     : { pose: 'idle', msg: tutor || t.idx === 0 ? Mascot.pick(L.tips, id + t.idx) : '' };
-  if (quizMascotOn()) Mascot.mount(document.getElementById('coach'), { ...coach, msg: coach.msg && esc(coach.msg).replace(/&#39;/g, "'"), scale: 3 });
+  if (quizMascotOn()) Mascot.mount(document.getElementById('coachm'), { ...coach, msg: coach.msg && esc(coach.msg).replace(/&#39;/g, "'"), scale: 3 });
   bindTest(t, q); hydrateImages();
   if (refocus) { const f = $app.querySelector(`[data-opt="${refocus}"]`); if (f) f.focus(); refocus = null; }
 }

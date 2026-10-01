@@ -41,6 +41,10 @@ The home screen has an **Exam countdown** card: the member adds their exam date 
 ## Quieting the ram during tests
 The question screen has a **Hide ram** button (and **Show ram** to bring it back), so the talking ram is not a distraction mid-test. It only affects tests: the dashboard and results keep the ram. The same choice is in Settings ("Show the ram while I take a test"), is saved to the account and follows the member between devices. Turning the mascot off entirely in Settings still removes it everywhere.
 
+## The New Test screen
+
+Mode is two choice cards (Tutor, Timed). Boards, question status and difficulty are chips with live counts. Subjects are grouped by board in collapsible sections, each showing how many of its subjects are selected. The summary panel beside the form (below it on phones) shows how many questions are available, the number to use, quick picks of 10, 20, 40 or All, and the order. Nothing here touches the database.
+
 ## The question screen
 The tools above the question are compact (Highlight, Strike out, Clear marks) with **A-** and **A+** to change the text size (saved to the account). Submit, Previous, Next, Flag, Feedback, Hide ram and End test sit in a bar that stays at the bottom while you scroll. **End test** says how many questions are unanswered and flagged before it ends. After answering, the explanation is laid out in sections: a Correct or Incorrect banner, how other members did, the Explanation, a row for each answer choice's note, a lesson card and references. The Review page uses the same layout.
 
