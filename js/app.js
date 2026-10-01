@@ -188,7 +188,7 @@ async function route() {
   if (p === '' || p === 'results') refreshPeer();
   const t = Store.data.active;
   if (p === 'test' && t) return renderTest();
-  ({ '': dashboard, create: () => create(arg, arg2), flagged: flaggedPage, program: () => Program.facultyPage(arg), cards: () => Cards.page(arg, arg2), support: () => Support.page(arg), lessons: () => (arg ? Lessons.subjectPage(arg) : Lessons.indexPage()), lesson: () => Lessons.lessonPage(arg), history: historyPage, settings, admin: () => Admin.route(arg, arg2, arg3), results: () => results(arg), review: () => review(arg), highlights: Notebook.page, question: () => Notebook.question(arg) }[p] || dashboard)();
+  ({ '': dashboard, create: () => create(arg, arg2), flagged: flaggedPage, program: () => (arg === 'insights' ? Program.insightsPage('') : arg2 === 'insights' ? Program.insightsPage(arg) : Program.facultyPage(arg)), cards: () => Cards.page(arg, arg2), support: () => Support.page(arg), lessons: () => (arg ? Lessons.subjectPage(arg) : Lessons.indexPage()), lesson: () => Lessons.lessonPage(arg), history: historyPage, settings, admin: () => Admin.route(arg, arg2, arg3), results: () => results(arg), review: () => review(arg), highlights: Notebook.page, question: () => Notebook.question(arg) }[p] || dashboard)();
   window.scrollTo(0, 0);
 }
 window.addEventListener('hashchange', route);
@@ -283,12 +283,12 @@ function ring(p, size = 132) {                       // score ring: the number i
     <circle cx="60" cy="60" r="${r}" fill="none" stroke="${scoreColor(p)}" stroke-width="12" stroke-linecap="round" stroke-dasharray="${(C * p / 100).toFixed(1)} ${C.toFixed(1)}" transform="rotate(-90 60 60)"/>
     <text x="60" y="68" text-anchor="middle" class="ringtxt">${p}%</text></svg>`;
 }
-function trendChart(tests) {                          // last scores, oldest to newest
+function trendChart(tests, what = 'test scores') {                          // last scores, oldest to newest
   const list = tests.slice(0, 12).reverse().map(t => pct(t.correct, t.total));
   if (list.length < 2) return '';
   const W = 640, H = 150, L = 52, R = 12, T = 16, B = 16, x = i => L + (W - L - R) * i / (list.length - 1), y = v => T + (H - T - B) * (1 - v / 100);
   const pts = list.map((v, i) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ');
-  return `<svg class="trend" viewBox="0 0 ${W} ${H}" role="img" aria-label="Your last ${list.length} test scores, oldest to newest: ${list.join('%, ')}%">
+  return `<svg class="trend" viewBox="0 0 ${W} ${H}" role="img" aria-label="Last ${list.length} ${what}, oldest to newest: ${list.join('%, ')}%">
     ${[0, 50, 100].map(v => `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" class="grid0"/><text x="${L - 5}" y="${y(v) + 4}" text-anchor="end" class="axis">${v}</text>`).join('')}
     <polyline points="${pts}" fill="none" stroke="var(--link)" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
     ${list.map((v, i) => `<circle cx="${x(i).toFixed(1)}" cy="${y(v).toFixed(1)}" r="${i === list.length - 1 ? 4.5 : 3}" fill="var(--card)" stroke="var(--link)" stroke-width="2"/>`).join('')}
