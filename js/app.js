@@ -23,7 +23,6 @@ function refreshPeer() { if (!Cloud.enabled || Date.now() - peerAt < 300000) ret
 const mascotOn = () => Store.data.settings.mascot !== false;
 const quizMascotOn = () => mascotOn() && Store.data.settings.quizMascot !== false;   // the ram while taking a test can be turned off on its own
 const showDrafts = () => Store.data.settings.showDrafts !== false;
-const notesText = q => q.optionNotes ? '\n\nAnswer choices:\n' + q.options.filter(o => q.optionNotes[o.id]).map(o => esc(`${o.id}. ${q.optionNotes[o.id]}`)).join('\n') : '';
 // A link under an explanation to the most relevant lesson, or to the subject's lessons if none fits well.
 const relatedCache = new Map();
 function relatedLesson(q) {
@@ -31,9 +30,20 @@ function relatedLesson(q) {
   if (!relatedCache.has(key)) relatedCache.set(key, lessons.length ? Related.match(q, lessons) : null);
   const m = relatedCache.get(key);
   const tab = '<span class="sr"> (opens in a new tab)</span>';
-  if (m) return `\n\n<span class="relatedlesson">Study this: <a href="#/lesson/${encodeURIComponent(m.lesson.id)}" target="_blank" rel="noopener">${esc(m.lesson.title)}${tab}</a></span>`;
-  if (lessons.some(l => l.subject === q.subject)) return `\n\n<span class="relatedlesson">More to read: <a href="#/lessons/${encodeURIComponent(q.subject)}" target="_blank" rel="noopener">Lessons on ${esc(q.subject)}${tab}</a></span>`;
+  if (m) return `<p class="relatedcard"><span class="relatedlesson">Study this: <a href="#/lesson/${encodeURIComponent(m.lesson.id)}" target="_blank" rel="noopener">${esc(m.lesson.title)}${tab}</a></span></p>`;
+  if (lessons.some(l => l.subject === q.subject)) return `<p class="relatedcard"><span class="relatedlesson">More to read: <a href="#/lessons/${encodeURIComponent(q.subject)}" target="_blank" rel="noopener">Lessons on ${esc(q.subject)}${tab}</a></span></p>`;
   return '';
+}
+// The explanation shown under a question: the verdict, how other members did, the reasoning, why each choice is right or wrong, a lesson link and references.
+function explanationHtml(q, sel, verdict) {
+  const notes = q.optionNotes ? q.options.filter(o => q.optionNotes[o.id]) : [], right = sel === q.answer;
+  return `<div class="expl">
+    ${verdict ? `<div class="verdict ${right ? 'ok' : 'no'}"><span aria-hidden="true">${right ? '✔' : '✖'}</span> <b>${right ? 'Correct' : 'Incorrect'}.</b> Correct answer: ${esc(q.answer)}.</div>` : ''}
+    ${peerLine(q.id) ? `<p class="peerrow">${peerLine(q.id)}</p>` : ''}
+    <h2 class="exph">Explanation</h2><p class="exptext">${esc(q.explanation)}</p>
+    ${notes.length ? `<h2 class="exph">Answer choices</h2><ul class="optnotes">${notes.map(o => `<li class="${o.id === q.answer ? 'right' : ''}"><b>${esc(o.id)}.</b> ${esc(q.optionNotes[o.id])}</li>`).join('')}</ul>` : ''}
+    ${relatedLesson(q)}
+    ${q.references && q.references.length ? `<p class="muted small refs">References: ${q.references.map(esc).join('; ')}</p>` : ''}</div>`;
 }
 const csvCell = v => { let s = String(v ?? ''); if (/^[=+\-@\t\r]/.test(s)) s = "'" + s; return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
 const privImg = q => (q.image && q.image.startsWith('private:') ? q.image.slice(8) : null);
@@ -386,6 +396,7 @@ function renderTest() {
   pageTitle(`Question ${t.idx + 1} of ${t.qids.length}`);
   const tutor = t.mode === 'tutor', shown = tutor && t.revealed[id], sel = t.answers[id], st = Store.qstat(id), locked0 = !!shown;
   const struck = t.struck[id] || [];
+  const txt = Math.min(3, Math.max(0, +Store.data.settings.quizText || 0));
   clearInterval(tick);   // every redraw starts a new clock; without this the old ones keep running and fight over the display
   if (t.limit) startTimer(t);
   else { $timer.hidden = false; tick = setInterval(() => $timer.textContent = fmt(elapsed(t)), 500); $timer.textContent = fmt(elapsed(t)); }
@@ -397,10 +408,10 @@ function renderTest() {
     return `<button class="${c}" data-go="${i}">${i + 1}</button>`;
   }).join('');
   $app.innerHTML = `<div class="testlayout"><div class="testmain">
-  <div class="card qcard">
+  <div class="card qcard" data-size="${txt}">
     <div class="row spread"><div>${q.boards.map(b => `<span class="tag">${esc(boardName(b))}</span>`).join('')}${isDraft(q) ? '<span class="tag draft" title="Not yet reviewed by a physician">Draft</span>' : ''}<span class="muted">${esc(q.subject)}${q.topic && shown ? ' · ' + esc(q.topic) : ''}</span></div>
       <div class="muted">Question ${t.idx + 1} of ${t.qids.length}</div></div>
-    <div class="marktools" role="group" aria-label="Mark up the question"><button type="button" id="mk-h" title="Highlight the selected text">Highlight</button><button type="button" id="mk-s" title="Strike out the selected text">Strike out</button><button type="button" id="mk-c" title="Remove your highlights and strikes from this question">Clear marks</button><span class="muted small">Select text in the question, then choose a tool. Marks last for this test.</span></div>
+    <div class="marktools" role="group" aria-label="Mark up the question"><button type="button" id="mk-h" title="Highlight the selected text">Highlight</button><button type="button" id="mk-s" title="Strike out the selected text">Strike out</button><button type="button" id="mk-c" title="Remove your highlights and strikes from this question">Clear marks</button><span class="sr">Select text in the question, then choose a tool. Marks last for this test.</span><span style="flex:1"></span><span class="textsize" role="group" aria-label="Text size"><button type="button" id="tx-minus" aria-label="Smaller text" title="Smaller text"${txt <= 0 ? ' disabled' : ''}>A&minus;</button><button type="button" id="tx-plus" aria-label="Larger text" title="Larger text"${txt >= 3 ? ' disabled' : ''}>A+</button></span></div>
     <p class="stem" id="stem">${markup(q.stem, t.marks && t.marks[id])}</p>
     ${imgTag(q)}
     <div id="opts" role="radiogroup" aria-label="Answer choices">${q.options.map(o => {
@@ -410,20 +421,21 @@ function renderTest() {
       return `<div class="optrow"><div class="${c}" data-opt="${esc(o.id)}" role="radio" aria-checked="${sel === o.id}" ${locked0 ? 'aria-disabled="true"' : ''} tabindex="${tab}"><span class="k">${esc(o.id)}.</span><span class="txt">${esc(o.text)}${struck.includes(o.id) ? '<span class="sr"> (crossed out)</span>' : ''}${shown && o.id === q.answer ? '<span class="sr"> (correct answer)</span>' : ''}</span>${shown ? pickBadge(id, o.id) : ''}</div>
         ${shown ? '' : `<button class="x" data-strike="${esc(o.id)}" aria-pressed="${struck.includes(o.id)}" aria-label="Cross out choice ${esc(o.id)}" title="Cross out">✕</button>`}</div>`;
     }).join('')}</div>
-    ${shown ? `<div class="expl"><b>${sel === q.answer ? 'Correct' : 'Incorrect'}.</b> Correct answer: ${esc(q.answer)}.${peerLine(id) ? '\n' + peerLine(id) : ''}\n\n${esc(q.explanation)}${notesText(q)}${relatedLesson(q)}${q.references && q.references.length ? `\n\n<span class="muted">References: ${q.references.map(esc).join('; ')}</span>` : ''}</div>` : ''}
-    <div class="row" style="margin-top:14px">
+    ${shown ? explanationHtml(q, sel, true) : ''}
+    <div class="row actionbar">
       ${tutor && !shown ? `<button class="primary" id="submit" ${sel ? '' : 'disabled'}>Submit</button>` : ''}
       <button id="prev" ${t.idx ? '' : 'disabled'}>← Prev</button>
       <button id="next" ${t.idx < t.qids.length - 1 ? '' : 'disabled'}>Next →</button>
       <button class="flagbtn ${st && st.flagged ? 'on' : ''}" id="flag">⚑ Flag</button>
       <button id="fbk" title="Report a problem or suggest a change to this question">✎ Feedback</button>
       <span style="flex:1"></span>${mascotOn() ? `<button id="ram" type="button" aria-pressed="${!quizMascotOn()}" title="${quizMascotOn() ? 'Hide the ram while you take tests' : 'Show the ram again'}">${quizMascotOn() ? 'Hide ram' : 'Show ram'}</button>` : ''}<button class="danger" id="end">End test</button>
+    <div id="coach" class="coach"></div>
     </div>
     <details style="margin-top:12px"><summary>Notes</summary><textarea id="note" rows="3" placeholder="Your notes on this question">${esc(st ? st.note : '')}</textarea></details>
   </div></div>
   <aside class="card navcard" aria-label="Question navigator"><h2 class="navh">Questions</h2><div class="nav">${nav}</div>
     <p class="muted small legend">${t.qids.filter(x => t.answers[x]).length} of ${t.qids.length} answered</p><div class="bar" aria-hidden="true"><i style="width:${Math.round(100 * t.qids.filter(x => t.answers[x]).length / t.qids.length)}%"></i></div></aside></div>
-  <div style="height:110px"></div><div id="coach" class="coach"></div>`;
+  <div style="height:24px"></div>`;
   let streak = 0;
   if (shown && sel === q.answer) for (let i = t.idx; i >= 0 && t.revealed[t.qids[i]] && t.answers[t.qids[i]] === bank.byId[t.qids[i]].answer; i--) streak++;
   const L = Mascot.lines;
@@ -507,8 +519,14 @@ function bindTest(t, q) {
   on('prev', () => go(t.idx - 1)); on('next', () => go(t.idx + 1));
   on('submit', submit); on('flag', () => { Store.toggleFlag(id); renderTest(); });
   on('fbk', () => feedbackDialog(q));
+  const size = d => { Store.data.settings.quizText = Math.min(3, Math.max(0, (+Store.data.settings.quizText || 0) + d)); Store.touchSettings(); renderTest(); const a = document.getElementById(d > 0 ? 'tx-plus' : 'tx-minus'); if (a && !a.disabled) a.focus(); };
+  on('tx-minus', () => size(-1)); on('tx-plus', () => size(1));
   on('ram', () => { Store.data.settings.quizMascot = !quizMascotOn(); Store.touchSettings(); renderTest(); const again = document.getElementById('ram'); if (again) again.focus(); });
-  on('end', async () => { if (await ask('End this test now? Unanswered questions count as incorrect.', 'End test')) finish(); });
+  on('end', async () => {
+    const left = t.qids.filter(x => !t.answers[x]).length, flagged = t.qids.filter(x => (Store.qstat(x) || {}).flagged).length;
+    const msg = `End this test now? ${left ? `${left} question${left === 1 ? ' is' : 's are'} unanswered and will count as incorrect.` : 'You have answered every question.'}${flagged ? ` ${flagged} ${flagged === 1 ? 'is' : 'are'} flagged for review.` : ''}`;
+    if (await ask(msg, 'End test')) finish();
+  });
   document.getElementById('note').onchange = e => Store.setNote(id, e.target.value);
   function submit() {
     if (!t.answers[id] || t.revealed[id]) return;
@@ -572,7 +590,7 @@ function review(id) {
       <p class="stem">${esc(q.stem)}</p>
       ${q.options.map(o => `<div class="opt ${o.id === q.answer ? 'correct' : o.id === mine ? 'wrong' : ''}"><span class="k">${esc(o.id)}.</span><span class="txt">${esc(o.text)}</span>${pickBadge(qid, o.id)}</div>`).join('')}
       ${imgTag(q)}
-      <div class="expl">${peerLine(qid) ? peerLine(qid) + '\n\n' : ''}${esc(q.explanation)}${notesText(q)}${relatedLesson(q)}</div>
+      ${explanationHtml(q, mine, false)}
       <div class="row" style="margin-top:10px"><button data-fb="${esc(qid)}" title="Report a problem or suggest a change to this question">✎ Feedback</button></div></div>`;
   }).join('');
   bindZoom();
