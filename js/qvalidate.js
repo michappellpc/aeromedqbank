@@ -19,6 +19,21 @@
     return { ratio: Math.round(10 * L / mean) / 10 };
   }
 
+  // Reworded copies: two stems that share most of their words are probably the same question written twice, even when the ids differ.
+  const wcache = new WeakMap();   // each question's words, worked out once (kept off the question itself so it never ends up in a backup)
+  const stemWords = s => new Set(String(s || '').toLowerCase().split(/[^a-z0-9]+/).filter(w => w.length >= 3));
+  const similarity = (a, b) => { if (!a.size || !b.size) return 0; let n = 0; for (const w of a) if (b.has(w)) n++; return n / (a.size + b.size - n); };
+  // nearDuplicate(stem, list, { min }) -> { id, score } for the closest question in list (each { id, stem }) at or above min, else null
+  function nearDuplicate(stem, list, opts = {}) {
+    const min = opts.min ?? 0.6, a = stemWords(stem); let best = null;
+    for (const q of list || []) {
+      let w = wcache.get(q); if (!w) wcache.set(q, w = stemWords(q.stem));
+      const s = similarity(a, w);
+      if (s >= min && (!best || s > best.score)) best = { id: q.id, score: Math.round(s * 100) / 100 };
+    }
+    return best;
+  }
+
   // check(q, ctx) -> [{ level: 'error' | 'warn', msg }]
   //   ctx.boards   [{id}]           known boards
   //   ctx.subjects { boardId: [] }  subjects per board
@@ -137,5 +152,5 @@
     return { list: v };
   }
 
-  return { check, normalize, parsePaste, lengthTell, FIELDS, STATUS, TIERS, norm };
+  return { check, normalize, parsePaste, lengthTell, nearDuplicate, FIELDS, STATUS, TIERS, norm };
 });

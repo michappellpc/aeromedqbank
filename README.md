@@ -29,6 +29,9 @@ In **Settings > Your name**, a resident can add a name. Faculty of their program
 ## Difficulty on the New Test screen
 The New Test screen has Easy, Medium and Hard checkboxes (all on by default), each showing how many questions apply given the other choices, and an **Order of questions** choice: Random, Easiest first or Hardest first. Ordering applies after the questions are picked, so a 20-question test of mixed levels can run easy to hard.
 
+## Reworded copies
+When you import or save a question, the app compares its wording with every question you already have. If it shares most of its words with one that has a different id, it adds a note ("reads like a reworded copy of ..."), because saving it would add a second question rather than replace the first. Use the same id to replace, or archive the old one. `node tools/validate.js` also reports near-copies inside the bank. It is a warning only; nothing is blocked.
+
 ## Sorting the question list
 Admin > Questions has a Difficulty column, a **Difficulty** filter (Easy, Medium, Hard) and a **Sort by** choice (ID, Hardest first, Easiest first).
 
