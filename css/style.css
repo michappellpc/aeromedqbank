@@ -375,3 +375,42 @@ details.thread{margin:8px 0 12px}details.thread summary{cursor:pointer;color:var
 .rate .rate-1{border-color:var(--bad);color:var(--bad)}
 @media (max-width:480px){.rate{grid-template-columns:repeat(2,1fr)}}
 a.btn[aria-disabled=true]{opacity:1;color:var(--muted);pointer-events:none}
+
+/* ---- Look and feel: type, depth and the two colour themes ---- */
+@font-face{font-family:'Inter';font-style:normal;font-weight:400;font-display:swap;src:url(../fonts/inter-latin-400-normal.woff2) format('woff2')}
+@font-face{font-family:'Inter';font-style:normal;font-weight:500;font-display:swap;src:url(../fonts/inter-latin-500-normal.woff2) format('woff2')}
+@font-face{font-family:'Inter';font-style:normal;font-weight:600;font-display:swap;src:url(../fonts/inter-latin-600-normal.woff2) format('woff2')}
+@font-face{font-family:'Inter';font-style:normal;font-weight:700;font-display:swap;src:url(../fonts/inter-latin-700-normal.woff2) format('woff2')}
+:root{--font:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;--r:12px;--shadow:0 1px 2px rgba(20,28,15,.06),0 4px 14px rgba(20,28,15,.05);--btn-h:color-mix(in srgb,var(--btn) 82%,#000);--link:#37560f}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){--link:#b7c86e;--shadow:0 1px 2px rgba(0,0,0,.35),0 4px 14px rgba(0,0,0,.25)}}
+:root[data-theme=dark]{--link:#b7c86e;--shadow:0 1px 2px rgba(0,0,0,.35),0 4px 14px rgba(0,0,0,.25)}
+body{font-family:var(--font);font-size:16px;line-height:1.55;letter-spacing:-.003em;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+h1,h2,h3,h4{letter-spacing:-.015em;font-weight:650}
+a{color:var(--link)}
+.card{border-radius:var(--r);box-shadow:var(--shadow)}
+button,.btn,select,input[type=text],input[type=search],input[type=number],textarea{font-family:var(--font)}
+button,.btn{border-radius:9px;font-weight:500;transition:background .15s,border-color .15s,box-shadow .15s}
+button:hover:not(:disabled),.btn:hover{border-color:var(--accent)}
+button.primary:hover:not(:disabled),.btn.primary:hover{background:var(--btn-h);border-color:var(--btn-h)}
+.stat b{font-family:var(--font);font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+
+/* Navy and teal: the same layout in cooler colours. Chosen in Settings (data-palette on <html>). */
+:root[data-palette=navy]{--bg:#eef2f6;--card:#fff;--fg:#14202e;--muted:#566678;--line:#d3dce6;--accent:#1f4f7a;--btn:#1f4f7a;--gold:#0f8b8d;--hdr:#0f2236;--hdrfg:#7fd1d3;--good:#2a7f62;--bad:#b3372c;--warn:#a8680f;--sel:#dde9f4;--link:#1b5a91;--shadow:0 1px 2px rgba(15,34,54,.07),0 4px 14px rgba(15,34,54,.06)}
+@media (prefers-color-scheme:dark){:root[data-palette=navy]:not([data-theme=light]){--bg:#0b141e;--card:#121f2d;--fg:#e4edf5;--muted:#92a4b6;--line:#243649;--accent:#7fb6e6;--btn:#2f6aa3;--gold:#4cc3c5;--hdr:#070e15;--hdrfg:#7fd1d3;--good:#58b894;--bad:#ee7b6e;--warn:#e3a95a;--sel:#18293a;--link:#7fb6e6}}
+:root[data-palette=navy][data-theme=dark]{--bg:#0b141e;--card:#121f2d;--fg:#e4edf5;--muted:#92a4b6;--line:#243649;--accent:#7fb6e6;--btn:#2f6aa3;--gold:#4cc3c5;--hdr:#070e15;--hdrfg:#7fd1d3;--good:#58b894;--bad:#ee7b6e;--warn:#e3a95a;--sel:#18293a;--link:#7fb6e6}
+
+.cover-art .hill1{fill:var(--hill1,#5d6f3b)}.cover-art .hill2{fill:var(--hill2,#3f4f25)}.cover-art .hill3{fill:var(--hill3,#2b3719)}
+:root[data-palette=navy]{--hill1:#3b6f86;--hill2:#2a5568;--hill3:#1b3a4b}
+@media (prefers-color-scheme:dark){:root[data-palette=navy]:not([data-theme=light]){--hill1:#2a5a70;--hill2:#1e4455;--hill3:#122c3a}}
+:root[data-palette=navy][data-theme=dark]{--hill1:#2a5a70;--hill2:#1e4455;--hill3:#122c3a}
+:root[data-palette=navy] .notice{border-left-color:var(--gold)}
+
+:root[data-palette=navy] .opt.correct .k{background:#1f6b53;border-color:#1f6b53;color:#fff}
+
+.examcard{display:flex;align-items:center;gap:18px;flex-wrap:wrap}
+.examcard h2{margin:0 0 4px;font-size:1.1rem}.examcard p{margin:2px 0}
+.examnum{display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:92px;padding:8px 14px;border-radius:12px;background:var(--hdr);color:var(--hdrfg)}
+.examnum b{font-size:2.2rem;line-height:1.05;font-variant-numeric:tabular-nums}.examnum span{font-size:.8rem;letter-spacing:.08em;text-transform:uppercase}
+.examinfo{flex:1;min-width:220px}
+
+.scroll{position:relative}   /* keeps visually hidden text inside a scrolling table from widening the page */
