@@ -9,7 +9,7 @@ const Lessons = (() => {
   const CALLOUT = { pearl: 'Clinical pearl', key: 'Key point', warning: 'Watch out', tip: 'Test-taking tip' };
   let uid = 0;
 
-  // ---------------------------------------------------------------- charts (inline SVG, colours from CSS variables)
+  // ---------------------------------------------------------------- charts (inline SVG, colors from CSS variables)
   function niceStep(raw) { const p = Math.pow(10, Math.floor(Math.log10(raw))), f = raw / p; return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 2.5 ? 2.5 : f <= 5 ? 5 : 10) * p; }
   function chart(b) {
     const id = 'lc' + (++uid), W = 640, H = 340, cats = b.categories, S = b.series, n = cats.length, rot = n > 8 || cats.some(c => c.length > 12);
@@ -121,11 +121,15 @@ const Lessons = (() => {
     const heads = l.blocks.map((b, i) => b.type === 'heading' ? [i, b.text] : null).filter(Boolean);
     $app.innerHTML = `<p class="crumb"><a href="#/lessons">Lessons</a> &rsaquo; <a href="#/lessons/${enc(l.subject)}">${X(l.subject)}</a></p>
       <div class="lessonlayout${heads.length > 1 ? '' : ' solo'}"><article class="card lesson"><header><h2 class="pagetitle">${X(l.title)}</h2><p>${tags(l)}<span class="tag hltag" data-hll="${X(l.id)}"${Store.hlIn('l', l.id).length ? '' : ' hidden'}>&#9998; Highlighted</span></p>${l.summary ? `<p class="lsummary">${inline(l.summary)}</p>` : ''}</header>
+        <div class="marktools lessontools" role="group" aria-label="Highlight this lesson"><button type="button" id="lh-hl" title="Highlight the selected text">Highlight</button><button type="button" id="lh-clear" title="Remove every highlight you made in this lesson">Clear highlights</button><a class="btn" href="#/highlights">My highlights</a><span class="muted small">Select text, then press Highlight. It is saved to your account.</span></div>
         <div class="lbody">${render(l.blocks)}</div>
         ${l.references && l.references.length ? `<section class="lrefs"><h3 class="lh">References</h3><ul>${l.references.map(r => `<li>${X(r)}</li>`).join('')}</ul></section>` : ''}
         <footer class="row spread lfoot"><span>${prev ? `<a class="btn" href="#/lesson/${enc(prev.id)}">&larr; ${X(prev.title)}</a>` : ''}</span><a class="btn primary" href="#/create/${enc(l.subject)}">Practice questions in this subject</a><span>${next ? `<a class="btn" href="#/lesson/${enc(next.id)}">${X(next.title)} &rarr;</a>` : ''}</span></footer></article>
         ${heads.length > 1 ? `<nav class="card ltoc" aria-label="In this lesson"><h2 class="navh">In this lesson</h2><ul>${heads.map(([i, t]) => `<li><button type="button" class="linkish" data-jump="lh-${i}">${X(t)}</button></li>`).join('')}</ul></nav>` : ''}</div>`;
     $app.querySelectorAll('[data-jump]').forEach(b => b.onclick = () => { const el = document.getElementById(b.dataset.jump); if (el) { el.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' }); el.setAttribute('tabindex', '-1'); el.focus({ preventScroll: true }); } });
+    const hb = document.getElementById('lh-hl'); hb.onmousedown = e => e.preventDefault(); hb.onclick = () => HlUI.highlightSelected();
+    const cb = document.getElementById('lh-clear'); cb.onmousedown = e => e.preventDefault();
+    cb.onclick = async () => { if (!Store.hlIn('l', l.id).length) return toast('There are no highlights in this lesson.'); if (await ask('Remove every highlight you made in this lesson?', 'Remove')) { HlUI.clearIn($app, 'l', l.id); toast('Highlights removed.'); } };
     done(); HlUI.tagLesson($app.querySelector('article.lesson .lbody'), l.id); HlUI.paintAll($app, true);
   }
   return { render, chart, inline, indexPage, subjectPage, lessonPage, done, tags, sorted };

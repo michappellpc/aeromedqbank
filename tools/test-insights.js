@@ -11,7 +11,7 @@ t('a topic at or above the target is not a weakness', !w.some(x => x.topic === '
 t('the worst topic comes first', w[0].topic === 'Lead' && w[1].topic === 'Bias', w.map(x => x.topic).join());
 t('percent, the group figure and the gap are worked out', w[0].pct === 30 && w[0].group === 65 && w[0].behind === 35, JSON.stringify(w[0]));
 t('the label names subject and topic', w[0].label === 'Tox: Lead');
-t('a subject-only topic is labelled by the subject', I.weak([row('Epi', '', 40, 10, 4, 3, 100, 70)])[0].label === 'Epi');
+t('a subject-only topic is labeled by the subject', I.weak([row('Epi', '', 40, 10, 4, 3, 100, 70)])[0].label === 'Epi');
 const few = I.weak([row('A', 'Small', 10, 2, 3, 2, 100, 70), row('A', 'Big', 120, 24, 3, 2, 100, 70)]);
 t('a few answers count for less than many at the same percent', few[0].topic === 'Big', few.map(x => x.topic).join());
 const wide = I.weak([row('A', 'Narrow', 40, 16, 6, 1, 100, 60), row('A', 'Wide', 40, 16, 6, 5, 100, 60)]);

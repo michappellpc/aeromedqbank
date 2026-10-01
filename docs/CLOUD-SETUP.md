@@ -86,7 +86,7 @@ This is what makes the links in password-reset and invite emails open your app.
 
 1. Left menu: **Project Settings** > **API** (or **API Keys**).
 2. Copy the **Project URL**.
-3. Copy the key labelled **anon / public** (or **Publishable key**).
+3. Copy the key labeled **anon / public** (or **Publishable key**).
 4. In the repo, open `data/config.json` and fill in:
 
 ```json
