@@ -746,7 +746,8 @@ async function startSession() {
   const navAdmin = document.getElementById('nav-admin');
   navAdmin.hidden = !Admin.isEditor(); navAdmin.innerHTML = (profile.role === 'admin' ? 'Admin' : 'Questions') + '<span id="inbox-badge" class="navbadge" hidden></span>'; navAdmin.setAttribute('href', profile.role === 'admin' ? '#/admin' : '#/admin/questions');
   refreshInboxBadge(); badgeTimer = setInterval(refreshInboxBadge, 120000);
-  location.hash = '#/'; route();
+  if (!/^#\/[a-z]/.test(location.hash)) location.hash = '#/';       // keep a deep link (a lesson opened in a new tab, a bookmark, a reload); anything else, such as a reset-password token, goes to the dashboard
+  route();
   Cloud.sync().then(() => { applyTheme(); if (ready && !Store.data.active && /^#?\/?$/.test(location.hash)) route(); }).catch(() => {});
 }
 
@@ -759,6 +760,7 @@ async function signOut() {
   await Cloud.signOut(); Store.forget(key);
   ['attempt', 'mark', 'test', 'settings', 'reset', 'card'].forEach(k => delete Store.hooks[k]);
   profile = null; ready = false; Store.use('qbank.v1.signedout'); applyTheme();
+  location.hash = '#/';                       // signing out clears the page, so the next person starts at the dashboard
   renderSignIn();
 }
 
