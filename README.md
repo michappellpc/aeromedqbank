@@ -41,6 +41,10 @@ The home screen has an **Exam countdown** card: the member adds their exam date 
 ## Quieting the ram during tests
 The question screen has a **Hide ram** button (and **Show ram** to bring it back), so the talking ram is not a distraction mid-test. It only affects tests: the dashboard and results keep the ram. The same choice is in Settings ("Show the ram while I take a test"), is saved to the account and follows the member between devices. Turning the mascot off entirely in Settings still removes it everywhere.
 
+## Results and dashboard charts
+
+The Results screen shows a score ring (the number is printed inside, so colour is never the only signal), time, mode and the change against your previous tests, then a bar for each subject with the weakest first. A button starts a practice test on the weakest subject. The dashboard has a "Continue where you left off" card for an unfinished test and a Recent scores line chart once you have two finished tests. The charts are plain SVG with a text label for screen readers; there is no chart library and no database change.
+
 ## The New Test screen
 
 Mode is two choice cards (Tutor, Timed). Boards, question status and difficulty are chips with live counts. Subjects are grouped by board in collapsible sections, each showing how many of its subjects are selected. The summary panel beside the form (below it on phones) shows how many questions are available, the number to use, quick picks of 10, 20, 40 or All, and the order. Nothing here touches the database.
