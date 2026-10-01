@@ -2,7 +2,7 @@
 // In cloud mode Cloud.js listens to Store.hooks and sends changes to the account; Store.use() switches to a per-account key.
 const Store = (() => {
   let KEY = 'qbank.v1';
-  const blank = () => ({ q: {}, tests: [], active: null, settings: { theme: 'auto' }, cards: {}, cardsMeta: { day: '', newSeen: 0 } });
+  const blank = () => ({ q: {}, tests: [], active: null, settings: { theme: 'auto' }, cards: {}, cardsMeta: { day: '', newSeen: 0 }, hl: {}, mine: {} });
   const load = () => { try { return JSON.parse(localStorage.getItem(KEY)) || blank(); } catch { return blank(); } };
   let d = load();
   const hooks = {};   // attempt(id, ok), mark(id), test(rec), settings(), reset()
@@ -24,10 +24,19 @@ const Store = (() => {
     rateCard(id, st) { (d.cards || (d.cards = {}))[id] = st; save(); fire('card', id, st); },
     newCardsSeen(day) { const m = d.cardsMeta || {}; return m.day === day ? m.newSeen || 0 : 0; },
     countNewCard(day) { const m = d.cardsMeta && d.cardsMeta.day === day ? d.cardsMeta : (d.cardsMeta = { day, newSeen: 0 }); m.newSeen = (m.newSeen || 0) + 1; save(); },
+    // highlights: hl[id] = { id, k: 'q'|'l', i: item id, f: field, a, b, t: the highlighted words }
+    hls: () => d.hl || (d.hl = {}),
+    hlIn(k, i, f) { return Object.values(d.hl || {}).filter(h => h.k === k && h.i === i && (f === undefined || h.f === f)); },
+    putHl(e) { (d.hl || (d.hl = {}))[e.id] = e; save(); fire('hl', e.id); },
+    delHl(id) { if (d.hl) delete d.hl[id]; save(); fire('hl', id); },
+    // a member's own flashcards: mine[id] = { id, front, back, sk: source kind, si: source id, at }; their schedule lives in cards['my:' + id]
+    mineMap: () => d.mine || (d.mine = {}),
+    putMine(c) { (d.mine || (d.mine = {}))[c.id] = c; save(); fire('mine', c.id); },
+    delMine(id) { if (d.mine) delete d.mine[id]; if (d.cards) delete d.cards['my:' + id]; save(); fire('mine', id); },
     addTest(rec) { d.tests.unshift(rec); save(); fire('test', rec); },
     touchSettings() { save(); fire('settings'); },
     exportJSON: () => JSON.stringify(d, null, 2),
     importJSON(t) { const o = JSON.parse(t); if (!o || typeof o !== 'object' || !o.q || !Array.isArray(o.tests)) throw new Error('Not a QBank export'); d = { ...blank(), ...o }; save(); },
-    reset() { d = blank(); save(); fire('reset'); }
+    reset() { const keep = { hl: d.hl, mine: d.mine, cards: Object.fromEntries(Object.entries(d.cards || {}).filter(([k]) => k.startsWith('my:'))) }; d = { ...blank(), ...keep }; save(); fire('reset'); }   // progress goes; highlights and your own cards stay
   };
 })();

@@ -21,7 +21,8 @@ const Cards = (() => {
     pageTitle('Flashcards');
     const all = bank.cards || [], states = Store.cardStates(), t = day(), opts = optsFor();
     if (!all.length) {
-      $app.innerHTML = `<div class="card"><h2>Flashcards</h2><p class="muted">${Cloud.enabled && bank.cardsMissing ? 'Flashcards are not switched on yet. Please check back soon.' : 'There are no flashcards yet. They will appear here as they are added.'}</p></div>`;
+      $app.innerHTML = `<div class="card"><h2>Flashcards</h2><p class="muted">${Cloud.enabled && bank.cardsMissing ? 'Flashcards are not switched on yet. Please check back soon.' : 'There are no flashcards yet. They will appear here as they are added.'}</p></div>${MyCards.section()}`;
+      MyCards.bind(indexPage);
       return;
     }
     const k = CardSched.counts(all, states, t, opts), subjects = [...new Set(all.map(c => c.subject))].sort();
@@ -33,8 +34,9 @@ const Cards = (() => {
         <div class="row"><a class="btn primary" href="#/cards/study"${k.due + k.new ? '' : ' aria-disabled="true"'}>${k.due + k.new ? `Study ${k.due + k.new} card${k.due + k.new === 1 ? '' : 's'}` : 'All done for today'}</a><a class="btn" href="#/cards/browse">Browse all cards</a></div></div></div>
       <div class="card"><h2>Decks</h2><div class="scroll" role="region" tabindex="0" aria-label="Decks table"><table><caption class="sr">Flashcard decks by subject</caption><thead><tr><th scope="col">Subject</th><th scope="col">Due</th><th scope="col">New</th><th scope="col">Cards</th><th scope="col"><span class="sr">Study</span></th></tr></thead><tbody>${rows}</tbody></table></div>
         <p class="muted small">Up to ${prefs().newPerDay} new cards a day${prefs().maxReviews ? ` and ${prefs().maxReviews} reviews per session` : ''}, so reviews never pile up.</p></div>
+      ${MyCards.section()}
       <details class="card flashset" id="flashset"><summary><b>Flashcard settings</b></summary>${settingsForm()}</details>`;
-    bindSettings();
+    bindSettings(); MyCards.bind(indexPage);
   }
 
   // ------------------------------------------------------------------ settings

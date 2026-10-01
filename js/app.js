@@ -1,6 +1,7 @@
 'use strict';
 const $app = document.getElementById('app'), $timer = document.getElementById('timer');
 let bank = { boards: [], subjects: {}, questions: [], byId: {}, config: {}, lessons: [], lessonFiles: [], cards: [], cardFiles: [], cardsMissing: false, peer: {}, choices: {}, program: null };
+MyCards.install(bank);
 const APP_VERSION = '1.3';
 let tick = null, ready = false, profile = null, refocus = null;
 
@@ -40,9 +41,10 @@ function explanationHtml(q, sel, verdict) {
   return `<div class="expl">
     ${verdict ? `<div class="verdict ${right ? 'ok' : 'no'}"><span aria-hidden="true">${right ? '✔' : '✖'}</span> <b>${right ? 'Correct' : 'Incorrect'}.</b> Correct answer: ${esc(q.answer)}.</div>` : ''}
     ${peerLine(q.id) ? `<p class="peerrow">${peerLine(q.id)}</p>` : ''}
-    <h2 class="exph">Explanation</h2><p class="exptext">${esc(q.explanation)}</p>
-    ${notes.length ? `<h2 class="exph">Answer choices</h2><ul class="optnotes">${notes.map(o => `<li class="${o.id === q.answer ? 'right' : ''}"><b>${esc(o.id)}.</b> ${esc(q.optionNotes[o.id])}</li>`).join('')}</ul>` : ''}
+    <h2 class="exph">Explanation</h2><p class="exptext" ${HlUI.attrs('q', q.id, 'expl')}>${esc(q.explanation)}</p>
+    ${notes.length ? `<h2 class="exph">Answer choices</h2><ul class="optnotes">${notes.map(o => `<li class="${o.id === q.answer ? 'right' : ''}"><b>${esc(o.id)}.</b> <span ${HlUI.attrs('q', q.id, 'note-' + o.id)}>${esc(q.optionNotes[o.id])}</span></li>`).join('')}</ul>` : ''}
     ${relatedLesson(q)}
+    <p class="mkrow"><button type="button" data-mkcard="${esc(q.id)}" title="Turn this question into a flashcard of your own">&#9998; Make flashcard</button></p>
     ${q.references && q.references.length ? `<p class="muted small refs">References: ${q.references.map(esc).join('; ')}</p>` : ''}</div>`;
 }
 const csvCell = v => { let s = String(v ?? ''); if (/^[=+\-@\t\r]/.test(s)) s = "'" + s; return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
@@ -181,12 +183,12 @@ async function route() {
     try { setQuestions(await Cloud.questions()); bank.lessons = await Cloud.lessons(); await loadCards(); } catch {}
     if (location.hash.replace(/^#\/?/, '').split('/')[0] !== p) return;   // the person moved on while it loaded
   }
-  document.querySelectorAll('nav a').forEach(l => l.classList.toggle('on', l.getAttribute('href').split('/').slice(0, 2).join('/') === '#/' + (p === 'test' ? 'create' : p === 'lesson' ? 'lessons' : p === 'results' || p === 'review' ? 'history' : p)));
+  document.querySelectorAll('nav a').forEach(l => l.classList.toggle('on', l.getAttribute('href').split('/').slice(0, 2).join('/') === '#/' + (p === 'test' ? 'create' : p === 'lesson' ? 'lessons' : p === 'results' || p === 'review' ? 'history' : p === 'question' ? 'highlights' : p)));
   document.getElementById('nav-more').classList.toggle('on', !!document.querySelector('#secgroup a.on'));
   if (p === '' || p === 'results') refreshPeer();
   const t = Store.data.active;
   if (p === 'test' && t) return renderTest();
-  ({ '': dashboard, create: () => create(arg, arg2), flagged: flaggedPage, program: () => Program.facultyPage(arg), cards: () => Cards.page(arg, arg2), support: () => Support.page(arg), lessons: () => (arg ? Lessons.subjectPage(arg) : Lessons.indexPage()), lesson: () => Lessons.lessonPage(arg), history: historyPage, settings, admin: () => Admin.route(arg, arg2, arg3), results: () => results(arg), review: () => review(arg) }[p] || dashboard)();
+  ({ '': dashboard, create: () => create(arg, arg2), flagged: flaggedPage, program: () => Program.facultyPage(arg), cards: () => Cards.page(arg, arg2), support: () => Support.page(arg), lessons: () => (arg ? Lessons.subjectPage(arg) : Lessons.indexPage()), lesson: () => Lessons.lessonPage(arg), history: historyPage, settings, admin: () => Admin.route(arg, arg2, arg3), results: () => results(arg), review: () => review(arg), highlights: Notebook.page, question: () => Notebook.question(arg) }[p] || dashboard)();
   window.scrollTo(0, 0);
 }
 window.addEventListener('hashchange', route);
@@ -448,20 +450,21 @@ function renderTest() {
     if (t.answers[qid]) c += 'ans ';
     if (tutor && t.revealed[qid]) c += t.answers[qid] === bank.byId[qid].answer ? 'ok ' : 'no ';
     const s = Store.qstat(qid); if (s && s.flagged) c += 'flag ';
-    return `<button class="${c}" data-go="${i}">${i + 1}</button>`;
+    if (Store.hlIn('q', qid).length) c += 'hl ';
+    return `<button class="${c}" data-go="${i}" data-hlq="${esc(qid)}">${i + 1}</button>`;
   }).join('');
   $app.innerHTML = `<div class="testlayout"><div class="testmain">
   <div class="card qcard" data-size="${txt}">
-    <div class="row spread"><div>${q.boards.map(b => `<span class="tag">${esc(boardName(b))}</span>`).join('')}${isDraft(q) ? '<span class="tag draft" title="Not yet reviewed by a physician">Draft</span>' : ''}<span class="muted">${esc(q.subject)}${q.topic && shown ? ' · ' + esc(q.topic) : ''}</span></div>
+    <div class="row spread"><div>${q.boards.map(b => `<span class="tag">${esc(boardName(b))}</span>`).join('')}${isDraft(q) ? '<span class="tag draft" title="Not yet reviewed by a physician">Draft</span>' : ''}<span class="tag hltag" data-hlq="${esc(id)}" title="You have highlighted text in this question"${Store.hlIn('q', id).length ? '' : ' hidden'}>&#9998; Highlighted</span><span class="muted">${esc(q.subject)}${q.topic && shown ? ' · ' + esc(q.topic) : ''}</span></div>
       <div class="muted">Question ${t.idx + 1} of ${t.qids.length}</div></div>
     <div class="marktools" role="group" aria-label="Mark up the question"><button type="button" id="mk-h" title="Highlight the selected text">Highlight</button><button type="button" id="mk-s" title="Strike out the selected text">Strike out</button><button type="button" id="mk-c" title="Remove your highlights and strikes from this question">Clear marks</button><button type="button" id="calc" aria-haspopup="dialog" aria-expanded="${CalcUI.isOpen()}" title="Open the calculator">Calculator</button><span class="sr">Select text in the question, then choose a tool. Marks last for this test.</span><span style="flex:1"></span><span class="textsize" role="group" aria-label="Text size"><button type="button" id="tx-minus" aria-label="Smaller text" title="Smaller text"${txt <= 0 ? ' disabled' : ''}>A&minus;</button><button type="button" id="tx-plus" aria-label="Larger text" title="Larger text"${txt >= 3 ? ' disabled' : ''}>A+</button></span></div>
-    <p class="stem" id="stem">${markup(q.stem, t.marks && t.marks[id])}</p>
+    <p class="stem" id="stem" ${HlUI.attrs('q', id, 'stem')}>${markup(q.stem, t.marks && t.marks[id])}</p>
     ${imgTag(q)}
     <div id="opts" role="radiogroup" aria-label="Answer choices">${q.options.map(o => {
       let c = 'opt'; if (sel === o.id) c += ' sel'; if (struck.includes(o.id)) c += ' struck';
       if (shown) { if (o.id === q.answer) c += ' correct'; else if (sel === o.id) c += ' wrong'; }
       const tab = locked0 ? -1 : (sel ? (sel === o.id ? 0 : -1) : (o === q.options[0] ? 0 : -1));
-      return `<div class="optrow"><div class="${c}" data-opt="${esc(o.id)}" role="radio" aria-checked="${sel === o.id}" ${locked0 ? 'aria-disabled="true"' : ''} tabindex="${tab}"><span class="k">${esc(o.id)}.</span><span class="txt">${esc(o.text)}${struck.includes(o.id) ? '<span class="sr"> (crossed out)</span>' : ''}${shown && o.id === q.answer ? '<span class="sr"> (correct answer)</span>' : ''}</span>${shown ? pickBadge(id, o.id) : ''}</div>
+      return `<div class="optrow"><div class="${c}" data-opt="${esc(o.id)}" role="radio" aria-checked="${sel === o.id}" ${locked0 ? 'aria-disabled="true"' : ''} tabindex="${tab}"><span class="k">${esc(o.id)}.</span><span class="txt"><span ${HlUI.attrs('q', id, 'opt-' + o.id)}>${esc(o.text)}</span>${struck.includes(o.id) ? '<span class="sr"> (crossed out)</span>' : ''}${shown && o.id === q.answer ? '<span class="sr"> (correct answer)</span>' : ''}</span>${shown ? pickBadge(id, o.id) : ''}</div>
         ${shown ? '' : `<button class="x" data-strike="${esc(o.id)}" aria-pressed="${struck.includes(o.id)}" aria-label="Cross out choice ${esc(o.id)}" title="Cross out">✕</button>`}</div>`;
     }).join('')}</div>
     ${shown ? explanationHtml(q, sel, true) : ''}
@@ -488,7 +491,7 @@ function renderTest() {
       : { pose: 'sad', msg: Mascot.pick(L.wrong, id) })
     : { pose: 'idle', msg: tutor || t.idx === 0 ? Mascot.pick(L.tips, id + t.idx) : '' };
   if (quizMascotOn()) Mascot.mount(document.getElementById('coachm'), { ...coach, msg: coach.msg && esc(coach.msg).replace(/&#39;/g, "'"), scale: 3 });
-  bindTest(t, q); hydrateImages();
+  bindTest(t, q); hydrateImages(); HlUI.paintAll($app);
   if (refocus) { const f = $app.querySelector(`[data-opt="${refocus}"]`); if (f) f.focus(); refocus = null; }
 }
 
@@ -496,7 +499,7 @@ function renderTest() {
 function markup(text, m) {
   if (!m) return esc(text);
   const n = text.length, flag = { h: new Uint8Array(n), s: new Uint8Array(n) };
-  for (const k of ['h', 's']) (m[k] || []).forEach(([a, b]) => { for (let i = a; i < b && i < n; i++) flag[k][i] = 1; });
+  for (const k of ['s']) (m[k] || []).forEach(([a, b]) => { for (let i = a; i < b && i < n; i++) flag[k][i] = 1; });
   let out = '', i = 0;
   while (i < n) {
     let j = i; while (j < n && flag.h[j] === flag.h[i] && flag.s[j] === flag.s[i]) j++;
@@ -533,7 +536,7 @@ function bindTest(t, q) {
   const opts = [...$app.querySelectorAll('[data-opt]')];
   opts.forEach((el, i) => {
     const pick = (keyboard, target = el) => { if (locked) return; t.answers[id] = target.dataset.opt; refocus = keyboard ? target.dataset.opt : null; persist(t); renderTest(); };
-    el.onclick = () => pick(false);
+    el.onclick = () => { const sl = getSelection(); if (sl && !sl.isCollapsed && el.contains(sl.anchorNode)) return; pick(false); };   // dragging over the words to highlight them does not pick the choice
     el.onkeydown = e => {
       if (e.key === ' ') { e.preventDefault(); pick(true); }
       else if (/^Arrow(Down|Right)$/.test(e.key)) { e.preventDefault(); pick(true, opts[(i + 1) % opts.length]); }
@@ -548,12 +551,11 @@ function bindTest(t, q) {
   document.onselectionchange = () => { const r = stemRange(document.getElementById('stem')); if (r) lastSel = r; };
   const applyMark = k => {
     const ms = t.marks ||= {}, stemEl = document.getElementById('stem');
-    if (k === 'c') { delete ms[id]; toast('Marks cleared.'); }
-    else {
-      const r = stemRange(stemEl) || lastSel; if (!r) return toast('Select some text in the question first.');
-      toggleMark(ms[id] ||= { h: [], s: [] }, k, r[0], Math.min(r[1], q.stem.length), q.stem.length);
-    }
-    persist(t); stemEl.innerHTML = markup(q.stem, ms[id]); getSelection().removeAllRanges(); lastSel = null;
+    if (k === 'h') return HlUI.highlightSelected();
+    if (k === 'c') { delete ms[id]; HlUI.clearIn($app, 'q', id); stemEl.innerHTML = markup(q.stem, null); HlUI.paint(stemEl); persist(t); return toast('Highlights and strike-outs cleared for this question.'); }
+    const r = stemRange(stemEl) || lastSel; if (!r) return toast('Select some text in the question first.');
+    toggleMark(ms[id] ||= { h: [], s: [] }, 's', r[0], Math.min(r[1], q.stem.length), q.stem.length);
+    persist(t); stemEl.innerHTML = markup(q.stem, ms[id]); HlUI.paint(stemEl); getSelection().removeAllRanges(); lastSel = null;
   };
   const cb = document.getElementById('calc'); if (cb) { cb.onmousedown = ev => ev.preventDefault(); cb.onclick = () => CalcUI.toggle(cb); }
   [['mk-h', 'h'], ['mk-s', 's'], ['mk-c', 'c']].forEach(([b, k]) => { const e = document.getElementById(b); if (e) { e.onmousedown = ev => ev.preventDefault(); e.onclick = () => applyMark(k); } });
@@ -636,16 +638,16 @@ function review(id) {
   $app.innerHTML = `<p><a href="#/results/${r.id}">← Results</a></p>` + r.qids.map((qid, i) => {
     const q = bank.byId[qid]; if (!q) return '';
     const mine = r.answers[qid], ok = mine === q.answer;
-    return `<div class="card"><div class="muted">${i + 1}. ${esc(q.subject)} · ${esc(q.topic || '')} — <b style="color:var(--${ok ? 'good' : 'bad'})">${ok ? 'Correct' : mine ? 'Incorrect' : 'Unanswered'}</b></div>
-      <p class="stem">${esc(q.stem)}</p>
-      ${q.options.map(o => `<div class="opt ${o.id === q.answer ? 'correct' : o.id === mine ? 'wrong' : ''}"><span class="k">${esc(o.id)}.</span><span class="txt">${esc(o.text)}</span>${pickBadge(qid, o.id)}</div>`).join('')}
+    return `<div class="card"><div class="muted">${i + 1}. ${esc(q.subject)} · ${esc(q.topic || '')} <span class="tag hltag" data-hlq="${esc(qid)}"${Store.hlIn('q', qid).length ? '' : ' hidden'}>&#9998; Highlighted</span> — <b style="color:var(--${ok ? 'good' : 'bad'})">${ok ? 'Correct' : mine ? 'Incorrect' : 'Unanswered'}</b></div>
+      <p class="stem" ${HlUI.attrs('q', qid, 'stem')}>${esc(q.stem)}</p>
+      ${q.options.map(o => `<div class="opt ${o.id === q.answer ? 'correct' : o.id === mine ? 'wrong' : ''}"><span class="k">${esc(o.id)}.</span><span class="txt"><span ${HlUI.attrs('q', qid, 'opt-' + o.id)}>${esc(o.text)}</span></span>${pickBadge(qid, o.id)}</div>`).join('')}
       ${imgTag(q)}
       ${explanationHtml(q, mine, false)}
       <div class="row" style="margin-top:10px"><button data-fb="${esc(qid)}" title="Report a problem or suggest a change to this question">✎ Feedback</button></div></div>`;
   }).join('');
   bindZoom();
   $app.querySelectorAll('[data-fb]').forEach(b => b.onclick = () => feedbackDialog(bank.byId[b.dataset.fb]));
-  hydrateImages();
+  hydrateImages(); HlUI.paintAll($app);
 }
 
 function historyPage() {
@@ -852,6 +854,8 @@ async function startSession() {
   Store.hooks.settings = () => Cloud.queueSettings();
   Store.hooks.reset = () => Cloud.queueReset();
   Store.hooks.card = (id, st) => Cloud.queueCard(id, st);
+  Store.hooks.hl = id => Cloud.queueHl(id);
+  Store.hooks.mine = id => Cloud.queueMine(id);
   lockUI(false); ready = true;
   document.getElementById('nav-program').hidden = profile.role !== 'faculty';
   document.getElementById('nav-support').hidden = false;
@@ -871,7 +875,7 @@ async function signOut() {
   }
   const key = Cloud.userKey();
   await Cloud.signOut(); Store.forget(key);
-  ['attempt', 'mark', 'test', 'settings', 'reset', 'card'].forEach(k => delete Store.hooks[k]);
+  ['attempt', 'mark', 'test', 'settings', 'reset', 'card', 'hl', 'mine'].forEach(k => delete Store.hooks[k]);
   profile = null; ready = false; Store.use('qbank.v1.signedout'); applyTheme();
   location.hash = '#/';                       // signing out clears the page, so the next person starts at the dashboard
   renderSignIn();
