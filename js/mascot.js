@@ -71,9 +71,9 @@ const Mascot = (() => {
       <g transform="translate(880 44) rotate(-4)" fill="#f4f6f4"><path d="M0 14 L64 8 Q86 9 100 15 Q86 21 64 22 L10 22Z"/><path d="M10 14 L-2 -4 L10 -4 L28 12Z"/><path d="M46 16 L72 38 L82 38 L68 16Z" opacity=".92"/></g>
       <g transform="translate(640 112) rotate(3)" fill="#e6eae6"><path d="M-6 -22 H62" stroke="#e6eae6" stroke-width="2.5" stroke-linecap="round"/><path d="M-30 -20 H86" stroke="#e6eae6" stroke-opacity=".28" stroke-width="5" stroke-linecap="round"/><rect x="22" y="-24" width="4" height="8"/>
         <path d="M0 0 Q0 -16 22 -16 Q46 -16 50 -3 Q50 12 26 12 H10 Q0 12 0 0Z"/><path d="M46 -6 L98 -10 L98 -3 L48 6Z"/><path d="M92 -22 L102 -22 L102 4 L94 4Z" opacity=".9"/><path d="M6 -4 Q8 -12 20 -12 L20 -2 H6Z" fill="#3d5566"/><path d="M6 18 H44 M14 12 V18 M36 12 V18" stroke="#e6eae6" stroke-width="2.5" fill="none" stroke-linecap="round"/></g>
-      <path d="M0 190 C120 150 230 176 350 156 C470 136 560 170 690 150 C820 130 930 168 1050 146 C1120 134 1170 142 1200 148 V240 H0Z" fill="#5d6f3b"/>
-      <path d="M0 214 C140 186 260 206 400 190 C540 174 640 206 780 188 C900 174 1040 202 1200 182 V240 H0Z" fill="#3f4f25"/>
-      <path d="M0 232 C180 214 360 230 560 220 C760 210 980 232 1200 218 V240 H0Z" fill="#2b3719"/></svg>`;
+      <path d="M0 190 C120 150 230 176 350 156 C470 136 560 170 690 150 C820 130 930 168 1050 146 C1120 134 1170 142 1200 148 V240 H0Z" class="hill1" fill="#5d6f3b"/>
+      <path d="M0 214 C140 186 260 206 400 190 C540 174 640 206 780 188 C900 174 1040 202 1200 182 V240 H0Z" class="hill2" fill="#3f4f25"/>
+      <path d="M0 232 C180 214 360 230 560 220 C760 210 980 232 1200 218 V240 H0Z" class="hill3" fill="#2b3719"/></svg>`;
     return `<div class="cover">${art}<div class="cover-shade"></div><div class="cover-body"><div class="cover-text" id="cover-text"></div><div class="scene-slot" id="scene-slot"></div></div></div>`;
   }
 

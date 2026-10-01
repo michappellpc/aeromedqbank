@@ -53,6 +53,8 @@ function pageTitle(t) { const h = document.getElementById('page-title'); if (h) 
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 
 function applyTheme() {
+  const pal = Store.data.settings.palette;
+  if (pal === 'navy') document.documentElement.setAttribute('data-palette', 'navy'); else document.documentElement.removeAttribute('data-palette');
   const t = Store.data.settings.theme;
   if (t === 'auto') document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme', t);
 }
@@ -554,7 +556,8 @@ function settings() {
   pageTitle('Settings');
   const th = Store.data.settings.theme;
   $app.innerHTML = `<div class="card"><h2>Settings</h2>
-    <p><label for="theme">Theme</label> <select id="theme" style="width:auto">${['auto', 'light', 'dark'].map(v => `<option ${v === th ? 'selected' : ''}>${v}</option>`).join('')}</select></p>
+    <p><label for="theme">Light or dark</label> <select id="theme" style="width:auto">${['auto', 'light', 'dark'].map(v => `<option ${v === th ? 'selected' : ''}>${v}</option>`).join('')}</select></p>
+    <p><label for="palette">Colour theme</label> <select id="palette" style="width:auto"><option value="olive"${Store.data.settings.palette !== 'navy' ? ' selected' : ''}>Olive and gold</option><option value="navy"${Store.data.settings.palette === 'navy' ? ' selected' : ''}>Navy and teal</option></select></p>
     ${!Cloud.enabled || Admin.isEditor() ? `<label class="chk"><input type="checkbox" id="drafts" ${showDrafts() ? 'checked' : ''}> Include draft questions that a physician has not yet reviewed</label>` : ''}
     <label class="chk"><input type="checkbox" id="mascot" ${mascotOn() ? 'checked' : ''}> Show the mascot and encouragement</label></div>
     ${Cloud.enabled ? `<div class="card"><h3>Account</h3>
@@ -586,6 +589,7 @@ function settings() {
     document.getElementById('nm-go').disabled = false;
   };
   document.getElementById('mascot').onchange = e => { Store.data.settings.mascot = e.target.checked; Store.save(); };
+  document.getElementById('palette').onchange = e => { Store.data.settings.palette = e.target.value === 'navy' ? 'navy' : 'olive'; Store.touchSettings(); applyTheme(); };
   document.getElementById('theme').onchange = e => { Store.data.settings.theme = e.target.value; Store.touchSettings(); applyTheme(); };
   if (!Cloud.enabled) {
     document.getElementById('exp').onclick = () => {

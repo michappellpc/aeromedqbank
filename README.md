@@ -35,6 +35,9 @@ When you import or save a question, the app compares its wording with every ques
 ## Sorting the question list
 Admin > Questions has a Difficulty column, a **Difficulty** filter (Easy, Medium, Hard) and a **Sort by** choice (ID, Hardest first, Easiest first).
 
+## Colour themes and type
+Settings > **Colour theme** switches between **Olive and gold** (the original) and **Navy and teal**, each with light and dark modes. The choice is saved to the account and follows the member to other devices. Text is set in Inter (self-hosted in `fonts/`, SIL Open Font License). The themes are CSS variables in `css/style.css` (`data-palette` on the page), so adding a third is a short block of colours.
+
 ## Flashcards
 The **Flashcards** tab has short cards a resident flips and rates (Again, Hard, Good, Easy). A simple spaced-repetition schedule (a form of SM-2) brings each card back just before it is forgotten, with up to 10 new cards a day. Each member's schedule is saved to their account, works offline, and is cleared by **Reset all progress**. Flashcards are free for everyone. Admins and reviewers manage them under **Admin > Flashcards** (add, edit, import from a chat, publish, archive, delete, backup), the same way as questions. **Browse all cards** lets a member read through the cards (search, filter by subject, show or hide answers) without rating or scheduling anything. Each member can adjust **Flashcard settings** on the Flashcards page: new cards per day (0 to 100), most reviews in one session (20, 50, 100, 200 or no limit), shuffled or most-overdue-first order, whether the buttons show when a card returns, and reverse cards (answer first). The settings follow the member to other devices. Writing guide and AI prompt: `docs/CARD-GUIDE.md`. Run the latest `supabase/schema.sql` to switch them on. The demo site loads `data/cards/sample.json`.
 
