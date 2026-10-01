@@ -183,6 +183,39 @@ window.addEventListener('hashchange', route);
 // "Focus areas": the member's weakest subjects (lowest percent correct, at least MIN answers), with the lessons for each and
 // a one-click practice of the questions they missed in it.
 const FOCUS_MIN = 5, FOCUS_BELOW = 80, FOCUS_SHOW = 3;
+// ---------- exam countdown ----------
+const validDate = s => /^\d{4}-\d{2}-\d{2}$/.test(s) && CardSched.addDays(s, 0) === s;
+function examCard(unused) {
+  const ex = Store.data.settings.exam;
+  if (!ex || !validDate(ex.date)) return `<div class="card examcard"><div class="examinfo"><h2>Exam countdown</h2><p class="muted">Add your exam date to see how many days you have left.</p></div><button id="exam-edit" class="primary">Set exam date</button></div>`;
+  const days = CardSched.daysBetween(CardSched.today(), ex.date), when = new Date(ex.date + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+  const title = esc(ex.label || 'Exam');
+  if (days < 0) return `<div class="card examcard"><div class="examinfo"><h2>${title}</h2><p class="muted">The date you set (${esc(when)}) has passed. Update it to keep a countdown.</p></div><button id="exam-edit">Change date</button></div>`;
+  const pace = days === 0 ? 'Today is the day. Good luck.' : unused > 0 ? `About ${Math.ceil(unused / days)} new question${Math.ceil(unused / days) === 1 ? '' : 's'} a day would cover the ${unused} you have not seen yet.` : 'You have seen every question. Keep reviewing the ones you missed.';
+  return `<div class="card examcard"><div class="examnum" role="img" aria-label="${days} day${days === 1 ? '' : 's'} until the exam"><b>${days}</b><span>${days === 1 ? 'day' : 'days'}</span></div>
+    <div class="examinfo"><h2>${title}</h2><p>${esc(when)}</p><p class="muted">${esc(pace)}</p></div><button id="exam-edit">Edit</button></div>`;
+}
+function examDialog() {
+  const ex = Store.data.settings.exam || {}, d = document.createElement('div'); d.className = 'modal';
+  d.innerHTML = `<div class="card" role="dialog" aria-modal="true" aria-labelledby="ex-h" style="max-width:440px"><h2 id="ex-h" style="margin-top:0">Exam date</h2>
+    <form id="ex-form" novalidate><label for="ex-date">Date of your exam</label><input id="ex-date" type="date" value="${esc(ex.date || '')}">
+      <label for="ex-label">Name (optional)</label><input id="ex-label" type="text" maxlength="60" autocomplete="off" placeholder="e.g. ABPM Aerospace Medicine boards" value="${esc(ex.label || '')}">
+      <p class="notice" id="ex-msg" hidden role="alert"></p>
+      <div class="row" style="margin-top:12px"><button class="primary" type="submit">Save</button>${ex.date ? '<button type="button" id="ex-clear">Remove</button>' : ''}<button type="button" data-cancel>Cancel</button></div></form></div>`;
+  const close = () => { d.remove(); document.removeEventListener('keydown', onKey, true); };
+  const onKey = e => { if (e.key === 'Escape') close(); };
+  document.addEventListener('keydown', onKey, true);
+  d.onclick = e => { if (e.target === d || e.target.hasAttribute('data-cancel')) close(); };
+  const done = msg => { close(); Store.touchSettings(); toast(msg); route(); };
+  d.querySelector('#ex-form').onsubmit = e => {
+    e.preventDefault(); const date = d.querySelector('#ex-date').value, msg = d.querySelector('#ex-msg');
+    const err = !validDate(date) ? 'Please choose a date.' : CardSched.daysBetween(CardSched.today(), date) > 1826 ? 'That is more than five years away. Please check the date.' : '';
+    if (err) { msg.textContent = err; msg.hidden = false; return; }
+    Store.data.settings.exam = { date, label: d.querySelector('#ex-label').value.trim().slice(0, 60) }; done('Exam date saved.');
+  };
+  const clr = d.querySelector('#ex-clear'); if (clr) clr.onclick = () => { delete Store.data.settings.exam; done('Exam date removed.'); };
+  document.body.appendChild(d); d.querySelector('#ex-date').focus();
+}
 function cardsNotice() {
   if (!(bank.cards || []).length) return '';
   const k = Cards.dueCount(), n = k.due + k.new;
@@ -244,6 +277,7 @@ function dashboard() {
   ${bank.unreadReplies ? `<div class="card notice">You have <b>${bank.unreadReplies} new repl${bank.unreadReplies === 1 ? 'y' : 'ies'}</b> from the team. <a href="#/support">Open Support</a></div>` : ''}
   ${bank.program && bank.program.status === 'pending' ? `<div class="card notice">Waiting for faculty at <b>${esc(bank.program.name)}</b> to approve you. Until they do, they cannot see any of your progress. <a href="#/settings">Settings</a></div>` : ''}
   ${active ? `<div class="card row spread"><div><b>Test in progress</b> <span class="muted">(${Object.keys(active.answers).length}/${active.qids.length} answered)</span></div><a class="btn primary" href="#/test">Resume</a></div>` : ''}
+  ${examCard(bank.questions.length - used)}
   <div class="grid">
     <div class="card stat"><b>${bank.questions.length}</b><span class="muted">Questions in bank</span></div>
     <div class="card stat"><b>${used}</b><span class="muted">Used (${pct(used, bank.questions.length)}%)</span></div>
@@ -253,10 +287,11 @@ function dashboard() {
   ${cardsNotice()}
   ${focusAreas()}
   <div class="card"><h2>Performance by subject</h2>
-    ${rows.length ? `<table><thead><tr><th>Board</th><th>Subject</th><th>Used</th><th>Correct</th><th title="Average of all members, first tries">Group</th><th><span class="sr">Progress</span></th></tr></thead><tbody>${rows.join('')}</tbody></table>` : '<p class="muted">No questions loaded.</p>'}
+    ${rows.length ? `<div class="scroll" role="region" tabindex="0"><table><thead><tr><th>Board</th><th>Subject</th><th>Used</th><th>Correct</th><th title="Average of all members, first tries">Group</th><th><span class="sr">Progress</span></th></tr></thead><tbody>${rows.join('')}</tbody></table></div>` : '<p class="muted">No questions loaded.</p>'}
   </div>
   `;
   document.getElementById('cover-text').innerHTML = `<h2 class="pagetitle">Dashboard</h2><p>${esc(headline)}</p><a class="btn primary" href="#/create">Create a new test</a>`;
+  const exb = document.getElementById('exam-edit'); if (exb) exb.onclick = examDialog;
   if (mascotOn()) Mascot.mount(document.getElementById('scene-slot'), { pose: acc !== null && acc >= 80 ? 'cheer' : 'idle', msg: esc(hello), scale: 6 });
 }
 
@@ -557,6 +592,7 @@ function settings() {
   const th = Store.data.settings.theme;
   $app.innerHTML = `<div class="card"><h2>Settings</h2>
     <p><label for="theme">Light or dark</label> <select id="theme" style="width:auto">${['auto', 'light', 'dark'].map(v => `<option ${v === th ? 'selected' : ''}>${v}</option>`).join('')}</select></p>
+    <p>Exam date: <b>${Store.data.settings.exam && validDate(Store.data.settings.exam.date) ? esc(new Date(Store.data.settings.exam.date + 'T12:00:00').toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })) : 'not set'}</b> <button id="exam-set" type="button">${Store.data.settings.exam && validDate(Store.data.settings.exam.date) ? 'Change' : 'Set'}</button></p>
     <p><label for="palette">Colour theme</label> <select id="palette" style="width:auto"><option value="olive"${Store.data.settings.palette !== 'navy' ? ' selected' : ''}>Olive and gold</option><option value="navy"${Store.data.settings.palette === 'navy' ? ' selected' : ''}>Navy and teal</option></select></p>
     ${!Cloud.enabled || Admin.isEditor() ? `<label class="chk"><input type="checkbox" id="drafts" ${showDrafts() ? 'checked' : ''}> Include draft questions that a physician has not yet reviewed</label>` : ''}
     <label class="chk"><input type="checkbox" id="mascot" ${mascotOn() ? 'checked' : ''}> Show the mascot and encouragement</label></div>
@@ -589,6 +625,7 @@ function settings() {
     document.getElementById('nm-go').disabled = false;
   };
   document.getElementById('mascot').onchange = e => { Store.data.settings.mascot = e.target.checked; Store.save(); };
+  document.getElementById('exam-set').onclick = examDialog;
   document.getElementById('palette').onchange = e => { Store.data.settings.palette = e.target.value === 'navy' ? 'navy' : 'olive'; Store.touchSettings(); applyTheme(); };
   document.getElementById('theme').onchange = e => { Store.data.settings.theme = e.target.value; Store.touchSettings(); applyTheme(); };
   if (!Cloud.enabled) {

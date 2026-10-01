@@ -9,6 +9,7 @@
   const pad = n => String(n).padStart(2, '0');
   const today = (d = new Date()) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;   // the device's own date
   const addDays = (ymd, n) => { const [y, m, d] = ymd.split('-').map(Number); const t = new Date(Date.UTC(y, m - 1, d + n)); return `${t.getUTCFullYear()}-${pad(t.getUTCMonth() + 1)}-${pad(t.getUTCDate())}`; };
+  const daysBetween = (a, b) => { const p = s => { const [y, m, d] = s.split('-').map(Number); return Date.UTC(y, m - 1, d); }; return Math.round((p(b) - p(a)) / 86400000); };   // whole days from a to b
   const MAX_DAYS = 3650, MIN_EASE = 1.3, MAX_EASE = 3.0;
 
   function rate(st, r, now) {
@@ -57,5 +58,5 @@
       reverse: r.reverse === true
     };
   }
-  return { rate, preview, queue, counts, isDue, isNew, today, addDays, settings, DEFAULTS, MAX_REVIEW_CHOICES };
+  return { rate, preview, queue, counts, isDue, isNew, today, addDays, daysBetween, settings, DEFAULTS, MAX_REVIEW_CHOICES };
 });

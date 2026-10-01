@@ -65,4 +65,8 @@ const many = Array.from({ length: 30 }, (_, i) => ({ id: 'c' + String(i).padStar
 t('the review limit caps what is due in a session', S.queue(many, dueStates, D0, { maxReviews: 20 }).length === 20 && S.queue(many, dueStates, D0, { maxReviews: 0 }).length === 30 && S.queue(many, dueStates, D0).length === 30);
 t('the cap keeps the most overdue cards', (() => { const s2 = { ...dueStates, c29: { e: 2.5, i: 1, due: '2026-09-01', reps: 1, lapses: 0 } }; return S.queue(many, s2, D0, { maxReviews: 5 })[0].id === 'c29'; })());
 t('zero new cards means none in the session', S.queue(many, {}, D0, { newPerDay: 0 }).length === 0);
+
+console.log('Days between dates');
+t('counts whole days', S.daysBetween('2026-10-01', '2026-10-01') === 0 && S.daysBetween('2026-10-01', '2026-11-15') === 45 && S.daysBetween('2026-10-05', '2026-10-01') === -4);
+t('crosses year ends and leap days', S.daysBetween('2026-12-31', '2027-01-01') === 1 && S.daysBetween('2028-02-28', '2028-03-01') === 2 && S.daysBetween('2026-01-01', '2027-01-01') === 365);
 console.log(`\n${pass} passed, ${fail} failed`); process.exit(fail ? 1 : 0);

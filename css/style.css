@@ -406,3 +406,11 @@ button.primary:hover:not(:disabled),.btn.primary:hover{background:var(--btn-h);b
 :root[data-palette=navy] .notice{border-left-color:var(--gold)}
 
 :root[data-palette=navy] .opt.correct .k{background:#1f6b53;border-color:#1f6b53;color:#fff}
+
+.examcard{display:flex;align-items:center;gap:18px;flex-wrap:wrap}
+.examcard h2{margin:0 0 4px;font-size:1.1rem}.examcard p{margin:2px 0}
+.examnum{display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:92px;padding:8px 14px;border-radius:12px;background:var(--hdr);color:var(--hdrfg)}
+.examnum b{font-size:2.2rem;line-height:1.05;font-variant-numeric:tabular-nums}.examnum span{font-size:.8rem;letter-spacing:.08em;text-transform:uppercase}
+.examinfo{flex:1;min-width:220px}
+
+.scroll{position:relative}   /* keeps visually hidden text inside a scrolling table from widening the page */

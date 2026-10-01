@@ -35,6 +35,9 @@ When you import or save a question, the app compares its wording with every ques
 ## Sorting the question list
 Admin > Questions has a Difficulty column, a **Difficulty** filter (Easy, Medium, Hard) and a **Sort by** choice (ID, Hardest first, Easiest first).
 
+## Exam countdown
+The home screen has an **Exam countdown** card: the member adds their exam date (and an optional name) and sees the days left, the date, and how many new questions a day would cover the ones they have not seen yet. It also reads "Today is the day" and, once the date passes, offers to change it. The date can be set or changed on the home screen or in Settings, is saved to the account (synced across devices) and works in the demo too.
+
 ## Colour themes and type
 Settings > **Colour theme** switches between **Olive and gold** (the original) and **Navy and teal**, each with light and dark modes. The choice is saved to the account and follows the member to other devices. Text is set in Inter (self-hosted in `fonts/`, SIL Open Font License). The themes are CSS variables in `css/style.css` (`data-palette` on the page), so adding a third is a short block of colours.
 
