@@ -182,6 +182,7 @@ async function route() {
     if (location.hash.replace(/^#\/?/, '').split('/')[0] !== p) return;   // the person moved on while it loaded
   }
   document.querySelectorAll('nav a').forEach(l => l.classList.toggle('on', l.getAttribute('href').split('/').slice(0, 2).join('/') === '#/' + (p === 'test' ? 'create' : p === 'lesson' ? 'lessons' : p === 'results' || p === 'review' ? 'history' : p)));
+  document.getElementById('nav-more').classList.toggle('on', !!document.querySelector('#secgroup a.on'));
   if (p === '' || p === 'results') refreshPeer();
   const t = Store.data.active;
   if (p === 'test' && t) return renderTest();
@@ -189,6 +190,15 @@ async function route() {
   window.scrollTo(0, 0);
 }
 window.addEventListener('hashchange', route);
+{ // On phones the less-used links live behind a More button
+  const nav = document.querySelector('nav'), more = document.getElementById('nav-more'), grp = document.getElementById('secgroup');
+  const close = (focusBack) => { nav.classList.remove('open'); more.setAttribute('aria-expanded', 'false'); if (focusBack) more.focus(); };
+  more.onclick = () => { const o = nav.classList.toggle('open'); more.setAttribute('aria-expanded', String(o)); };
+  grp.addEventListener('click', e => { if (e.target.closest('a')) close(); });
+  document.addEventListener('click', e => { if (nav.classList.contains('open') && !nav.contains(e.target)) close(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && nav.classList.contains('open')) close(true); });
+  window.addEventListener('hashchange', () => close());
+}
 
 // ---------- dashboard ----------
 // "Focus areas": the member's weakest subjects (lowest percent correct, at least MIN answers), with the lessons for each and
