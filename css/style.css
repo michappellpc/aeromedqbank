@@ -545,3 +545,7 @@ mark.hl{background:#ffe27a;color:#1c1c1c;border-radius:2px;padding:0 1px;cursor:
 .detailrow>td{background:var(--sel);padding:12px 14px}.detail{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:20px}@media(max-width:800px){.detail{grid-template-columns:1fr}}
 .optdist{list-style:none;margin:0;padding:0;display:grid;gap:6px}.optdist li{display:grid;grid-template-columns:24px minmax(0,1fr) 90px 70px;gap:8px;align-items:center}.optdist .k{font-weight:700}.optdist .pickn{text-align:right}
 @media(max-width:600px){.optdist li{grid-template-columns:24px minmax(0,1fr) 70px}.optdist li .bar{display:none}}
+
+/* ---- Paused test ---- */
+.pausecard{max-width:520px;margin:40px auto;text-align:center}.pausecard .row{justify-content:center;margin-top:12px}
+.lessontools{margin:10px 0 14px;padding:8px 0;border-bottom:1px solid var(--line)}.lessontools #lh-hl{background:#ffe27a;color:#1c1c1c;border-color:#c9a400}

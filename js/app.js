@@ -178,7 +178,7 @@ async function route() {
   clearInterval(tick); $timer.hidden = true; Mascot.stop();
   if (Cloud.enabled && !ready) return;
   const [p, arg, arg2, arg3] = location.hash.replace(/^#\/?/, '').split('/');
-  if (Cloud.enabled && p !== 'admin' && Admin.changed) {      // questions were edited on the Admin pages; load the new set before practising
+  if (Cloud.enabled && p !== 'admin' && Admin.changed) {      // questions were edited on the Admin pages; load the new set before practicing
     Admin.changed = false;
     try { setQuestions(await Cloud.questions()); bank.lessons = await Cloud.lessons(); await loadCards(); } catch {}
     if (location.hash.replace(/^#\/?/, '').split('/')[0] !== p) return;   // the person moved on while it loaded
@@ -265,7 +265,7 @@ function focusAreas() {
         ${lessons.length ? `<ul class="focus-lessons">${lessons.slice(0, 3).map(l => `<li><a href="#/lesson/${encodeURIComponent(l.id)}">${esc(l.title)}</a></li>`).join('')}</ul>${lessons.length > 3 ? `<p class="small"><a href="#/lessons/${encodeURIComponent(o.subject)}">All ${lessons.length} lessons in this subject</a></p>` : ''}` : '<p class="muted small">No lesson for this subject yet.</p>'}
         <a class="btn" href="#/create/${encodeURIComponent(o.subject)}/incorrect">Practice the ones you missed</a></section>`;
     }).join('')}</div>`;
-  } else if (Object.values(by).some(o => o.right + o.wrong >= FOCUS_MIN)) body = '<p class="muted">No weak spots right now: every subject you have practised is at 80% or better. Keep going.</p>';
+  } else if (Object.values(by).some(o => o.right + o.wrong >= FOCUS_MIN)) body = '<p class="muted">No weak spots right now: every subject you have practiced is at 80% or better. Keep going.</p>';
   else {                                                     // not enough answers yet: show the feature and how close they are
     const most = Math.max(0, ...Object.values(by).map(o => o.right + o.wrong)), need = FOCUS_MIN - most;
     body = `<p><b>Need ${need} more question${need === 1 ? '' : 's'}</b> in one subject until your focus areas appear.</p>
@@ -277,7 +277,7 @@ function focusAreas() {
 
 // ---------- charts (plain SVG, no library) ----------
 const scoreColor = p => p >= 80 ? 'var(--good)' : p >= 60 ? 'var(--gold)' : 'var(--bad)';
-function ring(p, size = 132) {                       // score ring: the number is always printed in the middle, so colour is never the only signal
+function ring(p, size = 132) {                       // score ring: the number is always printed in the middle, so color is never the only signal
   const r = 52, C = 2 * Math.PI * r;
   return `<svg class="ring" width="${size}" height="${size}" viewBox="0 0 120 120" role="img" aria-label="Score ${p} percent"><circle cx="60" cy="60" r="${r}" fill="none" stroke="var(--line)" stroke-width="12"/>
     <circle cx="60" cy="60" r="${r}" fill="none" stroke="${scoreColor(p)}" stroke-width="12" stroke-linecap="round" stroke-dasharray="${(C * p / 100).toFixed(1)} ${C.toFixed(1)}" transform="rotate(-90 60 60)"/>
@@ -319,7 +319,7 @@ function dashboard() {
   ${Mascot.scene(bank.config.coverImage)}
   ${bank.unreadReplies ? `<div class="card notice">You have <b>${bank.unreadReplies} new repl${bank.unreadReplies === 1 ? 'y' : 'ies'}</b> from the team. <a href="#/support">Open Support</a></div>` : ''}
   ${bank.program && bank.program.status === 'pending' ? `<div class="card notice">Waiting for faculty at <b>${esc(bank.program.name)}</b> to approve you. Until they do, they cannot see any of your progress. <a href="#/settings">Settings</a></div>` : ''}
-  ${active ? `<div class="card continue"><div class="contbody"><b>Continue where you left off</b><span class="muted">${esc(active.mode === 'timed' ? 'Timed' : 'Tutor')} test, question ${Math.min(active.idx + 1, active.qids.length)} of ${active.qids.length} (${Object.keys(active.answers).length} answered)</span><div class="bar" aria-hidden="true"><i style="width:${pct(Object.keys(active.answers).length, active.qids.length)}%"></i></div></div><a class="btn primary" href="#/test">Resume</a></div>` : ''}
+  ${active ? `<div class="card continue"><div class="contbody"><b>Continue where you left off</b><span class="muted">${active.paused ? 'Paused. ' : ''}${esc(active.mode === 'timed' ? 'Timed' : 'Tutor')} test, question ${Math.min(active.idx + 1, active.qids.length)} of ${active.qids.length} (${Object.keys(active.answers).length} answered)</span><div class="bar" aria-hidden="true"><i style="width:${pct(Object.keys(active.answers).length, active.qids.length)}%"></i></div></div><a class="btn primary" href="#/test">Resume</a></div>` : ''}
   ${examCard(bank.questions.length - used)}
   <div class="grid">
     <div class="card stat"><b>${bank.questions.length}</b><span class="muted">Questions in bank</span></div>
@@ -364,7 +364,7 @@ function create(preSubject, preStatus) {
     return list.length ? `<details class="subjgroup" open><summary><span class="sgname">${esc(b.name)}</span> <span class="muted sgsel" data-sg="${list.map(esc).join('|')}"></span></summary><div class="subjgrid">${list.map(x => `<label class="chk"><input type="checkbox" name="subj" value="${esc(x)}" checked> ${esc(x)} <span class="cnt" data-cnt="subj:${esc(x)}"></span></label>`).join('')}</div></details>` : '';
   }).join('');
   const choice = (name, v, title, hint, on) => `<label class="choice"><input type="radio" name="${name}" value="${v}"${on ? ' checked' : ''}><span class="choicebody"><b>${title}</b><span class="muted small">${hint}</span></span></label>`;
-  $app.innerHTML = `<div class="pagehead"><div><h2 class="pagetitle">New test</h2><p class="muted">Choose what to practise. The summary on the right updates as you go.</p></div></div>
+  $app.innerHTML = `<div class="pagehead"><div><h2 class="pagetitle">New test</h2><p class="muted">Choose what to practice. The summary on the right updates as you go.</p></div></div>
   <form id="f" class="newlayout"><div class="newmain">
     <fieldset class="card"><legend>Mode</legend><div class="choices">
       ${choice('mode', 'tutor', 'Tutor', 'Feedback after each question', true)}${choice('mode', 'timed', 'Timed', 'Feedback at the end, about 90 s per question', false)}</div></fieldset>
@@ -383,7 +383,7 @@ function create(preSubject, preStatus) {
       <p class="muted small" id="avail" aria-live="polite"></p>
       <button class="primary wide" id="go">Start test</button></aside></form>`;
   const f = document.getElementById('f');
-  if (preSubject) {                                  // arrived from a lesson: practise just that subject
+  if (preSubject) {                                  // arrived from a lesson: practice just that subject
     const want = decodeURIComponent(preSubject);
     f.querySelectorAll('[name=subj]').forEach(e => { e.checked = e.value === want; });
   }
@@ -443,6 +443,7 @@ function renderTest() {
   const struck = t.struck[id] || [];
   const txt = Math.min(3, Math.max(0, +Store.data.settings.quizText || 0));
   clearInterval(tick);   // every redraw starts a new clock; without this the old ones keep running and fight over the display
+  if (t.paused) return pausedScreen(t);
   if (t.limit) startTimer(t);
   else { $timer.hidden = false; tick = setInterval(() => $timer.textContent = fmt(elapsed(t)), 500); $timer.textContent = fmt(elapsed(t)); }
   const nav = t.qids.map((qid, i) => {
@@ -474,7 +475,7 @@ function renderTest() {
       <button id="next" ${t.idx < t.qids.length - 1 ? '' : 'disabled'}>Next →</button>
       <button class="flagbtn ${st && st.flagged ? 'on' : ''}" id="flag">⚑ Flag</button>
       <button id="fbk" title="Report a problem or suggest a change to this question">✎ Feedback</button>
-      <span style="flex:1"></span><button class="danger" id="end">End test</button>
+      <span style="flex:1"></span><button id="pause" type="button" title="Stop the clock and hide the question until you are ready">&#10074;&#10074; Pause</button><button class="danger" id="end">End test</button>
     ${mascotOn() ? `<div id="coach" class="coach"><div id="coachm"></div><button id="ram" type="button" class="ramtog" aria-pressed="${!quizMascotOn()}" title="${quizMascotOn() ? 'Hide the ram while you take tests' : 'Show the ram again'}">${quizMascotOn() ? 'Hide ram' : 'Show ram'}</button></div>` : ''}
     </div>
     <details style="margin-top:12px"><summary>Notes</summary><textarea id="note" rows="3" placeholder="Your notes on this question">${esc(st ? st.note : '')}</textarea></details>
@@ -522,11 +523,27 @@ function stemRange(el) {   // the selected text as character offsets inside the 
   const a = pre.toString().length; return [a, a + r.toString().length];
 }
 
-function elapsed(t) { return t.elapsed + (Date.now() - t.started) / 1000; }
+function elapsed(t) { return t.paused ? t.elapsed : t.elapsed + (Date.now() - t.started) / 1000; }   // a paused test's clock is stopped
 function startTimer(t) {
   $timer.hidden = false;
   const u = () => { const left = t.limit - elapsed(t); $timer.textContent = '⏱ ' + fmt(left); if (left <= 0) { clearInterval(tick); finish(); } };
   u(); tick = setInterval(u, 500);
+}
+// A paused test: the clock is stopped and the question is hidden (so a timed test cannot be studied while the time stands still).
+function pausedScreen(t) {
+  pageTitle('Test paused');
+  $timer.hidden = false; $timer.textContent = '\u23f8 ' + fmt(t.limit ? Math.max(0, t.limit - elapsed(t)) : elapsed(t));
+  const answered = t.qids.filter(x => t.answers[x]).length;
+  $app.innerHTML = `<div class="card pausecard" role="region" aria-label="Test paused"><h2>Test paused</h2>
+    <p>Your clock is stopped and the question is hidden. ${t.limit ? `You have <b>${fmt(Math.max(0, t.limit - elapsed(t)))}</b> left.` : `You have used <b>${fmt(elapsed(t))}</b> so far.`}</p>
+    <p class="muted">Question ${t.idx + 1} of ${t.qids.length} &middot; ${answered} answered</p>
+    <div class="row"><button class="primary" id="resume" type="button">Resume</button><button class="danger" id="pend" type="button">End test</button></div></div>`;
+  const resume = document.getElementById('resume'); resume.focus();
+  resume.onclick = () => { t.paused = false; t.started = Date.now(); persist(t); renderTest(); };
+  document.getElementById('pend').onclick = async () => {
+    const left = t.qids.filter(x => !t.answers[x]).length;
+    if (await ask(`End this test now? ${left ? `${left} question${left === 1 ? ' is' : 's are'} unanswered and will count as incorrect.` : 'You have answered every question.'}`, 'End test')) { t.paused = false; t.started = Date.now(); finish(); }
+  };
 }
 function persist(t) { t.elapsed = elapsed(t); t.started = Date.now(); Store.save(); }
 
@@ -568,6 +585,7 @@ function bindTest(t, q) {
   const size = d => { Store.data.settings.quizText = Math.min(3, Math.max(0, (+Store.data.settings.quizText || 0) + d)); Store.touchSettings(); renderTest(); const a = document.getElementById(d > 0 ? 'tx-plus' : 'tx-minus'); if (a && !a.disabled) a.focus(); };
   on('tx-minus', () => size(-1)); on('tx-plus', () => size(1));
   on('ram', () => { Store.data.settings.quizMascot = !quizMascotOn(); Store.touchSettings(); renderTest(); const again = document.getElementById('ram'); if (again) again.focus(); });
+  on('pause', () => { persist(t); t.paused = true; Store.save(); renderTest(); });
   on('end', async () => {
     const left = t.qids.filter(x => !t.answers[x]).length, flagged = t.qids.filter(x => (Store.qstat(x) || {}).flagged).length;
     const msg = `End this test now? ${left ? `${left} question${left === 1 ? ' is' : 's are'} unanswered and will count as incorrect.` : 'You have answered every question.'}${flagged ? ` ${flagged} ${flagged === 1 ? 'is' : 'are'} flagged for review.` : ''}`;
@@ -665,7 +683,7 @@ function settings() {
   $app.innerHTML = `<div class="card"><h2>Settings</h2>
     <p><label for="theme">Light or dark</label> <select id="theme" style="width:auto">${['auto', 'light', 'dark'].map(v => `<option ${v === th ? 'selected' : ''}>${v}</option>`).join('')}</select></p>
     <p>Exam date: <b>${Store.data.settings.exam && validDate(Store.data.settings.exam.date) ? esc(new Date(Store.data.settings.exam.date + 'T12:00:00').toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })) : 'not set'}</b> <button id="exam-set" type="button">${Store.data.settings.exam && validDate(Store.data.settings.exam.date) ? 'Change' : 'Set'}</button></p>
-    <p><label for="palette">Colour theme</label> <select id="palette" style="width:auto"><option value="olive"${Store.data.settings.palette !== 'navy' ? ' selected' : ''}>Olive and gold</option><option value="navy"${Store.data.settings.palette === 'navy' ? ' selected' : ''}>Navy and teal</option></select></p>
+    <p><label for="palette">Color theme</label> <select id="palette" style="width:auto"><option value="olive"${Store.data.settings.palette !== 'navy' ? ' selected' : ''}>Olive and gold</option><option value="navy"${Store.data.settings.palette === 'navy' ? ' selected' : ''}>Navy and teal</option></select></p>
     ${!Cloud.enabled || Admin.isEditor() ? `<label class="chk"><input type="checkbox" id="drafts" ${showDrafts() ? 'checked' : ''}> Include draft questions that a physician has not yet reviewed</label>` : ''}
     <label class="chk"><input type="checkbox" id="mascot" ${mascotOn() ? 'checked' : ''}> Show the mascot and encouragement</label>
     <label class="chk"><input type="checkbox" id="quizmascot" ${Store.data.settings.quizMascot !== false ? 'checked' : ''}> Show the ram while I take a test</label></div>
@@ -889,7 +907,7 @@ async function adminPage() {
     const [mem, qs, allowed, signupOn, peerMin] = await Promise.all([Cloud.rpc('admin_member_summary'), Cloud.rpc('admin_question_stats'), Cloud.rest('allowed_emails?select=*&order=email.asc'), Cloud.signupOpen(), Cloud.peerMin().catch(() => 10)]);
     const programs = await Cloud.adminPrograms().catch(() => []);
     const act = mem.filter(m => m.active), tot = act.reduce((x, m) => x + m.attempts, 0), cor = act.reduce((x, m) => x + m.correct, 0);
-    const hard = qs.filter(q => q.attempts >= 3).sort((x, y) => x.pct_correct - y.pct_correct).slice(0, 15);
+    const HARD_BELOW = 70, hard = qs.filter(q => !q.archived && q.attempts >= 3 && q.pct_correct < HARD_BELOW).sort((x, y) => x.pct_correct - y.pct_correct || y.attempts - x.attempts).slice(0, 15);   // only questions that really are hard, not just the lowest few
     const me = Cloud.session.email.toLowerCase();
     $app.innerHTML = `${Admin.tabs('overview')}<div class="grid">
       <div class="card stat"><b>${act.length}</b><span>Active members</span></div><div class="card stat"><b>${tot}</b><span>Questions answered</span></div>
@@ -915,8 +933,8 @@ async function adminPage() {
           <div><label for="ae-plan">Plan</label><select id="ae-plan"><option>pro</option><option>free</option></select></div>
           <div><label for="ae-note">Note</label><input id="ae-note" type="text" maxlength="80" autocomplete="off"></div><button class="primary" type="submit">Add member</button></form>
         <p class="notice" id="ae-msg" hidden role="alert"></p></div>
-      <div class="card"><h2>Hardest questions</h2>${hard.length ? `<div class="scroll" role="region" tabindex="0" aria-label="Data table"><table><caption class="sr">Questions with the lowest percent correct</caption><thead><tr><th scope="col">Question</th><th scope="col">Subject</th><th scope="col">Answered</th><th scope="col">Correct</th></tr></thead><tbody>${hard.map(q =>
-        `<tr><td>${esc(q.question_id)}</td><td>${esc(q.subject)}</td><td>${q.attempts}</td><td>${Math.round(q.pct_correct)}%</td></tr>`).join('')}</tbody></table></div>` : '<p class="muted">Shows up once questions have been answered at least 3 times.</p>'}</div>`;
+      <div class="card"><h2>Hardest questions</h2><p class="muted">Questions under ${HARD_BELOW}% correct with at least 3 answers (all tries). For first-try difficulty and what to fix, open <a href="#/admin/difficulty">Difficulty</a>.</p>${hard.length ? `<div class="scroll" role="region" tabindex="0" aria-label="Data table"><table><caption class="sr">Questions with the lowest percent correct</caption><thead><tr><th scope="col">Question</th><th scope="col">Subject</th><th scope="col">Answered</th><th scope="col">Correct</th></tr></thead><tbody>${hard.map(q =>
+        `<tr><td>${esc(q.question_id)}</td><td>${esc(q.subject)}</td><td>${q.attempts}</td><td>${Math.round(q.pct_correct)}%</td></tr>`).join('')}</tbody></table></div>` : `<p class="muted">${qs.some(q => q.attempts >= 3) ? `No question is under ${HARD_BELOW}% correct right now.` : 'Shows up once questions have been answered at least 3 times.'}</p>`}</div>`;
     labelScrolls();
     const say = t => { const m = document.getElementById('ae-msg'); m.textContent = t; m.hidden = !t; };
     const upsert = row => Cloud.rest('allowed_emails?on_conflict=email', { method: 'POST', headers: { Prefer: 'resolution=merge-duplicates,return=minimal' }, body: [row] });

@@ -41,6 +41,8 @@ The home screen has an **Exam countdown** card: the member adds their exam date 
 ## Quieting the ram during tests
 The question screen has a **Hide ram** button (and **Show ram** to bring it back), so the talking ram is not a distraction mid-test. It only affects tests: the dashboard and results keep the ram. The same choice is in Settings ("Show the ram while I take a test"), is saved to the account and follows the member between devices. Turning the mascot off entirely in Settings still removes it everywhere.
 
+The Overview page's **Hardest questions** list shows only questions under 70% correct (with at least 3 answers, archived ones left out), hardest first, and links to Difficulty for first-try numbers.
+
 ## Admin > Difficulty (tuning the average)
 
 For tuning how hard the bank is. Difficulty is the share of members who get a question right on their **first try** (repeat tries are recall, not difficulty), over active members only (admins, reviewers and faculty are left out unless you tick the box, because they test questions rather than study them). Each question shows its first-try percent, its **separation** (how much better the top 27% of members do than the bottom 27%: 1 is perfect, near 0 tells you little, below 0 means the key may be wrong), and which choices members pick.
@@ -64,6 +66,8 @@ On the Program page, **Open insights** shows how the residents do as a group: th
 
 **Highlighting.** Select text in a question, an answer choice, an explanation or a lesson and a small toolbar offers Highlight and Make flashcard. Click a highlight to remove it, or select highlighted text and choose Remove highlight. The Highlight button in the tools row works on whatever you last selected. Highlights are saved to your account, so they come back in every test and on every device. A pencil marker shows on the question number, the question header and lessons that have highlights. Strike out stays a per-test tool on the question text. Dragging over words in an answer choice never picks the choice.
 
+In a lesson, the tools row at the top has a Highlight button (works on whatever you selected), Clear highlights, and a link to My highlights.
+
 **My highlights** (menu: Highlights) lists everything you have highlighted, grouped by question or lesson, with search, a Questions/Lessons filter, Make flashcard and Remove. Open question shows a question on its own with its explanation.
 
 **Your own flashcards.** Flashcards > My cards lets you write cards, edit them and delete them. Make flashcard on a highlight fills the front with the sentence around it (the highlighted words hidden as [ ... ]) and the back with the highlighted words; Make flashcard under an explanation fills the card from the whole question. Your cards form the deck "My cards", studied and scheduled like any other deck.
@@ -80,7 +84,7 @@ On desktop every link sits in the top bar. On phones the bottom bar keeps Dashbo
 
 ## Results and dashboard charts
 
-The Results screen shows a score ring (the number is printed inside, so colour is never the only signal), time, mode and the change against your previous tests, then a bar for each subject with the weakest first. A button starts a practice test on the weakest subject. The dashboard has a "Continue where you left off" card for an unfinished test and a Recent scores line chart once you have two finished tests. The charts are plain SVG with a text label for screen readers; there is no chart library and no database change.
+The Results screen shows a score ring (the number is printed inside, so color is never the only signal), time, mode and the change against your previous tests, then a bar for each subject with the weakest first. A button starts a practice test on the weakest subject. The dashboard has a "Continue where you left off" card for an unfinished test and a Recent scores line chart once you have two finished tests. The charts are plain SVG with a text label for screen readers; there is no chart library and no database change.
 
 ## The New Test screen
 
@@ -88,9 +92,11 @@ Mode is two choice cards (Tutor, Timed). Boards, question status and difficulty 
 
 ## The question screen
 The tools above the question are compact (Highlight, Strike out, Clear marks) with **A-** and **A+** to change the text size (saved to the account). Submit, Previous, Next, Flag, Feedback, Hide ram and End test sit in a bar that stays at the bottom while you scroll. **End test** says how many questions are unanswered and flagged before it ends. After answering, the explanation is laid out in sections: a Correct or Incorrect banner, how other members did, the Explanation, a row for each answer choice's note, a lesson card and references. The Review page uses the same layout.
+**Pause.** The Pause button in the action bar stops the clock and hides the question and choices (so a timed test cannot be studied while the time stands still). The paused screen shows how much time is left or used, with Resume and End test. A paused test stays paused after a reload, and the dashboard's "Continue where you left off" card says it is paused.
 
-## Colour themes and type
-Settings > **Colour theme** switches between **Olive and gold** (the original) and **Navy and teal**, each with light and dark modes. The choice is saved to the account and follows the member to other devices. Text is set in Inter (self-hosted in `fonts/`, SIL Open Font License). The themes are CSS variables in `css/style.css` (`data-palette` on the page), so adding a third is a short block of colours.
+
+## Color themes and type
+Settings > **Color theme** switches between **Olive and gold** (the original) and **Navy and teal**, each with light and dark modes. The choice is saved to the account and follows the member to other devices. Text is set in Inter (self-hosted in `fonts/`, SIL Open Font License). The themes are CSS variables in `css/style.css` (`data-palette` on the page), so adding a third is a short block of colors.
 
 ## Flashcards
 The **Flashcards** tab has short cards a resident flips and rates (Again, Hard, Good, Easy). A simple spaced-repetition schedule (a form of SM-2) brings each card back just before it is forgotten, with up to 10 new cards a day. Each member's schedule is saved to their account, works offline, and is cleared by **Reset all progress**. Flashcards are free for everyone. Admins and reviewers manage them under **Admin > Flashcards** (add, edit, import from a chat, publish, archive, delete, backup), the same way as questions. **Browse all cards** lets a member read through the cards (search, filter by subject, show or hide answers) without rating or scheduling anything. Each member can adjust **Flashcard settings** on the Flashcards page: new cards per day (0 to 100), most reviews in one session (20, 50, 100, 200 or no limit), shuffled or most-overdue-first order, whether the buttons show when a card returns, and reverse cards (answer first). The settings follow the member to other devices. Writing guide and AI prompt: `docs/CARD-GUIDE.md`. Run the latest `supabase/schema.sql` to switch them on. The demo site loads `data/cards/sample.json`.

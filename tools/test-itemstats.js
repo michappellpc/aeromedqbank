@@ -35,7 +35,7 @@ t('only questions with enough answers are judged', sm.judged === 6 && sm.total =
 t('the average and the answer-weighted average', sm.mean === 68.7 && sm.weighted === 68.7, JSON.stringify([sm.mean, sm.weighted]));
 t('average by label, with how many sit in their band', sm.byLabel[0].avg === 91 && sm.byLabel[0].inBand === 2 && sm.byLabel[1].avg === 75 && sm.byLabel[1].inBand === 1 && sm.byLabel[2].avg === 40 && sm.byLabel[2].inBand === 2, JSON.stringify(sm.byLabel));
 t('the histogram counts every judged question once', sm.hist.reduce((x, h) => x + h.count, 0) === 6 && sm.hist[9].count === 2 && sm.hist[3].count === 1);
-t('counts of too easy, too hard and mislabelled', sm.tooEasy === 2 && sm.tooHard === 1 && sm.mislabeled === 1, JSON.stringify([sm.tooEasy, sm.tooHard, sm.mislabeled]));
+t('counts of too easy, too hard and mislabeled', sm.tooEasy === 2 && sm.tooHard === 1 && sm.mislabeled === 1, JSON.stringify([sm.tooEasy, sm.tooHard, sm.mislabeled]));
 t('by subject', sm.bySubject.length === 1 && sm.bySubject[0].avg === 69);
 t('empty is fine', S.summarize([]).mean === null && S.summarize([]).judged === 0);
 
@@ -52,7 +52,7 @@ t('archived questions are left out of the plan', (() => { const z = items.map(i 
 console.log('Request for an AI rewrite and the export');
 const sel = items.slice(0, 2), prompt = S.rewritePrompt(sel, 'harder', { target: 65 });
 t('the request says which way and the target', /HARDER/.test(prompt) && /about 65%/.test(prompt) && /2 board-prep questions/.test(prompt));
-t('it carries each question\'s numbers', /- a: 96% correct on the first try \(50 members\)/.test(prompt) && /labelled Easy/.test(prompt));
+t('it carries each question\'s numbers', /- a: 96% correct on the first try \(50 members\)/.test(prompt) && /labeled Easy/.test(prompt));
 t('it carries the questions as JSON marked draft', (() => { const j = JSON.parse(prompt.slice(prompt.indexOf('The questions:') + 15)); return j.length === 2 && j[0].id === 'a' && j[0].status === 'draft' && Array.isArray(j[0].options); })());
 t('the easier request differs', /EASIER/.test(S.rewritePrompt(sel, 'easier')) && /clearer and more direct/.test(S.rewritePrompt(sel, 'easier')));
 const csv = S.csv(items);
