@@ -41,6 +41,10 @@ The home screen has an **Exam countdown** card: the member adds their exam date 
 ## Quieting the ram during tests
 The question screen has a **Hide ram** button (and **Show ram** to bring it back), so the talking ram is not a distraction mid-test. It only affects tests: the dashboard and results keep the ram. The same choice is in Settings ("Show the ram while I take a test"), is saved to the account and follows the member between devices. Turning the mascot off entirely in Settings still removes it everywhere.
 
+## Navigation
+
+On desktop every link sits in the top bar. On phones the bottom bar keeps Dashboard, New Test, Lessons and Flashcards on one row, and a More button opens a panel with History, Support, Program, Admin and Settings. More lights up while you are on one of those pages and shows a red dot when Support or the inbox has something new. Escape, tapping outside or choosing a link closes the panel.
+
 ## Results and dashboard charts
 
 The Results screen shows a score ring (the number is printed inside, so colour is never the only signal), time, mode and the change against your previous tests, then a bar for each subject with the weakest first. A button starts a practice test on the weakest subject. The dashboard has a "Continue where you left off" card for an unfinished test and a Recent scores line chart once you have two finished tests. The charts are plain SVG with a text label for screen readers; there is no chart library and no database change.
