@@ -41,6 +41,10 @@ The home screen has an **Exam countdown** card: the member adds their exam date 
 ## Quieting the ram during tests
 The question screen has a **Hide ram** button (and **Show ram** to bring it back), so the talking ram is not a distraction mid-test. It only affects tests: the dashboard and results keep the ram. The same choice is in Settings ("Show the ram while I take a test"), is saved to the account and follows the member between devices. Turning the mascot off entirely in Settings still removes it everywhere.
 
+## Calculator
+
+A Calculator button in the tools row of the question screen opens a floating calculator that stays open from question to question. It handles + - x / ^ and brackets, percent, factorial, square root, log, ln, e^x, pi, e, 1/x and a memory of the last answer, and keeps the last five results. Type a sum and press Enter, or use the keypad. Drag it by its title bar on a computer; on a phone it opens as a sheet above the bottom bar. Escape or the X closes it. The maths is a small parser, not `eval`, with tests in `tools/test-calc.js`. No database change.
+
 ## Navigation
 
 On desktop every link sits in the top bar. On phones the bottom bar keeps Dashboard, New Test, Lessons and Flashcards on one row, and a More button opens a panel with History, Support, Program, Admin and Settings. More lights up while you are on one of those pages and shows a red dot when Support or the inbox has something new. Escape, tapping outside or choosing a link closes the panel.

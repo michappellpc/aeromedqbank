@@ -454,7 +454,7 @@ function renderTest() {
   <div class="card qcard" data-size="${txt}">
     <div class="row spread"><div>${q.boards.map(b => `<span class="tag">${esc(boardName(b))}</span>`).join('')}${isDraft(q) ? '<span class="tag draft" title="Not yet reviewed by a physician">Draft</span>' : ''}<span class="muted">${esc(q.subject)}${q.topic && shown ? ' · ' + esc(q.topic) : ''}</span></div>
       <div class="muted">Question ${t.idx + 1} of ${t.qids.length}</div></div>
-    <div class="marktools" role="group" aria-label="Mark up the question"><button type="button" id="mk-h" title="Highlight the selected text">Highlight</button><button type="button" id="mk-s" title="Strike out the selected text">Strike out</button><button type="button" id="mk-c" title="Remove your highlights and strikes from this question">Clear marks</button><span class="sr">Select text in the question, then choose a tool. Marks last for this test.</span><span style="flex:1"></span><span class="textsize" role="group" aria-label="Text size"><button type="button" id="tx-minus" aria-label="Smaller text" title="Smaller text"${txt <= 0 ? ' disabled' : ''}>A&minus;</button><button type="button" id="tx-plus" aria-label="Larger text" title="Larger text"${txt >= 3 ? ' disabled' : ''}>A+</button></span></div>
+    <div class="marktools" role="group" aria-label="Mark up the question"><button type="button" id="mk-h" title="Highlight the selected text">Highlight</button><button type="button" id="mk-s" title="Strike out the selected text">Strike out</button><button type="button" id="mk-c" title="Remove your highlights and strikes from this question">Clear marks</button><button type="button" id="calc" aria-haspopup="dialog" aria-expanded="${CalcUI.isOpen()}" title="Open the calculator">Calculator</button><span class="sr">Select text in the question, then choose a tool. Marks last for this test.</span><span style="flex:1"></span><span class="textsize" role="group" aria-label="Text size"><button type="button" id="tx-minus" aria-label="Smaller text" title="Smaller text"${txt <= 0 ? ' disabled' : ''}>A&minus;</button><button type="button" id="tx-plus" aria-label="Larger text" title="Larger text"${txt >= 3 ? ' disabled' : ''}>A+</button></span></div>
     <p class="stem" id="stem">${markup(q.stem, t.marks && t.marks[id])}</p>
     ${imgTag(q)}
     <div id="opts" role="radiogroup" aria-label="Answer choices">${q.options.map(o => {
@@ -555,6 +555,7 @@ function bindTest(t, q) {
     }
     persist(t); stemEl.innerHTML = markup(q.stem, ms[id]); getSelection().removeAllRanges(); lastSel = null;
   };
+  const cb = document.getElementById('calc'); if (cb) { cb.onmousedown = ev => ev.preventDefault(); cb.onclick = () => CalcUI.toggle(cb); }
   [['mk-h', 'h'], ['mk-s', 's'], ['mk-c', 'c']].forEach(([b, k]) => { const e = document.getElementById(b); if (e) { e.onmousedown = ev => ev.preventDefault(); e.onclick = () => applyMark(k); } });
   bindZoom();
   $app.querySelectorAll('[data-go]').forEach(b => b.onclick = () => go(+b.dataset.go));
@@ -576,7 +577,7 @@ function bindTest(t, q) {
     t.revealed[id] = true; Store.record(id, t.answers[id] === q.answer, t.answers[id]); persist(t); renderTest();
   }
   document.onkeydown = e => {
-    if (location.hash !== '#/test' || /TEXTAREA|INPUT|SELECT/.test(e.target.tagName) || document.querySelector('.modal')) return;
+    if (location.hash !== '#/test' || /TEXTAREA|INPUT|SELECT/.test(e.target.tagName) || document.querySelector('.modal') || e.target.closest('.calc')) return;
     const k = e.key.toUpperCase();
     if ((k === 'ENTER' || k === ' ') && /^(BUTTON|A)$/.test(e.target.tagName)) return;   // a focused button or link handles its own Enter/Space
     if (k === 'ARROWRIGHT') go(t.idx + 1); else if (k === 'ARROWLEFT') go(t.idx - 1);
