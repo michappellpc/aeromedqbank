@@ -414,3 +414,27 @@ button.primary:hover:not(:disabled),.btn.primary:hover{background:var(--btn-h);b
 .examinfo{flex:1;min-width:220px}
 
 .scroll{position:relative}   /* keeps visually hidden text inside a scrolling table from widening the page */
+
+/* ---- Question screen: calmer toolbar, text size, sticky action bar, sectioned explanation ---- */
+.marktools{gap:6px;margin-top:6px}.marktools button{padding:4px 10px;min-height:30px;font-size:.85rem}
+.marktools .textsize{display:flex;gap:4px}.marktools .textsize button{min-width:38px;font-weight:600}
+.qcard .stem{font-size:1.12rem;line-height:1.72;margin:16px 0 20px}
+.qcard[data-size="1"] .stem,.qcard[data-size="1"] .opt{font-size:1.22rem}
+.qcard[data-size="2"] .stem,.qcard[data-size="2"] .opt{font-size:1.34rem}
+.qcard[data-size="3"] .stem,.qcard[data-size="3"] .opt{font-size:1.5rem}
+.opt{padding:12px 14px}
+.actionbar{position:sticky;bottom:0;z-index:3;margin:18px -16px -16px;padding:12px 16px;background:var(--card);border-top:1px solid var(--line);border-radius:0 0 var(--r) var(--r);box-shadow:0 -6px 14px -10px rgba(0,0,0,.25)}
+.actionbar .coach{bottom:calc(112px + env(safe-area-inset-bottom,0px))}
+@media(max-width:600px){.actionbar{bottom:56px;margin-bottom:0;border-radius:0}.actionbar .coach{position:absolute;bottom:calc(100% - 2px);right:6px}.actionbar .coach .sprite{width:56px;height:auto}}
+.expl{white-space:normal;border-left:0;background:transparent;padding:0;margin-top:18px;border-radius:0}
+.expl .verdict{display:flex;gap:8px;align-items:center;padding:10px 14px;border-radius:10px;font-size:1.02rem;border:1px solid var(--line)}
+.expl .verdict.ok{background:color-mix(in srgb,var(--good) 14%,var(--card));border-color:var(--good)}
+.expl .verdict.no{background:color-mix(in srgb,var(--bad) 12%,var(--card));border-color:var(--bad)}
+.expl .peerrow{margin:10px 2px 0;font-size:.92rem}
+.expl .exph{font-size:.8rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:18px 0 6px;font-weight:700}
+.expl .exptext{white-space:pre-wrap;margin:0;line-height:1.7}
+.expl .optnotes{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.expl .optnotes li{padding:8px 12px;border:1px solid var(--line);border-radius:8px;line-height:1.55}
+.expl .optnotes li.right{border-color:var(--good);background:color-mix(in srgb,var(--good) 10%,var(--card))}
+.expl .relatedcard{margin:16px 0 0;padding:10px 14px;border:1px solid var(--line);border-left:4px solid var(--gold);border-radius:8px;background:var(--sel)}
+.expl .refs{margin:14px 0 0}
