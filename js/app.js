@@ -440,8 +440,8 @@ function renderTest() {
       <button id="next" ${t.idx < t.qids.length - 1 ? '' : 'disabled'}>Next →</button>
       <button class="flagbtn ${st && st.flagged ? 'on' : ''}" id="flag">⚑ Flag</button>
       <button id="fbk" title="Report a problem or suggest a change to this question">✎ Feedback</button>
-      <span style="flex:1"></span>${mascotOn() ? `<button id="ram" type="button" aria-pressed="${!quizMascotOn()}" title="${quizMascotOn() ? 'Hide the ram while you take tests' : 'Show the ram again'}">${quizMascotOn() ? 'Hide ram' : 'Show ram'}</button>` : ''}<button class="danger" id="end">End test</button>
-    <div id="coach" class="coach"></div>
+      <span style="flex:1"></span><button class="danger" id="end">End test</button>
+    ${mascotOn() ? `<div id="coach" class="coach"><div id="coachm"></div><button id="ram" type="button" class="ramtog" aria-pressed="${!quizMascotOn()}" title="${quizMascotOn() ? 'Hide the ram while you take tests' : 'Show the ram again'}">${quizMascotOn() ? 'Hide ram' : 'Show ram'}</button></div>` : ''}
     </div>
     <details style="margin-top:12px"><summary>Notes</summary><textarea id="note" rows="3" placeholder="Your notes on this question">${esc(st ? st.note : '')}</textarea></details>
   </div></div>
@@ -456,7 +456,7 @@ function renderTest() {
       ? { pose: streak >= 3 ? 'cheer' : 'happy', msg: streak >= 3 ? `${streak} in a row. Nicely done.` : Mascot.pick(L.correct, id) }
       : { pose: 'sad', msg: Mascot.pick(L.wrong, id) })
     : { pose: 'idle', msg: tutor || t.idx === 0 ? Mascot.pick(L.tips, id + t.idx) : '' };
-  if (quizMascotOn()) Mascot.mount(document.getElementById('coach'), { ...coach, msg: coach.msg && esc(coach.msg).replace(/&#39;/g, "'"), scale: 3 });
+  if (quizMascotOn()) Mascot.mount(document.getElementById('coachm'), { ...coach, msg: coach.msg && esc(coach.msg).replace(/&#39;/g, "'"), scale: 3 });
   bindTest(t, q); hydrateImages();
   if (refocus) { const f = $app.querySelector(`[data-opt="${refocus}"]`); if (f) f.focus(); refocus = null; }
 }
