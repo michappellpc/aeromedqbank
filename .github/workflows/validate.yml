@@ -17,6 +17,8 @@ jobs:
         run: node tools/test-cards.js
       - name: Calculator tests
         run: node tools/test-calc.js
+      - name: Highlight tests
+        run: node tools/test-hl.js
       - name: Test the related-lesson matching
         run: node tools/test-related.js
       - name: Test the lesson rules and sample lessons

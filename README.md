@@ -41,6 +41,16 @@ The home screen has an **Exam countdown** card: the member adds their exam date 
 ## Quieting the ram during tests
 The question screen has a **Hide ram** button (and **Show ram** to bring it back), so the talking ram is not a distraction mid-test. It only affects tests: the dashboard and results keep the ram. The same choice is in Settings ("Show the ram while I take a test"), is saved to the account and follows the member between devices. Turning the mascot off entirely in Settings still removes it everywhere.
 
+## Highlights, My highlights and your own flashcards
+
+**Highlighting.** Select text in a question, an answer choice, an explanation or a lesson and a small toolbar offers Highlight and Make flashcard. Click a highlight to remove it, or select highlighted text and choose Remove highlight. The Highlight button in the tools row works on whatever you last selected. Highlights are saved to your account, so they come back in every test and on every device. A pencil marker shows on the question number, the question header and lessons that have highlights. Strike out stays a per-test tool on the question text. Dragging over words in an answer choice never picks the choice.
+
+**My highlights** (menu: Highlights) lists everything you have highlighted, grouped by question or lesson, with search, a Questions/Lessons filter, Make flashcard and Remove. Open question shows a question on its own with its explanation.
+
+**Your own flashcards.** Flashcards > My cards lets you write cards, edit them and delete them. Make flashcard on a highlight fills the front with the sentence around it (the highlighted words hidden as [ ... ]) and the back with the highlighted words; Make flashcard under an explanation fills the card from the whole question. Your cards form the deck "My cards", studied and scheduled like any other deck.
+
+**Privacy and limits.** Highlights and your own cards are private to you: administrators, reviewers and faculty cannot read them (the database policies enforce this, with tests in `supabase/tests/run.sh`). Up to 5000 highlights and 2000 own cards. If a question or lesson is edited later, a highlight finds its words again; if they are gone, it stays listed in My highlights. Resetting your progress keeps highlights and cards. Run the latest `supabase/schema.sql` to switch this on; until then everything works on the device and syncs after the upgrade.
+
 ## Calculator
 
 A Calculator button in the tools row of the question screen opens a floating calculator that stays open from question to question. It handles + - x / ^ and brackets, percent, factorial, square root, log, ln, e^x, pi, e, 1/x and a memory of the last answer, and keeps the last five results. Type a sum and press Enter, or use the keypad. Drag it by its title bar on a computer; on a phone it opens as a sheet above the bottom bar. Escape or the X closes it. The maths is a small parser, not `eval`, with tests in `tools/test-calc.js`. No database change.

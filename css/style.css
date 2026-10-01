@@ -506,3 +506,19 @@ main h2{line-height:1.25}
 .calckeys{display:grid;grid-template-columns:repeat(5,1fr);gap:5px}.calckeys button{padding:9px 0;min-height:40px;text-align:center;font-size:.95rem}.calckeys .num{font-weight:600}
 .calchist{list-style:none;margin:8px 0 0;padding:0;max-height:92px;overflow:auto;font-size:.8rem}.calchist button{width:100%;text-align:right;border:0;background:none;padding:3px 4px;color:var(--muted);min-height:0}.calchist button:hover{background:var(--sel)}
 @media(max-width:600px){.calc{top:auto;right:8px;left:8px;width:auto;max-width:none;bottom:calc(66px + env(safe-area-inset-bottom,0px))}.calckeys button{min-height:44px}}
+
+/* ---- Saved highlights ---- */
+mark.hl{background:#ffe27a;color:#1c1c1c;border-radius:2px;padding:0 1px;cursor:pointer}
+.opt mark.hl{cursor:inherit}
+.hlpop{position:fixed;z-index:40;display:flex;gap:4px;padding:5px;background:var(--hdr);border-radius:var(--r);box-shadow:0 6px 20px rgba(0,0,0,.35)}
+.hlpop button{background:var(--card);padding:6px 12px;min-height:34px;font-size:.88rem;white-space:nowrap}
+.tag.hltag{background:#ffe27a;color:#1c1c1c}
+.nav button.hl{box-shadow:inset 0 -4px 0 #e8b800}
+
+/* ---- My highlights, My cards ---- */
+.mkrow{margin:12px 0 0}
+.hlgroup{margin-bottom:12px}.hllist,.mylist{list-style:none;margin:10px 0 0;padding:0;display:grid;gap:8px}
+.hllist li,.mylist li{display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap;padding:8px 0;border-top:1px solid var(--line)}
+.hlquote,.mybody{display:flex;flex-direction:column;gap:2px;flex:1;min-width:200px}.hlquote mark.hl{align-self:flex-start;cursor:default;line-height:1.5}
+.mybody .muted,.mybody .small{overflow-wrap:anywhere}
+@media(min-width:601px) and (max-width:1250px){nav a{padding-left:8px;padding-right:8px;font-size:.9rem}.top{gap:10px}}

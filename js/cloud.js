@@ -82,10 +82,10 @@ const Cloud = (() => {
   }
 
   // ---- queue of changes not yet on the server ----
-  const blankQueue = () => ({ attempts: [], marks: {}, tests: {}, settings: null, reset: false, feedback: [], cards: {} });
+  const blankQueue = () => ({ attempts: [], marks: {}, tests: {}, settings: null, reset: false, feedback: [], cards: {}, hl: {}, mine: {} });
   const queue = () => Object.assign(blankQueue(), jget(qKey()) || {});
   const saveQueue = q => jset(qKey(), q);
-  const pending = () => { const q = queue(); return q.attempts.length + Object.keys(q.marks).length + Object.keys(q.tests).length + (q.settings ? 1 : 0) + (q.reset ? 1 : 0) + (q.feedback || []).length + Object.keys(q.cards || {}).length; };
+  const pending = () => { const q = queue(); return q.attempts.length + Object.keys(q.marks).length + Object.keys(q.tests).length + (q.settings ? 1 : 0) + (q.reset ? 1 : 0) + (q.feedback || []).length + Object.keys(q.cards || {}).length + Object.keys(q.hl || {}).length + Object.keys(q.mine || {}).length; };
   const cid = () => (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2));
 
   function change(fn) { if (!cfg || !session) return; const q = queue(); fn(q); saveQueue(q); schedule(); }
@@ -121,6 +121,19 @@ const Cloud = (() => {
         else throw e;
       }
     }
+    for (const [key, table] of [['hl', 'highlights'], ['mine', 'my_cards']]) {   // highlights and own cards: a row to save, or null to delete
+      q = queue(); const ents = Object.entries(q[key] || {}); if (!ents.length) continue;
+      const done = list => { const z = queue(); list.forEach(([id, v]) => { if (JSON.stringify((z[key] || {})[id]) === JSON.stringify(v)) delete z[key][id]; }); saveQueue(z); };
+      const ups = ents.filter(([, v]) => v), dels = ents.filter(([, v]) => !v);
+      try {
+        for (let i = 0; i < ups.length; i += 100) { const part = ups.slice(i, i + 100); await api(`/rest/v1/${table}?on_conflict=id`, { method: 'POST', headers: { Prefer: 'resolution=merge-duplicates,return=minimal' }, body: part.map(([, v]) => v) }); done(part); }
+        if (dels.length) { await api(`/rest/v1/${table}?id=in.(${dels.map(([id]) => id).join(',')})`, { method: 'DELETE', headers: { Prefer: 'return=minimal' } }); done(dels); }
+      } catch (e) {
+        if (noOwnTable(e)) continue;                                        // not upgraded yet: keep them for later
+        if (e.status === 400 || e.status === 403 || e.status === 409) { for (const ent of ups) { try { await api(`/rest/v1/${table}?on_conflict=id`, { method: 'POST', headers: { Prefer: 'resolution=merge-duplicates,return=minimal' }, body: [ent[1]] }); } catch (x) { if (x.offline || x.status >= 500) throw x; } done([ent]); } }   // one bad row (over the limit, say) must not block the rest
+        else throw e;
+      }
+    }
     q = queue();
     const tests = Object.values(q.tests);
     if (tests.length) {
@@ -148,6 +161,8 @@ const Cloud = (() => {
   const blankStat = () => ({ seen: 0, correct: 0, wrong: 0, flagged: false, note: '', last: null });
   async function pull() {
     const cardRes = await api('/rest/v1/card_reviews?select=card_id,ease,interval_days,due,reps,lapses,last_reviewed&limit=5000').catch(e => { if (noCardsTable(e)) return null; throw e; });
+    const hlRes = await api('/rest/v1/highlights?select=id,kind,item_id,field,start_pos,end_pos,text_hl&limit=5000').catch(e => { if (noOwnTable(e)) return null; throw e; });
+    const mineRes = await api('/rest/v1/my_cards?select=id,front,back,src_kind,src_id,ease,interval_days,due,reps,lapses,last_reviewed&limit=3000').catch(e => { if (noOwnTable(e)) return null; throw e; });
     const [prog, marks, tests, settings] = await Promise.all([
       api('/rest/v1/rpc/my_progress', { method: 'POST', body: {} }),
       api('/rest/v1/question_marks?select=question_id,flagged,note'),
@@ -163,7 +178,13 @@ const Cloud = (() => {
     (tests || []).forEach(t => byId.set(t.id, { id: t.id, date: Date.parse(t.taken_at), mode: t.mode, qids: t.qids, answers: t.answers, correct: t.correct, total: t.total, seconds: t.seconds }));
     Object.values(Q.tests).forEach(t => byId.set(t.id, t));
     const d = Store.data;
-    if (cardRes) { const cs = {}; cardRes.forEach(r => { cs[r.card_id] = { e: r.ease, i: r.interval_days, due: r.due, reps: r.reps, lapses: r.lapses, last: r.last_reviewed }; }); Object.assign(cs, Q.cards || {}); d.cards = cs; }
+    if (cardRes) { const cs = {}; cardRes.forEach(r => { cs[r.card_id] = { e: r.ease, i: r.interval_days, due: r.due, reps: r.reps, lapses: r.lapses, last: r.last_reviewed }; }); Object.assign(cs, Q.cards || {}); Object.entries(d.cards || {}).forEach(([k, v]) => { if (k.startsWith('my:')) cs[k] = v; }); d.cards = cs; }
+    if (hlRes) { const m = {}; hlRes.forEach(r => { m[r.id] = hlFromRow(r); }); Object.entries(Q.hl || {}).forEach(([id, row]) => { if (row) m[id] = hlFromRow(row); else delete m[id]; }); d.hl = m; }
+    if (mineRes) {
+      const m = {}, st = {}; mineRes.forEach(r => { m[r.id] = mineFromRow(r); if (r.due) st['my:' + r.id] = { e: r.ease, i: r.interval_days, due: r.due, reps: r.reps, lapses: r.lapses, last: r.last_reviewed }; });
+      Object.entries(Q.mine || {}).forEach(([id, row]) => { if (!row) { delete m[id]; delete st['my:' + id]; return; } m[id] = mineFromRow(row); if (row.due) st['my:' + id] = { e: row.ease, i: row.interval_days, due: row.due, reps: row.reps, lapses: row.lapses, last: row.last_reviewed }; else delete st['my:' + id]; });
+      d.mine = m; d.cards = { ...(d.cards || {}) }; Object.keys(d.cards).forEach(k => { if (k.startsWith('my:')) delete d.cards[k]; }); Object.assign(d.cards, st);
+    }
     d.q = q; d.tests = [...byId.values()].sort((a, b) => b.date - a.date);
     if (!Q.settings && settings && settings[0]) d.settings = { ...d.settings, ...settings[0].data };
     Store.save();
@@ -206,6 +227,11 @@ const Cloud = (() => {
   const toEditorLesson = r => ({ ...toLesson(r), archived: !!r.archived, updatedAt: r.updated_at, updatedBy: r.updated_by || '' });
   const toLessonRow = l => { const row = { id: l.id, status: l.status, boards: l.boards, subject: l.subject, title: l.title, summary: l.summary || '', position: l.order === undefined ? 100 : l.order,
     blocks: l.blocks, refs: l.references || [], tier: l.tier || 'pro' }; if (typeof l.archived === 'boolean') row.archived = l.archived; return row; };
+  const noOwnTable = e => e && (e.status === 404 || e.status === 400) && /highlights|my_cards|schema cache|relation/i.test(e.message || '');
+  const hlToRow = h => ({ id: h.id, user_id: uid(), kind: h.k, item_id: h.i, field: h.f, start_pos: h.a, end_pos: h.b, text_hl: h.t });
+  const hlFromRow = r => ({ id: r.id, k: r.kind, i: r.item_id, f: r.field, a: r.start_pos, b: r.end_pos, t: r.text_hl });
+  const mineToRow = (c, st) => ({ id: c.id, user_id: uid(), front: c.front, back: c.back, src_kind: c.sk || null, src_id: c.si || null, ease: st ? st.e : 2.5, interval_days: st ? st.i : 0, due: st ? st.due : null, reps: st ? st.reps : 0, lapses: st ? st.lapses : 0, last_reviewed: st && st.last || null });
+  const mineFromRow = r => ({ id: r.id, front: r.front, back: r.back, sk: r.src_kind || undefined, si: r.src_id || undefined });
   const noCardsTable = e => e && (e.status === 404 || e.status === 400) && /flashcards|card_reviews|schema cache|relation/i.test(e.message || '');
   const noLessonsTable = e => e && (e.status === 404 || e.status === 400) && /lessons|schema cache|relation/i.test(e.message || '');
   async function allLessons(filter) {
@@ -456,8 +482,10 @@ const Cloud = (() => {
     queueMark(question_id) { change(q => { const s = Store.qstat(question_id) || {}; q.marks[question_id] = { flagged: !!s.flagged, note: s.note || '', updated_at: new Date().toISOString() }; }); },
     queueTest(rec) { change(q => { q.tests[rec.id] = rec; }); },
     queueSettings() { change(q => { const s = Store.data.settings; q.settings = { data: { theme: s.theme, showDrafts: s.showDrafts !== false, palette: s.palette || 'olive', exam: s.exam || null, quizMascot: s.quizMascot !== false, quizText: +s.quizText || 0, ...(s.cards ? { cards: s.cards } : {}) }, updated_at: new Date().toISOString() }; }); },
-    queueCard(id, st) { change(q => { (q.cards ||= {})[id] = st; }); },
-    queueReset() { change(q => { Object.assign(q, blankQueue(), { reset: true }); }); },
+    queueCard(id, st) { if (String(id).startsWith('my:')) return this.queueMine(String(id).slice(3)); change(q => { (q.cards ||= {})[id] = st; }); },
+    queueHl(id) { change(q => { const h = (Store.data.hl || {})[id]; (q.hl ||= {})[id] = h ? hlToRow(h) : null; }); },
+    queueMine(id) { change(q => { const c = (Store.data.mine || {})[id]; (q.mine ||= {})[id] = c ? mineToRow(c, (Store.data.cards || {})['my:' + id]) : null; }); },
+    queueReset() { change(q => { const { hl, mine } = q; Object.assign(q, blankQueue(), { reset: true, hl: hl || {}, mine: mine || {} }); }); },
     sync, pending, get lastSync() { return lastSync; },
     userKey: () => `qbank.v1.${uid()}`
   };

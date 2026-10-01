@@ -478,4 +478,36 @@ eq  "a member cannot read the reply table directly"    "yes" "$(as a "select * f
 eq  "anonymous visitors cannot call the conversation functions" "yes" "$(as anon "select * from my_threads();" 2>&1 | grep -q 'permission denied' && echo yes)"
 root "insert into feedback_messages (feedback_id, sender, author_id, message) select $SID, 'member', '00000000-0000-0000-0000-0000000000a1', 'filler ' || g from generate_series(1, 30) g;" >/dev/null
 eq  "a member is limited to 30 replies a day"          "yes" "$(as a "select thread_member_reply($SID, 'one too many');" 2>&1 | grep -q 'too many messages' && echo yes)"
+echo; echo "Highlights and personal cards"
+H1=11111111-1111-4111-8111-111111111111; H2=22222222-2222-4222-8222-222222222222; M1=33333333-3333-4333-8333-333333333333
+eq  "a member can save a highlight"                    "1" "$(as a "insert into highlights (id, kind, item_id, field, start_pos, end_pos, text_hl) values ('$H1','q','q-free','stem',0,4,'stem') returning 1;" | head -1)"
+root "insert into highlights (id, user_id, kind, item_id, field, start_pos, end_pos, text_hl) values ('$H1','${U[a]}','q','q-free','stem',0,4,'stem'), ('$H2','${U[b]}','l','les-1','b2',3,9,'words');
+  insert into my_cards (id, user_id, front, back) values ('$M1','${U[a]}','Own front','Own back');" >/dev/null
+eq  "a member sees only their own highlights"          "1" "$(as a "select count(*) from highlights;")"
+eq  "another member does not see them"                 "1" "$(as b "select count(*) from highlights where text_hl = 'words';")"
+eq  "and cannot read someone else's"                   "0" "$(as b "select count(*) from highlights where id = '$H1';")"
+eq  "an admin cannot read a member's highlights"       "0" "$(as admin "select count(*) from highlights;")"
+eq  "a reviewer cannot either"                         "0" "$(as rev "select count(*) from highlights;")"
+eq  "a member cannot save one as someone else"         "yes" "$(as a "insert into highlights (id, user_id, kind, item_id, field, start_pos, end_pos, text_hl) values ('44444444-4444-4444-8444-444444444444','${U[b]}','q','q-free','stem',0,3,'abc');" 2>&1 | grep -q 'row-level security' && echo yes)"
+eq  "a member cannot change someone else's"            "0" "$(as b "update highlights set text_hl = 'hacked' where id = '$H1' returning id;" | grep -c .)"
+eq  "a member cannot delete someone else's"            "0" "$(as b "delete from highlights where id = '$H1' returning id;" | grep -c .)"
+eq  "a member can delete their own"                    "1" "$(as a "delete from highlights where id = '$H1' returning id;" | grep -c .)"
+eq  "an unlisted person cannot save one"               "yes" "$(as c "insert into highlights (id, kind, item_id, field, start_pos, end_pos, text_hl) values ('55555555-5555-4555-8555-555555555555','q','q-free','stem',0,3,'abc');" 2>&1 | grep -q 'row-level security' && echo yes)"
+eq  "nobody signed out can read them"                  "permission denied for table highlights" "$(as anon "select count(*) from highlights;" 2>&1 | sed -e 's/^ERROR:  //')"
+eq  "an empty range is refused"                        "yes" "$(as a "insert into highlights (id, kind, item_id, field, start_pos, end_pos, text_hl) values ('66666666-6666-4666-8666-666666666666','q','q-free','stem',5,5,'x');" 2>&1 | grep -q 'violates check' && echo yes)"
+eq  "a blank highlight is refused"                     "yes" "$(as a "insert into highlights (id, kind, item_id, field, start_pos, end_pos, text_hl) values ('77777777-7777-4777-8777-777777777777','q','q-free','stem',0,3,'   ');" 2>&1 | grep -q 'violates check' && echo yes)"
+eq  "a bad kind is refused"                            "yes" "$(as a "insert into highlights (id, kind, item_id, field, start_pos, end_pos, text_hl) values ('88888888-8888-4888-8888-888888888888','x','q-free','stem',0,3,'abc');" 2>&1 | grep -q 'violates check' && echo yes)"
+eq  "a member sees only their own cards"               "1" "$(as a "select count(*) from my_cards;")"
+eq  "another member sees none of them"                 "0" "$(as b "select count(*) from my_cards;")"
+eq  "an admin cannot read a member's cards"            "0" "$(as admin "select count(*) from my_cards;")"
+eq  "a member can add a card and edit it"              "Changed" "$(as a "insert into my_cards (id, front, back, src_kind, src_id) values ('99999999-9999-4999-8999-999999999999','F','B','q','q-free'); update my_cards set front = 'Changed' where id = '99999999-9999-4999-8999-999999999999' returning front;" | tail -1 | head -1)"
+eq  "another member cannot change a card"              "0" "$(as b "update my_cards set front = 'hacked' where id = '$M1' returning id;" | grep -c .)"
+eq  "a card with a blank back is refused"              "yes" "$(as a "insert into my_cards (id, front, back) values ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','F','  ');" 2>&1 | grep -q 'violates check' && echo yes)"
+eq  "a card with a very long front is refused"         "yes" "$(as a "insert into my_cards (id, front, back) values ('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', repeat('x', 601), 'b');" 2>&1 | grep -q 'violates check' && echo yes)"
+eq  "a review schedule outside the limits is refused"  "yes" "$(as a "update my_cards set ease = 9 where id = '$M1';" 2>&1 | grep -q 'violates check' && echo yes)"
+root "insert into my_cards (id, user_id, front, back) select gen_random_uuid(), '${U[b]}', 'f', 'b' from generate_series(1, 2000);" >/dev/null
+eq  "a member is limited to 2000 cards of their own"   "yes" "$(as b "insert into my_cards (id, front, back) values ('cccccccc-cccc-4ccc-8ccc-cccccccccccc','f','b');" 2>&1 | grep -q 'up to 2000' && echo yes)"
+root "insert into highlights (id, user_id, kind, item_id, field, start_pos, end_pos, text_hl) select gen_random_uuid(), '${U[b]}', 'q', 'q-free', 'stem', 0, 1, 'x' from generate_series(1, 4999);" >/dev/null
+eq  "and to 5000 highlights"                           "yes" "$(as b "insert into highlights (id, kind, item_id, field, start_pos, end_pos, text_hl) values ('dddddddd-dddd-4ddd-8ddd-dddddddddddd','q','q-free','stem',0,1,'x');" 2>&1 | grep -q 'up to 5000' && echo yes)"
+eq  "deleting a member removes their highlights and cards" "0" "$(root "delete from auth.users where id = '${U[b]}'; select count(*) from highlights where user_id = '${U[b]}' union all select count(*) from my_cards where user_id = '${U[b]}';" | sort -u | tr -d '\n')"
 echo; echo "$PASS passed, $FAIL failed"; [[ $FAIL -eq 0 ]]

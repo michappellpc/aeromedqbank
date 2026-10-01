@@ -113,6 +113,42 @@ create table if not exists public.card_reviews (
   primary key (user_id, card_id)
 );
 
+-- ------------------------------------------------------- highlights and personal flashcards
+-- Private to each member: nobody else (faculty and admins included) can read these. start_pos/end_pos are character offsets into one
+-- field of one question or lesson (field says which, e.g. stem, opt-B, expl, or a lesson block); text_hl keeps the highlighted words so the
+-- highlight can be found again if the wording is edited later. my_cards holds a member's own cards with their review schedule.
+create table if not exists public.highlights (
+  id         uuid primary key,
+  user_id    uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  kind       text not null check (kind in ('q', 'l')),
+  item_id    text not null check (char_length(item_id) between 1 and 120),
+  field      text not null check (char_length(field) between 1 and 40),
+  start_pos  int  not null check (start_pos >= 0),
+  end_pos    int  not null,
+  text_hl    text not null check (char_length(btrim(text_hl)) between 1 and 1000),
+  created_at timestamptz not null default now(),
+  check (end_pos > start_pos)
+);
+create index if not exists highlights_owner on public.highlights (user_id, kind, item_id);
+
+create table if not exists public.my_cards (
+  id            uuid primary key,
+  user_id       uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  front         text not null check (char_length(btrim(front)) between 1 and 600),
+  back          text not null check (char_length(btrim(back)) between 1 and 1500),
+  src_kind      text check (src_kind in ('q', 'l')),
+  src_id        text check (char_length(src_id) <= 120),
+  ease          real not null default 2.5 check (ease between 1.3 and 4),
+  interval_days int  not null default 0 check (interval_days between 0 and 3650),
+  due           date,
+  reps          int  not null default 0 check (reps >= 0),
+  lapses        int  not null default 0 check (lapses >= 0),
+  last_reviewed date,
+  created_at    timestamptz not null default now(),
+  updated_at    timestamptz not null default now()
+);
+create index if not exists my_cards_owner on public.my_cards (user_id);
+
 -- Databases created before the reviewer role / archive existed are upgraded here (safe to re-run).
 alter table public.allowed_emails drop constraint if exists allowed_emails_role_check;
 alter table public.allowed_emails add constraint allowed_emails_role_check check (role in ('member', 'reviewer', 'faculty', 'admin'));
@@ -305,6 +341,8 @@ alter table public.questions       enable row level security;
 alter table public.lessons         enable row level security;
 alter table public.flashcards      enable row level security;
 alter table public.card_reviews    enable row level security;
+alter table public.highlights      enable row level security;
+alter table public.my_cards        enable row level security;
 alter table public.programs        enable row level security;
 alter table public.attempts        enable row level security;
 alter table public.question_marks  enable row level security;
@@ -324,6 +362,8 @@ drop policy if exists lessons_edit       on public.lessons;
 drop policy if exists cards_read         on public.flashcards;
 drop policy if exists cards_edit         on public.flashcards;
 drop policy if exists card_reviews_own   on public.card_reviews;
+drop policy if exists highlights_own     on public.highlights;
+drop policy if exists my_cards_own       on public.my_cards;
 drop policy if exists attempts_read      on public.attempts;
 drop policy if exists attempts_insert    on public.attempts;
 drop policy if exists marks_own          on public.question_marks;
@@ -342,6 +382,8 @@ create policy lessons_edit    on public.lessons        for all    to authenticat
 create policy cards_read      on public.flashcards     for select to authenticated using (public.is_active() and not archived and status = 'reviewed');
 create policy cards_edit      on public.flashcards     for all    to authenticated using (public.can_edit()) with check (public.can_edit());
 create policy card_reviews_own on public.card_reviews  for all    to authenticated using (user_id = auth.uid() and public.is_active()) with check (user_id = auth.uid() and public.is_active());
+create policy highlights_own   on public.highlights    for all to authenticated using (user_id = auth.uid() and public.is_active()) with check (user_id = auth.uid() and public.is_active());
+create policy my_cards_own     on public.my_cards      for all to authenticated using (user_id = auth.uid() and public.is_active()) with check (user_id = auth.uid() and public.is_active());
 create policy attempts_read   on public.attempts       for select to authenticated using (user_id = auth.uid() and public.is_active());
 create policy attempts_insert on public.attempts       for insert to authenticated
   with check (user_id = auth.uid() and public.is_active() and at <= now() + interval '5 minutes');
@@ -359,6 +401,8 @@ grant select, insert, update, delete on public.questions      to authenticated;
 grant select, insert, update, delete on public.lessons        to authenticated;
 grant select, insert, update, delete on public.flashcards     to authenticated;
 grant select, insert, update, delete on public.card_reviews   to authenticated;
+grant select, insert, update, delete on public.highlights     to authenticated;
+grant select, insert, update, delete on public.my_cards       to authenticated;
 grant select, insert, update, delete on public.programs       to authenticated;
 grant select, insert                 on public.feedback       to authenticated;
 grant select, insert                 on public.attempts       to authenticated;
@@ -461,6 +505,27 @@ end $$;
 drop trigger if exists cards_guard on public.flashcards;
 create trigger cards_guard before insert or update on public.flashcards
   for each row execute function public.cards_guard();
+
+-- A member can keep this many of each, so the tables cannot be filled up. my_cards also stamps its own update time.
+create or replace function public.own_rows_guard() returns trigger
+  language plpgsql security definer set search_path = public as
+$$
+declare n int;
+begin
+  if tg_table_name = 'my_cards' then
+    new.updated_at := now();
+    select count(*) into n from public.my_cards where user_id = new.user_id;
+    if tg_op = 'INSERT' and n >= 2000 then raise exception 'You can keep up to 2000 cards of your own'; end if;
+  else
+    select count(*) into n from public.highlights where user_id = new.user_id;
+    if tg_op = 'INSERT' and n >= 5000 then raise exception 'You can keep up to 5000 highlights'; end if;
+  end if;
+  return new;
+end $$;
+drop trigger if exists own_rows_guard on public.highlights;
+create trigger own_rows_guard before insert or update on public.highlights for each row execute function public.own_rows_guard();
+drop trigger if exists own_rows_guard on public.my_cards;
+create trigger own_rows_guard before insert or update on public.my_cards for each row execute function public.own_rows_guard();
 
 -- ---------------------------------------------------------------- functions the app calls
 create or replace function public.my_progress()

@@ -102,7 +102,7 @@ const Lessons = (() => {
       res.innerHTML = `<div class="card" aria-live="polite"><h2>${hits.length} result${hits.length === 1 ? '' : 's'}</h2>${hits.map(card).join('') || '<p class="muted">No lessons match.</p>'}</div>`;
     });
   }
-  const card = l => `<a class="lessoncard" href="#/lesson/${enc(l.id)}"><b>${X(l.title)}</b><span class="muted">${X(l.subject)}${l.summary ? ' &middot; ' + X(l.summary) : ''}</span><span>${tags(l)}</span></a>`;
+  const card = l => `<a class="lessoncard" href="#/lesson/${enc(l.id)}"><b>${X(l.title)}</b><span class="muted">${X(l.subject)}${l.summary ? ' &middot; ' + X(l.summary) : ''}</span><span>${tags(l)}${Store.hlIn('l', l.id).length ? '<span class="tag hltag">&#9998; Highlighted</span>' : ''}</span></a>`;
 
   function subjectPage(subject) {
     subject = decodeURIComponent(subject || '');
@@ -120,13 +120,13 @@ const Lessons = (() => {
     const sib = sorted(bank.lessons.filter(x => x.subject === l.subject)), at = sib.findIndex(x => x.id === l.id), prev = sib[at - 1], next = sib[at + 1];
     const heads = l.blocks.map((b, i) => b.type === 'heading' ? [i, b.text] : null).filter(Boolean);
     $app.innerHTML = `<p class="crumb"><a href="#/lessons">Lessons</a> &rsaquo; <a href="#/lessons/${enc(l.subject)}">${X(l.subject)}</a></p>
-      <div class="lessonlayout${heads.length > 1 ? '' : ' solo'}"><article class="card lesson"><header><h2 class="pagetitle">${X(l.title)}</h2><p>${tags(l)}</p>${l.summary ? `<p class="lsummary">${inline(l.summary)}</p>` : ''}</header>
-        ${render(l.blocks)}
+      <div class="lessonlayout${heads.length > 1 ? '' : ' solo'}"><article class="card lesson"><header><h2 class="pagetitle">${X(l.title)}</h2><p>${tags(l)}<span class="tag hltag" data-hll="${X(l.id)}"${Store.hlIn('l', l.id).length ? '' : ' hidden'}>&#9998; Highlighted</span></p>${l.summary ? `<p class="lsummary">${inline(l.summary)}</p>` : ''}</header>
+        <div class="lbody">${render(l.blocks)}</div>
         ${l.references && l.references.length ? `<section class="lrefs"><h3 class="lh">References</h3><ul>${l.references.map(r => `<li>${X(r)}</li>`).join('')}</ul></section>` : ''}
         <footer class="row spread lfoot"><span>${prev ? `<a class="btn" href="#/lesson/${enc(prev.id)}">&larr; ${X(prev.title)}</a>` : ''}</span><a class="btn primary" href="#/create/${enc(l.subject)}">Practice questions in this subject</a><span>${next ? `<a class="btn" href="#/lesson/${enc(next.id)}">${X(next.title)} &rarr;</a>` : ''}</span></footer></article>
         ${heads.length > 1 ? `<nav class="card ltoc" aria-label="In this lesson"><h2 class="navh">In this lesson</h2><ul>${heads.map(([i, t]) => `<li><button type="button" class="linkish" data-jump="lh-${i}">${X(t)}</button></li>`).join('')}</ul></nav>` : ''}</div>`;
     $app.querySelectorAll('[data-jump]').forEach(b => b.onclick = () => { const el = document.getElementById(b.dataset.jump); if (el) { el.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' }); el.setAttribute('tabindex', '-1'); el.focus({ preventScroll: true }); } });
-    done();
+    done(); HlUI.tagLesson($app.querySelector('article.lesson .lbody'), l.id); HlUI.paintAll($app, true);
   }
   return { render, chart, inline, indexPage, subjectPage, lessonPage, done, tags, sorted };
 })();
