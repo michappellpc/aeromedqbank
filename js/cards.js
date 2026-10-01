@@ -26,11 +26,11 @@ const Cards = (() => {
     }
     const k = CardSched.counts(all, states, t, opts), subjects = [...new Set(all.map(c => c.subject))].sort();
     const rows = subjects.map(s => { const cs = subjectCards(s), n = CardSched.counts(cs, states, t, opts);
-      return `<tr><th scope="row">${esc(s)}</th><td>${n.due}</td><td>${n.new}</td><td>${n.total}</td><td><a class="btn${n.due + n.new ? ' primary' : ''}" href="#/cards/study/${encodeURIComponent(s)}" aria-label="Study ${esc(s)}">Study</a></td></tr>`; }).join('');
+      return `<tr><th scope="row">${esc(s)}</th><td>${n.due}</td><td>${n.new}</td><td>${n.total}</td><td><a class="btn${n.due + n.new ? ' primary' : ''}" href="#/cards/study/${encodeURIComponent(s)}" aria-label="Study ${esc(s)}">Study</a> <a class="btn" href="#/cards/browse/${encodeURIComponent(s)}" aria-label="Browse ${esc(s)}">Browse</a></td></tr>`; }).join('');
     $app.innerHTML = `<div class="pagehead"><div><h2 class="pagetitle">Flashcards</h2><p class="muted">Short cards to learn and revisit. Rate each one honestly and the app brings it back just before you would forget it.</p></div></div>
       <div class="grid"><div class="card stat"><b>${k.due}</b><span>Due today</span></div><div class="card stat"><b>${k.new}</b><span>New today</span></div><div class="card stat"><b>${k.learned}</b><span>Well learned</span></div><div class="card stat"><b>${k.total}</b><span>Cards in all</span></div></div>
       <div class="card"><div class="row spread"><div><h2 style="margin:0">Today</h2><p class="muted" style="margin:4px 0 0">${k.due + k.new ? `${k.due} to review and ${k.new} new` : 'Nothing is due. Come back tomorrow, or study a deck below to get ahead.'}</p></div>
-        <a class="btn primary" href="#/cards/study"${k.due + k.new ? '' : ' aria-disabled="true"'}>${k.due + k.new ? `Study ${k.due + k.new} card${k.due + k.new === 1 ? '' : 's'}` : 'All done for today'}</a></div></div>
+        <div class="row"><a class="btn primary" href="#/cards/study"${k.due + k.new ? '' : ' aria-disabled="true"'}>${k.due + k.new ? `Study ${k.due + k.new} card${k.due + k.new === 1 ? '' : 's'}` : 'All done for today'}</a><a class="btn" href="#/cards/browse">Browse all cards</a></div></div></div>
       <div class="card"><h2>Decks</h2><div class="scroll" role="region" tabindex="0" aria-label="Decks table"><table><caption class="sr">Flashcard decks by subject</caption><thead><tr><th scope="col">Subject</th><th scope="col">Due</th><th scope="col">New</th><th scope="col">Cards</th><th scope="col"><span class="sr">Study</span></th></tr></thead><tbody>${rows}</tbody></table></div>
         <p class="muted small">Up to ${prefs().newPerDay} new cards a day${prefs().maxReviews ? ` and ${prefs().maxReviews} reviews per session` : ''}, so reviews never pile up.</p></div>
       <details class="card flashset" id="flashset"><summary><b>Flashcard settings</b></summary>${settingsForm()}</details>`;
@@ -121,7 +121,44 @@ const Cards = (() => {
     draw();
   }
 
-  function page(a, b) { if (a === 'study') return studyPage(b); return indexPage(); }
+  // ------------------------------------------------------------------ browse (read through the cards; nothing is scheduled or rated)
+  function browsePage(subjectArg) {
+    pageTitle('Browse flashcards');
+    const all = bank.cards || [], states = Store.cardStates(), t = day();
+    if (!all.length) return indexPage();
+    const subjects = [...new Set(all.map(c => c.subject))].sort(), STEP = 40;
+    const v = { q: '', subject: subjectArg ? decodeURIComponent(subjectArg) : '', all: false, shown: STEP, open: new Set() };
+    const status = c => { const st = states[c.id]; return !st ? 'New' : st.due <= t ? 'Due today' : `Next review ${when(st.due)}`; };
+    $app.innerHTML = `<p class="crumb"><a href="#/cards">Back to flashcards</a></p><div class="card"><h2 style="margin:0">Browse flashcards</h2>
+      <p class="muted">Read through the cards at your own pace. Nothing here is rated or scheduled, so it does not change your reviews.</p>
+      <form class="filters" onsubmit="return false" aria-label="Filter flashcards" style="margin-top:12px">
+        <div><label for="bq">Search</label><input id="bq" type="search" placeholder="words on the card or topic" autocomplete="off"></div>
+        <div><label for="bs">Subject</label><select id="bs"><option value="">All subjects</option>${subjects.map(s => `<option${s === v.subject ? ' selected' : ''}>${esc(s)}</option>`).join('')}</select></div>
+        <div style="align-self:end"><label class="chk"><input type="checkbox" id="ball"> Show all answers</label></div></form></div>
+      <div id="blist"></div>`;
+    const el = i => document.getElementById(i);
+    const filtered = () => { const w = v.q.trim().toLowerCase(); return all.filter(c => (!v.subject || c.subject === v.subject) && (!w || c.front.toLowerCase().includes(w) || c.back.toLowerCase().includes(w) || (c.topic || '').toLowerCase().includes(w))); };
+    function paint() {
+      const rows = filtered(), slice = rows.slice(0, v.shown);
+      el('blist').innerHTML = rows.length ? `<p class="muted" aria-live="polite">${rows.length} card${rows.length === 1 ? '' : 's'}</p>${slice.map(c => {
+        const open = v.all || v.open.has(c.id), lesson = open ? lessonFor(c) : null;
+        return `<article class="card browsecard"><div class="row spread"><span class="muted small">${esc(c.subject)}${c.topic ? ' &middot; ' + esc(c.topic) : ''}</span><span class="tag">${esc(status(c))}</span></div>
+          <p class="flash-side" style="margin:8px 0">${esc(c.front)}</p>
+          <div id="bk-${esc(c.id)}"${open ? '' : ' hidden'} class="flash-back">${esc(c.back).replace(/\n/g, '<br>')}${c.references && c.references.length ? `<p class="muted small">${c.references.map(esc).join('; ')}</p>` : ''}
+            ${lesson ? `<p class="small"><a href="#/lesson/${encodeURIComponent(lesson.id)}" target="_blank" rel="noopener">Study the lesson: ${esc(lesson.title)}<span class="sr"> (opens in a new tab)</span></a></p>` : ''}</div>
+          ${v.all ? '' : `<div class="row" style="margin-top:8px"><button data-flip="${esc(c.id)}" aria-expanded="${open}" aria-controls="bk-${esc(c.id)}">${open ? 'Hide answer' : 'Show answer'}<span class="sr"> for ${esc(c.front.slice(0, 40))}</span></button></div>`}</article>`; }).join('')}
+        ${rows.length > v.shown ? `<div class="row" style="justify-content:center"><button id="bmore">Show ${Math.min(STEP, rows.length - v.shown)} more</button></div>` : ''}`
+        : '<div class="card"><p class="muted">No cards match.</p></div>';
+      el('blist').querySelectorAll('[data-flip]').forEach(b => b.onclick = () => { const id = b.dataset.flip; v.open.has(id) ? v.open.delete(id) : v.open.add(id); const keep = id; paint(); const again = el('blist').querySelector(`[data-flip="${keep}"]`); if (again) again.focus(); });
+      if (el('bmore')) el('bmore').onclick = () => { v.shown += STEP; paint(); };
+    }
+    el('bq').oninput = e => { v.q = e.target.value; v.shown = STEP; paint(); };
+    el('bs').onchange = e => { v.subject = e.target.value; v.shown = STEP; paint(); };
+    el('ball').onchange = e => { v.all = e.target.checked; paint(); };
+    paint();
+  }
+
+  function page(a, b) { if (a === 'study') return studyPage(b); if (a === 'browse') return browsePage(b); return indexPage(); }
   function dueCount() { try { return CardSched.counts(bank.cards || [], Store.cardStates(), day(), optsFor()); } catch { return { due: 0, new: 0 }; } }
   return { page, indexPage, studyPage, dueCount, lessonFor };
 })();
