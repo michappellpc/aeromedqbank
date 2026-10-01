@@ -522,3 +522,15 @@ mark.hl{background:#ffe27a;color:#1c1c1c;border-radius:2px;padding:0 1px;cursor:
 .hlquote,.mybody{display:flex;flex-direction:column;gap:2px;flex:1;min-width:200px}.hlquote mark.hl{align-self:flex-start;cursor:default;line-height:1.5}
 .mybody .muted,.mybody .small{overflow-wrap:anywhere}
 @media(min-width:601px) and (max-width:1250px){nav a{padding-left:8px;padding-right:8px;font-size:.9rem}.top{gap:10px}}
+
+/* ---- Program insights ---- */
+.weaklist{list-style:none;margin:12px 0 0;padding:0;display:grid;gap:12px}
+.weakitem{padding:12px 14px;border:1px solid var(--line);border-left:5px solid var(--bad);border-radius:var(--r);background:var(--card)}
+.weakbars{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin:8px 0}.insbar{height:10px;margin-top:3px}
+.reclist{list-style:none;margin:6px 0 0;padding:0;display:grid;gap:4px}
+.tag.gap{background:var(--warn);color:#000}
+@media print{
+  header.top,nav,.foot,.row button,#ins-range,.mascot,.coach,.hlpop,.btn{display:none!important}
+  body{background:#fff;color:#000}.card{box-shadow:none;border:1px solid #999;break-inside:avoid}.weakitem{break-inside:avoid}
+  a{color:#000;text-decoration:none}
+}

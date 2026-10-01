@@ -1,0 +1,63 @@
+'use strict';
+// Program insights: turns the group totals a program's faculty can see into a ranked list of weaknesses, the lessons that would help most,
+// and the residents who may need a check-in. Pure logic, no page code. Runs in the browser and in Node (for tests).
+(function (root, factory) {
+  if (typeof module === 'object' && module.exports) module.exports = factory(typeof require === 'function' ? require('./related.js') : root.Related); else root.Insights = factory(root.Related);
+})(typeof self !== 'undefined' ? self : this, function (Related) {
+  const TARGET = 70;                                         // the percent correct a program should be reaching
+  const pct = (c, n) => (n ? Math.round(100 * c / n) : 0);
+  const label = t => (t.topic ? `${t.subject}: ${t.topic}` : t.subject);
+
+  // Topic rows from the database -> weaknesses, worst first. A topic ranks higher the further it is under the target, the further it is under
+  // all members, the more residents are struggling with it, and the more answers back it up (a few answers count for less).
+  function weak(rows, opts = {}) {
+    const target = opts.target ?? TARGET;
+    return (rows || []).map(r => {
+      const attempts = Number(r.attempts), correct = Number(r.correct), residents = Number(r.residents), low = Number(r.low_residents);
+      const p = pct(correct, attempts), gA = Number(r.group_attempts || 0), g = gA ? pct(Number(r.group_correct), gA) : null;
+      const shortfall = Math.max(0, target - p), behind = g === null ? 0 : Math.max(0, g - p), breadth = residents ? low / residents : 0;
+      const conf = Math.min(1, Math.sqrt(attempts / 30));
+      return { subject: r.subject, topic: r.topic || '', label: label(r), attempts, correct, pct: p, residents, low, group: g, behind: g === null ? null : g - p,
+        breadth, score: (shortfall + 0.5 * behind) * (0.6 + 0.4 * breadth) * conf };
+    }).filter(w => w.score > 0).sort((a, b) => b.score - a.score || a.label.localeCompare(b.label));
+  }
+
+  // The lessons that would help most with a topic: matched on the topic's name and on the wording of the questions that were missed.
+  // questions: the bank's questions; used for the words of the questions in that topic. Returns [{ lesson, reason }].
+  function lessonsFor(w, lessons, questions, n = 3) {
+    const qs = (questions || []).filter(q => q.subject === w.subject && (w.topic ? (q.topic || '') === w.topic : true)).slice(0, 12);
+    const probe = { subject: w.subject, topic: w.topic, stem: qs.map(q => q.stem).join(' '), explanation: qs.map(q => q.explanation).join(' '), options: [], answer: '' };
+    // a lesson from another subject has to match much more strongly, so a shared everyday word is never enough
+    return Related.rank(probe, lessons, { n: n + 4, min: 10 }).filter(h => h.lesson.subject === w.subject || h.score >= 25).slice(0, n).map(h => ({ lesson: h.lesson, reason: h.titleHit ? 'Its title matches the topic' : h.lesson.subject === w.subject ? 'Same subject, covers the same terms' : 'Covers the same terms' }));
+  }
+
+  // Residents worth a conversation: quiet for two weeks, or answering a lot and getting under half right. today: 'YYYY-MM-DD'.
+  function attention(roster, today, opts = {}) {
+    const quiet = opts.quietDays ?? 14, minAnswers = opts.minAnswers ?? 20, low = opts.low ?? 50, now = Date.parse(today + 'T12:00:00Z');
+    const out = [];
+    (roster || []).filter(r => r.status === 'approved').forEach(r => {
+      const n = Number(r.attempts || 0), c = Number(r.correct || 0), reasons = [];
+      const last = r.last_active ? Date.parse(r.last_active) : null;
+      const days = last ? Math.floor((now - last) / 86400000) : null;
+      if (n === 0) { if (r.joined && Math.floor((now - Date.parse(r.joined)) / 86400000) >= 7) reasons.push('Has not answered any questions yet'); }
+      else if (days !== null && days >= quiet) reasons.push(`No activity for ${days} days`);
+      if (n >= minAnswers && pct(c, n) < low) reasons.push(`${pct(c, n)}% correct over ${n} answers`);
+      if (reasons.length) out.push({ user_id: r.user_id, reasons, n, pct: n ? pct(c, n) : null });
+    });
+    return out;
+  }
+
+  // Questions the group missed most -> rows with the group's and all members' percent
+  function missed(rows) {
+    return (rows || []).map(r => {
+      const n = Number(r.attempts), c = Number(r.correct), gn = Number(r.group_attempts || 0);
+      return { id: r.question_id, subject: r.subject, topic: r.topic || '', stem: r.stem, attempts: n, pct: pct(c, n), residents: Number(r.residents), group: gn ? pct(Number(r.group_correct), gn) : null,
+        wrong: r.top_wrong || null, wrongShare: r.top_wrong && Number(r.wrong_total) ? pct(Number(r.top_wrong_n), Number(r.wrong_total)) : null };
+    });
+  }
+
+  // Weekly rows -> [{ correct, total }] oldest first, ready for a trend chart; weeks with no answers are skipped
+  const weeks = rows => (rows || []).map(r => ({ week: r.week_start, correct: Number(r.correct), total: Number(r.attempts), active: Number(r.active_residents) })).filter(w => w.total > 0);
+
+  return { TARGET, weak, lessonsFor, attention, missed, weeks, label, pct };
+});

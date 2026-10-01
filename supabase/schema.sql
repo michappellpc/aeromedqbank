@@ -676,6 +676,148 @@ begin
   return query select * from public._program_subjects(pid);
 end $$;
 
+-- ------------------------------------------------------------- program insights
+-- Group-level analysis for a program's faculty: which topics and questions the residents as a group miss most, how that compares with all
+-- members, and the weekly trend. Only totals over the program's APPROVED residents are returned, never one person's numbers by topic,
+-- and nothing at all unless the program has at least 3 approved residents (so a total can never be one person). Topics need 10 answers from
+-- 3 residents and questions 5 answers from 3 residents. The wrong answer people pick most is shown only when at least 2 chose it.
+-- days: only look at the last N days (0 or null = all time).
+drop function if exists public.faculty_topics(int);
+drop function if exists public.faculty_questions(int);
+drop function if exists public.faculty_weekly();
+drop function if exists public.preview_topics(text, int);
+drop function if exists public.preview_questions(text, int);
+drop function if exists public.preview_weekly(text);
+drop function if exists public._program_topics(text, int);
+drop function if exists public._program_questions(text, int);
+drop function if exists public._program_weekly(text);
+drop function if exists public._program_cohort_ok(text);
+
+create or replace function public._program_cohort_ok(fp text) returns boolean
+  language sql stable security definer set search_path = public as
+$$ select count(*) >= 3 from public.profiles p where p.program_id = fp and p.program_status = 'approved' and p.role <> 'faculty' and p.active $$;
+
+create or replace function public._program_topics(fp text, days int)
+  returns table (subject text, topic text, attempts bigint, correct bigint, residents bigint, low_residents bigint, group_attempts bigint, group_correct bigint)
+  language sql stable security definer set search_path = public as
+$$
+  with mem as (
+    select p.id from public.profiles p where p.program_id = fp and p.program_status = 'approved' and p.role <> 'faculty' and p.active),
+  a as (
+    select t.user_id, q.subject, coalesce(nullif(btrim(q.topic), ''), '') as topic, t.ok
+    from public.attempts t join public.questions q on q.id = t.question_id
+    where not q.archived and q.status = 'reviewed' and (coalesce(days, 0) <= 0 or t.at >= now() - make_interval(days => days))),
+  per_user as (
+    select a.subject, a.topic, a.user_id, count(*) as n, count(*) filter (where a.ok) as c
+    from a join mem on mem.id = a.user_id group by 1, 2, 3),
+  prog as (
+    select subject, topic, sum(n) as attempts, sum(c) as correct, count(*) as residents, count(*) filter (where n >= 3 and c * 100 < 60 * n) as low
+    from per_user group by 1, 2),
+  grp as (
+    select a.subject, a.topic, count(*) as n, count(*) filter (where a.ok) as c
+    from a join public.profiles pr on pr.id = a.user_id where pr.active and pr.role <> 'faculty' group by 1, 2)
+  select p.subject, p.topic, p.attempts::bigint, p.correct::bigint, p.residents, p.low, g.n, g.c
+  from prog p left join grp g on g.subject = p.subject and g.topic = p.topic
+  where public._program_cohort_ok(fp) and p.residents >= 3 and p.attempts >= 10
+$$;
+
+create or replace function public._program_questions(fp text, days int)
+  returns table (question_id text, subject text, topic text, stem text, attempts bigint, correct bigint, residents bigint,
+                 group_attempts bigint, group_correct bigint, top_wrong text, top_wrong_n bigint, wrong_total bigint)
+  language sql stable security definer set search_path = public as
+$$
+  with mem as (
+    select p.id from public.profiles p where p.program_id = fp and p.program_status = 'approved' and p.role <> 'faculty' and p.active),
+  a as (
+    select t.user_id, t.question_id, t.ok, t.chosen from public.attempts t
+    where coalesce(days, 0) <= 0 or t.at >= now() - make_interval(days => days)),
+  prog as (
+    select a.question_id, count(*) as n, count(*) filter (where a.ok) as c, count(distinct a.user_id) as r
+    from a join mem on mem.id = a.user_id group by 1),
+  wrong as (
+    select a.question_id, a.chosen, count(*) as k from a join mem on mem.id = a.user_id where not a.ok and a.chosen is not null group by 1, 2),
+  topw as (select distinct on (question_id) question_id, chosen, k from wrong order by question_id, k desc, chosen),
+  wt as (select question_id, sum(k) as tot from wrong group by 1),
+  grp as (
+    select a.question_id, count(*) as n, count(*) filter (where a.ok) as c
+    from a join public.profiles pr on pr.id = a.user_id where pr.active and pr.role <> 'faculty' group by 1)
+  select q.id, q.subject, coalesce(nullif(btrim(q.topic), ''), ''), left(q.stem, 220), p.n, p.c, p.r, g.n, g.c,
+         case when t.k >= 2 then t.chosen end, case when t.k >= 2 then t.k end, w.tot::bigint
+  from prog p
+  join public.questions q on q.id = p.question_id and not q.archived and q.status = 'reviewed'
+  left join grp g on g.question_id = p.question_id
+  left join topw t on t.question_id = p.question_id
+  left join wt w on w.question_id = p.question_id
+  where public._program_cohort_ok(fp) and p.r >= 3 and p.n >= 5
+  order by (p.c::numeric / p.n) asc, p.n desc, q.id
+  limit 30
+$$;
+
+create or replace function public._program_weekly(fp text)
+  returns table (week_start date, attempts bigint, correct bigint, active_residents bigint)
+  language sql stable security definer set search_path = public as
+$$
+  select date_trunc('week', t.at)::date, count(*), count(*) filter (where t.ok), count(distinct t.user_id)
+  from public.attempts t join public.profiles p on p.id = t.user_id
+  where public._program_cohort_ok(fp) and p.program_id = fp and p.program_status = 'approved' and p.role <> 'faculty' and p.active
+    and t.at >= date_trunc('week', now()) - interval '11 weeks'
+  group by 1 order by 1
+$$;
+
+create or replace function public.faculty_topics(days int default 0)
+  returns table (subject text, topic text, attempts bigint, correct bigint, residents bigint, low_residents bigint, group_attempts bigint, group_correct bigint)
+  language plpgsql stable security definer set search_path = public as
+$$
+declare fp text := public.faculty_program_id();
+begin
+  if fp is null then raise exception 'faculty only'; end if;
+  return query select * from public._program_topics(fp, days);
+end $$;
+create or replace function public.faculty_questions(days int default 0)
+  returns table (question_id text, subject text, topic text, stem text, attempts bigint, correct bigint, residents bigint,
+                 group_attempts bigint, group_correct bigint, top_wrong text, top_wrong_n bigint, wrong_total bigint)
+  language plpgsql stable security definer set search_path = public as
+$$
+declare fp text := public.faculty_program_id();
+begin
+  if fp is null then raise exception 'faculty only'; end if;
+  return query select * from public._program_questions(fp, days);
+end $$;
+create or replace function public.faculty_weekly()
+  returns table (week_start date, attempts bigint, correct bigint, active_residents bigint)
+  language plpgsql stable security definer set search_path = public as
+$$
+declare fp text := public.faculty_program_id();
+begin
+  if fp is null then raise exception 'faculty only'; end if;
+  return query select * from public._program_weekly(fp);
+end $$;
+create or replace function public.preview_topics(pid text, days int default 0)
+  returns table (subject text, topic text, attempts bigint, correct bigint, residents bigint, low_residents bigint, group_attempts bigint, group_correct bigint)
+  language plpgsql stable security definer set search_path = public as
+$$
+begin
+  if not public.is_admin() then raise exception 'admins only'; end if;
+  return query select * from public._program_topics(pid, days);
+end $$;
+create or replace function public.preview_questions(pid text, days int default 0)
+  returns table (question_id text, subject text, topic text, stem text, attempts bigint, correct bigint, residents bigint,
+                 group_attempts bigint, group_correct bigint, top_wrong text, top_wrong_n bigint, wrong_total bigint)
+  language plpgsql stable security definer set search_path = public as
+$$
+begin
+  if not public.is_admin() then raise exception 'admins only'; end if;
+  return query select * from public._program_questions(pid, days);
+end $$;
+create or replace function public.preview_weekly(pid text)
+  returns table (week_start date, attempts bigint, correct bigint, active_residents bigint)
+  language plpgsql stable security definer set search_path = public as
+$$
+begin
+  if not public.is_admin() then raise exception 'admins only'; end if;
+  return query select * from public._program_weekly(pid);
+end $$;
+
 -- A member can choose a name to show in place of their email wherever a program's faculty look at them. Optional; blank clears it.
 create or replace function public.set_my_name(nm text) returns void
   language plpgsql security definer set search_path = public as
@@ -924,6 +1066,7 @@ grant execute on function public.program_list() to anon, authenticated;
 grant execute on function public.my_program(), public.leave_program(), public.faculty_program_id(), public.faculty_roster(), public.faculty_subject_stats() to authenticated;
 grant execute on function public.set_my_name(text) to authenticated;
 grant execute on function public.preview_roster(text), public.preview_subjects(text), public.program_decide(text, uuid, boolean), public.program_remove(text, uuid) to authenticated;
+grant execute on function public.faculty_topics(int), public.faculty_questions(int), public.faculty_weekly(), public.preview_topics(text, int), public.preview_questions(text, int), public.preview_weekly(text) to authenticated;
 grant execute on function public.request_program(text), public.faculty_decide(uuid, boolean), public.faculty_remove(uuid) to authenticated;
 grant execute on function public.peer_stats(), public.peer_choices(), public.peer_min_users() to authenticated;
 grant execute on function public.set_peer_min_users(int) to authenticated;

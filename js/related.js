@@ -7,21 +7,23 @@
 })(typeof self !== 'undefined' ? self : this, function () {
   const STOP = new Set(('about above after again also among because been before being between both cannot could does doing during each from have having here '
     + 'into most much must only other over same should since some such than that their them then there these they this those through under until very were what when where which while '
-    + 'will with would your patient patients following which best most likely next appropriate correct answer').split(/\s+/));
+    + 'will with would your patient patients following which best most likely next appropriate correct answer '
+    + 'basics basic overview introduction general principles concepts review').split(/\s+/));
   const stem = w => w.length > 4 && w.endsWith('s') && !w.endsWith('ss') ? w.slice(0, -1) : w;
   const words = s => new Set(String(s || '').toLowerCase().replace(/\*\*/g, ' ').split(/[^a-z0-9]+/).filter(w => w.length >= 4 && !STOP.has(w) && !/^\d+$/.test(w)).map(stem));
   const strings = (v, out = []) => { if (typeof v === 'string') out.push(v); else if (Array.isArray(v)) v.forEach(x => strings(x, out)); else if (v && typeof v === 'object') Object.values(v).forEach(x => strings(x, out)); return out; };
 
-  // lessons: [{ id, subject, title, summary, blocks }]; returns { lesson, score } or null
-  function match(q, lessons, opts = {}) {
-    const min = opts.min ?? 10;
-    if (!q || !lessons || !lessons.length) return null;
+  // lessons: [{ id, subject, title, summary, blocks }]; returns the best { lesson, score, titleHit } first, up to n of them, each above the minimum score
+  function rank(q, lessons, opts = {}) {
+    const min = opts.min ?? 10, n = opts.n ?? 1;
+    if (!q || !lessons || !lessons.length) return [];
     const docs = lessons.map(l => ({ l, title: words(l.title), sum: words(l.summary), body: words(strings(l.blocks).join(' ')) }));
     const df = new Map(); docs.forEach(d => new Set([...d.title, ...d.sum, ...d.body]).forEach(w => df.set(w, (df.get(w) || 0) + 1)));
     const idf = w => Math.log(1 + docs.length / (df.get(w) || 1));
     const right = (q.options || []).find(o => o.id === q.answer);
-    const parts = [[words(q.topic), 4], [words(right && right.text), 2], [words(q.stem), 1], [words(q.explanation), 1]];
-    let best = null;
+    const topicWords = words(q.topic);
+    const parts = [[topicWords, 4], [words(right && right.text), 2], [words(q.stem), 1], [words(q.explanation), 1]];
+    const out = [];
     for (const d of docs) {
       let score = 0;
       for (const [ws, weight] of parts) for (const w of ws) {
@@ -29,9 +31,11 @@
         if (f) score += weight * f * idf(w);
       }
       if (q.subject && d.l.subject === q.subject) score *= 1.25;
-      if (!best || score > best.score) best = { lesson: d.l, score };
+      if (score >= min) out.push({ lesson: d.l, score, titleHit: [...topicWords].some(w => d.title.has(w)) });
     }
-    return best && best.score >= min ? best : null;
+    return out.sort((a, b) => b.score - a.score).slice(0, n);
   }
-  return { match, words };
+  // lessons: [{ id, subject, title, summary, blocks }]; returns { lesson, score } or null
+  function match(q, lessons, opts = {}) { return rank(q, lessons, { ...opts, n: 1 })[0] || null; }
+  return { match, rank, words };
 });

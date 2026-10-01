@@ -510,4 +510,56 @@ eq  "a member is limited to 2000 cards of their own"   "yes" "$(as b "insert int
 root "insert into highlights (id, user_id, kind, item_id, field, start_pos, end_pos, text_hl) select gen_random_uuid(), '${U[b]}', 'q', 'q-free', 'stem', 0, 1, 'x' from generate_series(1, 4999);" >/dev/null
 eq  "and to 5000 highlights"                           "yes" "$(as b "insert into highlights (id, kind, item_id, field, start_pos, end_pos, text_hl) values ('dddddddd-dddd-4ddd-8ddd-dddddddddddd','q','q-free','stem',0,1,'x');" 2>&1 | grep -q 'up to 5000' && echo yes)"
 eq  "deleting a member removes their highlights and cards" "0" "$(root "delete from auth.users where id = '${U[b]}'; select count(*) from highlights where user_id = '${U[b]}' union all select count(*) from my_cards where user_id = '${U[b]}';" | sort -u | tr -d '\n')"
+echo; echo "Program insights"
+IF=00000000-0000-0000-0003-000000000009; I1=00000000-0000-0000-0003-000000000001; I2=00000000-0000-0000-0003-000000000002; I3=00000000-0000-0000-0003-000000000003; I4=00000000-0000-0000-0003-000000000004
+root "insert into programs (id, name) values ('prog-ins','Insight Program');
+  insert into allowed_emails (email, role, plan, program_id) values ('fi@site.com','faculty','pro','prog-ins'), ('i1@site.com','member','pro','prog-ins'), ('i2@site.com','member','pro','prog-ins'), ('i3@site.com','member','pro','prog-ins');
+  insert into auth.users (id, email) values ('$IF','fi@site.com'), ('$I1','i1@site.com'), ('$I2','i2@site.com'), ('$I3','i3@site.com');
+  insert into questions (id, boards, subject, topic, stem, options, answer, explanation, tier, status) values
+    ('qi-1','{aem}','S','Hypoxia','Which is the first sign of hypoxia at altitude?','[{\"id\":\"A\",\"text\":\"x\"},{\"id\":\"B\",\"text\":\"y\"}]','A','why','free','reviewed'),
+    ('qi-2','{aem}','S','Hearing','Hearing stem','[{\"id\":\"A\",\"text\":\"x\"},{\"id\":\"B\",\"text\":\"y\"}]','A','why','free','reviewed'),
+    ('qi-3','{aem}','S2',null,'Rarely answered stem','[{\"id\":\"A\",\"text\":\"x\"},{\"id\":\"B\",\"text\":\"y\"}]','A','why','free','reviewed');
+  -- Hypoxia: I1 2 of 6, I2 1 of 5, I3 4 of 4 -> 7 of 15; the wrong picks are B six times and C twice
+  insert into attempts (user_id, question_id, ok, client_id, chosen) select '$I1','qi-1', g <= 2, 'ih1-' || g, case when g <= 2 then 'A' else 'B' end from generate_series(1, 6) g;
+  insert into attempts (user_id, question_id, ok, client_id, chosen) select '$I2','qi-1', g <= 1, 'ih2-' || g, case when g <= 1 then 'A' when g <= 3 then 'B' else 'C' end from generate_series(1, 5) g;
+  insert into attempts (user_id, question_id, ok, client_id, chosen) select '$I3','qi-1', true, 'ih3-' || g, 'A' from generate_series(1, 4) g;
+  update attempts set chosen = 'B' where client_id in ('ih2-4', 'ih1-3');
+  -- Hearing: everyone 5 of 5, plus 12 wrong answers by I3 150 days ago
+  insert into attempts (user_id, question_id, ok, client_id, chosen) select u, 'qi-2', true, 'he-' || u || g, 'A' from unnest(array['$I1'::uuid,'$I2'::uuid,'$I3'::uuid]) u, generate_series(1, 5) g;
+  insert into attempts (user_id, question_id, ok, client_id, chosen, at) select '$I3','qi-2', false, 'old-' || g, 'B', now() - interval '150 days' from generate_series(1, 12) g;
+  -- the second subject has only two residents answering
+  insert into attempts (user_id, question_id, ok, client_id) select u, 'qi-3', false, 's2-' || u || g from unnest(array['$I1'::uuid,'$I2'::uuid]) u, generate_series(1, 6) g;
+  -- everyone else: 10 answers on Hypoxia, 9 right
+  insert into attempts (user_id, question_id, ok, client_id, chosen) select '${U[a]}','qi-1', g <= 9, 'ga-' || g, case when g <= 9 then 'A' else 'B' end from generate_series(1, 10) g;" >/dev/null
+asfac() { psql -X -q -t -A -d $DB <<SQL 2>&1
+begin; set local role authenticated; select set_config('request.jwt.claims','{"sub":"$IF"}',true) \gset
+$1
+SQL
+}
+eq  "faculty see a topic's totals for their approved residents" "15,7,3,2,25,16" "$(asfac "select attempts||','||correct||','||residents||','||low_residents||','||group_attempts||','||group_correct from faculty_topics(0) where topic='Hypoxia';")"
+eq  "a subject with no topic is grouped under the subject"    "0" "$(asfac "select count(*) from faculty_topics(0) where subject='S2';")"
+eq  "a topic needs three residents answering to be shown"    "S|Hearing,S|Hypoxia" "$(asfac "select string_agg(subject||'|'||topic, ',' order by topic) from faculty_topics(0);")"
+eq  "the time window drops old answers"                      "27,15|15,15" "$(asfac "select (select attempts||','||correct from faculty_topics(0) where topic='Hearing')||'|'||(select attempts||','||correct from faculty_topics(90) where topic='Hearing');")"
+eq  "the weakest question comes first with its numbers"      "qi-1,15,7,3,25,16" "$(asfac "select question_id||','||attempts||','||correct||','||residents||','||group_attempts||','||group_correct from faculty_questions(0) limit 1;")"
+eq  "it shows the wrong answer picked most, as a group figure" "B,7,8" "$(asfac "select top_wrong||','||top_wrong_n||','||wrong_total from faculty_questions(0) where question_id='qi-1';")"
+eq  "a question needs five answers from three residents"      "qi-1|qi-2" "$(asfac "select string_agg(question_id, '|' order by question_id) from faculty_questions(0);")"
+eq  "the stem is shortened"                                  "yes" "$(asfac "select (char_length(stem) <= 220)::text from faculty_questions(0) limit 1;" | grep -q true && echo yes)"
+eq  "the weekly totals add up to the answers of the last 12 weeks" "42" "$(asfac "select sum(attempts) from faculty_weekly();")"
+eq  "a pending resident's answers are left out"             "15" "$(root "insert into allowed_emails (email, role, plan) values ('i4@site.com','member','pro'); insert into auth.users (id, email) values ('$I4','i4@site.com'); update profiles set program_id = 'prog-ins', program_status = 'pending' where id = '$I4'; insert into attempts (user_id, question_id, ok, client_id, chosen) select '$I4','qi-1', false, 'ip-' || g, 'B' from generate_series(1, 20) g;" >/dev/null; asfac "select attempts from faculty_topics(0) where topic='Hypoxia';")"
+eq  "another program's faculty see nothing of this one"      "0" "$(psql -X -q -t -A -d $DB <<SQL
+begin; set local role authenticated; select set_config('request.jwt.claims','{"sub":"00000000-0000-0000-0002-000000000002"}',true) \gset
+select count(*) from faculty_topics(0);
+SQL
+)"
+eq  "a program with fewer than three residents gets no analysis" "0,0,0" "$(psql -X -q -t -A -d $DB <<SQL
+begin; set local role authenticated; select set_config('request.jwt.claims','{"sub":"00000000-0000-0000-0002-000000000002"}',true) \gset
+select (select count(*) from faculty_topics(0))||','||(select count(*) from faculty_questions(0))||','||(select count(*) from faculty_weekly());
+SQL
+)"
+eq  "a member cannot open the faculty analysis"              "yes" "$(as a "select * from faculty_topics(0);" 2>&1 | grep -q 'faculty only' && echo yes)"
+eq  "an admin who is not faculty cannot either"              "yes" "$(as admin "select * from faculty_questions(0);" 2>&1 | grep -q 'faculty only' && echo yes)"
+eq  "nobody signed out can call it"                          "yes" "$(as anon "select * from faculty_topics(0);" 2>&1 | grep -q 'permission denied' && echo yes)"
+eq  "an admin can preview the same analysis"                 "2,qi-1" "$(as admin "select (select count(*) from preview_topics('prog-ins', 0))||','||(select question_id from preview_questions('prog-ins', 0) limit 1);")"
+eq  "faculty cannot use the preview, even for their own program" "yes" "$(asfac "select * from preview_topics('prog-ins', 0);" | grep -q 'admins only' && echo yes)"
+eq  "the internal helpers cannot be called directly"         "yes" "$(as a "select * from _program_topics('prog-ins', 0);" 2>&1 | grep -q 'permission denied' && echo yes)"
 echo; echo "$PASS passed, $FAIL failed"; [[ $FAIL -eq 0 ]]
