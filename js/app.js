@@ -275,6 +275,9 @@ function create(preSubject, preStatus) {
     <fieldset><legend>Subjects</legend><div class="row"><button type="button" id="all">All</button><button type="button" id="none">None</button></div>${subjBoxes}</fieldset>
     <fieldset><legend>Question status</legend>
       ${[['unused', 'Unused'], ['incorrect', 'Previously incorrect'], ['flagged', 'Flagged'], ['all', 'All']].map(([v, l], i) => `<label class="chk"><input type="checkbox" name="status" value="${v}" ${i == 0 ? 'checked' : ''}> ${l} <span class="cnt" data-cnt="status:${v}"></span></label>`).join('')}</fieldset>
+    <fieldset><legend>Difficulty</legend>
+      ${[['1', 'Easy'], ['2', 'Medium'], ['3', 'Hard']].map(([v, l]) => `<label class="chk"><input type="checkbox" name="diff" value="${v}" checked> ${l} <span class="cnt" data-cnt="diff:${v}"></span></label>`).join('')}
+      <p><label for="order">Order of questions</label> <select id="order" style="width:auto"><option value="random">Random</option><option value="easy">Easiest first</option><option value="hard">Hardest first</option></select></p></fieldset>
     <p><label for="n">Number of questions</label> <input type="number" id="n" min="1" value="20"> <span class="muted" id="avail" aria-live="polite"></span></p>
     <button class="primary" id="go">Start test</button></form></div>`;
   const f = document.getElementById('f');
@@ -286,8 +289,9 @@ function create(preSubject, preStatus) {
   const vals = n => [...f.querySelectorAll(`[name=${n}]:checked`)].map(e => e.value);
   // Does a question fit the current choices? Anything passed as null is left out of the check, so each checkbox
   // can show how many questions would apply to it given everything else that is selected.
-  const fits = (q, bs, ss, stt) => {
+  const fits = (q, bs, ss, stt, ds) => {
     if (isDraft(q) && !showDrafts()) return false;
+    if (ds && !ds.includes(String(q.difficulty || 2))) return false;
     if (bs && !q.boards.some(b => bs.includes(b))) return false;
     if (ss && !ss.includes(q.subject)) return false;
     if (stt) {
@@ -297,15 +301,16 @@ function create(preSubject, preStatus) {
     }
     return true;
   };
-  const pool = () => { const bs = vals('board'), ss = vals('subj'), stt = vals('status'); return bank.questions.filter(q => fits(q, bs, ss, stt)); };
+  const pool = () => { const bs = vals('board'), ss = vals('subj'), stt = vals('status'), ds = vals('diff'); return bank.questions.filter(q => fits(q, bs, ss, stt, ds)); };
   const upd = () => {
-    const p = pool().length, bs = vals('board'), ss = vals('subj'), stt = vals('status');
+    const p = pool().length, bs = vals('board'), ss = vals('subj'), stt = vals('status'), ds = vals('diff');
     document.getElementById('avail').textContent = `(${p} available)`; document.getElementById('go').disabled = !p;
     f.querySelectorAll('[data-cnt]').forEach(span => {
       const [kind, key] = span.dataset.cnt.split(/:(.*)/s);
-      const n = bank.questions.filter(q => kind === 'board' ? q.boards.includes(key) && fits(q, null, ss, stt)
-        : kind === 'subj' ? q.subject === key && fits(q, bs, null, stt)
-        : fits(q, bs, ss, [key])).length;
+      const n = bank.questions.filter(q => kind === 'board' ? q.boards.includes(key) && fits(q, null, ss, stt, ds)
+        : kind === 'subj' ? q.subject === key && fits(q, bs, null, stt, ds)
+        : kind === 'diff' ? String(q.difficulty || 2) === key && fits(q, bs, ss, stt, null)
+        : fits(q, bs, ss, [key], ds)).length;
       span.textContent = `(${n})`; span.closest('label').classList.toggle('zero', n === 0);
     });
   };
@@ -315,7 +320,9 @@ function create(preSubject, preStatus) {
   f.onsubmit = e => {
     e.preventDefault();
     const p = pool(); const n = Math.min(p.length, Math.max(1, +document.getElementById('n').value || 1));
-    const qids = shuffle(p).slice(0, n).map(q => q.id), mode = f.mode.value;
+    const order = document.getElementById('order').value, picked = shuffle(p).slice(0, n);
+    if (order !== 'random') picked.sort((a, b) => (order === 'hard' ? -1 : 1) * ((a.difficulty || 2) - (b.difficulty || 2)));   // sort is stable, so ties stay random
+    const qids = picked.map(q => q.id), mode = f.mode.value;
     Store.data.active = { id: uid(), mode, qids, answers: {}, struck: {}, marks: {}, revealed: {}, idx: 0, started: Date.now(), elapsed: 0, limit: mode === 'timed' ? n * 90 : 0 };
     Store.save(); location.hash = '#/test';
   };

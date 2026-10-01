@@ -26,6 +26,9 @@ Under each explanation (after answering in a tutor test, and on the review page)
 ## Names instead of emails
 In **Settings > Your name**, a resident can add a name. Faculty of their program (and an admin using View as faculty) see that name in place of the email, on the roster, the subject grid and the CSV; blank shows the email. It is optional and the privacy policy says so. Admins also see the name under the email in the member list. Run the latest `supabase/schema.sql` to switch it on.
 
+## Difficulty on the New Test screen
+The New Test screen has Easy, Medium and Hard checkboxes (all on by default), each showing how many questions apply given the other choices, and an **Order of questions** choice: Random, Easiest first or Hardest first. Ordering applies after the questions are picked, so a 20-question test of mixed levels can run easy to hard.
+
 ## Sorting the question list
 Admin > Questions has a Difficulty column, a **Difficulty** filter (Easy, Medium, Hard) and a **Sort by** choice (ID, Hardest first, Easiest first).
 
