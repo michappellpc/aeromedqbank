@@ -3,7 +3,7 @@
 //   --data <dir> validates another folder with the same layout (e.g. private).
 //   errors fail the run; warnings only print (with --strict they fail too).
 const fs = require('fs'), path = require('path');
-const QValidate = require('../js/qvalidate.js');
+const QValidate = require('../js/qvalidate.js'), CardValidate = require('../js/cvalidate.js');
 const argv = process.argv.slice(2), di = argv.indexOf('--data');
 const dir = di >= 0 ? path.resolve(argv[di + 1]) : path.join(__dirname, '..', 'data'), root = path.resolve(dir, '..');
 const strict = process.argv.includes('--strict'), summary = process.argv.includes('--summary');
@@ -41,6 +41,20 @@ for (const f of man.files) {
     bump(tally.status, q.status || '?'); (q.boards || []).forEach(b => bump(tally.board, b)); bump(tally.subject, q.subject);
   }
 }
+// flashcards (data/cards/*.json, listed under "cards" in the manifest)
+const cdir = path.join(dir, 'cards');
+if (fs.existsSync(cdir)) for (const f of fs.readdirSync(cdir)) if (f.endsWith('.json') && !(man.cards || []).includes('cards/' + f)) warn(f, 'file is not listed under "cards" in data/manifest.json, so it will not load');
+const lessonIds = new Set(); for (const f of man.lessons || []) { try { JSON.parse(fs.readFileSync(path.join(dir, f), 'utf8')).forEach(l => lessonIds.add(l.id)); } catch {} }
+const cids = new Set(), cfronts = new Map(); let ncards = 0;
+for (const f of man.cards || []) {
+  const fp = path.join(dir, f);
+  if (!fs.existsSync(fp)) { err(f, 'listed in manifest but the file does not exist'); continue; }
+  let list; try { list = JSON.parse(fs.readFileSync(fp, 'utf8')); } catch (e) { err(f, 'invalid JSON: ' + e.message); continue; }
+  if (!Array.isArray(list)) { err(f, 'top level must be an array of cards'); continue; }
+  for (const c of list) { ncards++; const id = c.id || `${f}#${ncards}`;
+    for (const r of CardValidate.check(c, { boards: man.boards, subjects: man.subjects, ids: cids, fronts: cfronts, label: id, lessonIds })) (r.level === 'error' ? err : warn)(id, r.msg); }
+}
+if (summary && ncards) tally.cards = ncards;
 const tot = Object.values(tally.answers).reduce((a, b) => a + b, 0);
 if (tot >= 20) for (const [k, v] of Object.entries(tally.answers)) if (v / tot > .4) warn('bank', `answer "${k}" is correct for ${Math.round(100 * v / tot)}% of questions; shuffle the key`);
 for (let i = 0; i < allQs.length; i++) {      // near-copies inside the bank

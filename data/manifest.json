@@ -10,5 +10,6 @@
     "pm":  ["Biostatistics", "Epidemiology", "Health Policy & Management", "Environmental Health", "Infectious Disease & Immunization", "Screening & Prevention", "Behavioral Health & Health Promotion", "Public Health Emergency Preparedness"]
   },
   "files": ["questions/sample.json"],
-  "lessons": ["lessons/sample.json"]
+  "lessons": ["lessons/sample.json"],
+  "cards": ["cards/sample.json"]
 }

@@ -364,3 +364,14 @@ details.thread{margin:8px 0 12px}details.thread summary{cursor:pointer;color:var
 
 .tabs{flex-wrap:wrap}
 @media (max-width:480px){.tabs a{padding:8px 10px}}
+
+.flash{max-width:720px}
+.flash-side{font-size:1.25rem;line-height:1.55;margin:18px 0;white-space:pre-wrap}
+.flash-back{border-top:2px solid var(--line);margin-top:6px;padding-top:14px;font-size:1.1rem;line-height:1.6}
+.flash-back:focus{outline:none}
+.rate{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:16px}
+.rate button{display:flex;flex-direction:column;align-items:center;gap:2px;padding:10px 6px;min-height:56px}
+.rate button .small{color:var(--muted)}
+.rate .rate-1{border-color:var(--bad);color:var(--bad)}
+@media (max-width:480px){.rate{grid-template-columns:repeat(2,1fr)}}
+a.btn[aria-disabled=true]{opacity:1;color:var(--muted);pointer-events:none}

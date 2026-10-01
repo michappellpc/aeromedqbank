@@ -82,10 +82,10 @@ const Cloud = (() => {
   }
 
   // ---- queue of changes not yet on the server ----
-  const blankQueue = () => ({ attempts: [], marks: {}, tests: {}, settings: null, reset: false, feedback: [] });
+  const blankQueue = () => ({ attempts: [], marks: {}, tests: {}, settings: null, reset: false, feedback: [], cards: {} });
   const queue = () => Object.assign(blankQueue(), jget(qKey()) || {});
   const saveQueue = q => jset(qKey(), q);
-  const pending = () => { const q = queue(); return q.attempts.length + Object.keys(q.marks).length + Object.keys(q.tests).length + (q.settings ? 1 : 0) + (q.reset ? 1 : 0) + (q.feedback || []).length; };
+  const pending = () => { const q = queue(); return q.attempts.length + Object.keys(q.marks).length + Object.keys(q.tests).length + (q.settings ? 1 : 0) + (q.reset ? 1 : 0) + (q.feedback || []).length + Object.keys(q.cards || {}).length; };
   const cid = () => (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2));
 
   function change(fn) { if (!cfg || !session) return; const q = queue(); fn(q); saveQueue(q); schedule(); }
@@ -109,6 +109,18 @@ const Cloud = (() => {
     q = queue();
     const marks = Object.entries(q.marks).map(([question_id, m]) => ({ question_id, ...m }));
     if (marks.length) { await api('/rest/v1/question_marks?on_conflict=user_id,question_id', { method: 'POST', headers: { Prefer: 'resolution=merge-duplicates,return=minimal' }, body: marks }); q = queue(); marks.forEach(m => { if (q.marks[m.question_id] && q.marks[m.question_id].updated_at === m.updated_at) delete q.marks[m.question_id]; }); saveQueue(q); }
+    q = queue();
+    const cardRows = Object.entries(q.cards || {}).map(([card_id, c]) => ({ card_id, ease: c.e, interval_days: c.i, due: c.due, reps: c.reps, lapses: c.lapses, last_reviewed: c.last || null, updated_at: new Date().toISOString() }));
+    if (cardRows.length) {                                                // review schedules; kept if the database is not upgraded yet, and a card that was deleted is simply dropped
+      const send = rows => api('/rest/v1/card_reviews?on_conflict=user_id,card_id', { method: 'POST', headers: { Prefer: 'resolution=merge-duplicates,return=minimal' }, body: rows.map(r => ({ ...r, user_id: uid() })) });
+      const done = ids => { const z = queue(); ids.forEach(id => delete z.cards[id]); saveQueue(z); };
+      try { await send(cardRows); done(cardRows.map(r => r.card_id)); }
+      catch (e) {
+        if (noCardsTable(e)) { /* keep them for later */ }
+        else if (e.status === 409 || e.status === 400 || e.status === 403) { for (const r of cardRows) { try { await send([r]); } catch (x) { if (x.offline || x.status >= 500) throw x; } done([r.card_id]); } }
+        else throw e;
+      }
+    }
     q = queue();
     const tests = Object.values(q.tests);
     if (tests.length) {
@@ -135,6 +147,7 @@ const Cloud = (() => {
 
   const blankStat = () => ({ seen: 0, correct: 0, wrong: 0, flagged: false, note: '', last: null });
   async function pull() {
+    const cardRes = await api('/rest/v1/card_reviews?select=card_id,ease,interval_days,due,reps,lapses,last_reviewed&limit=5000').catch(e => { if (noCardsTable(e)) return null; throw e; });
     const [prog, marks, tests, settings] = await Promise.all([
       api('/rest/v1/rpc/my_progress', { method: 'POST', body: {} }),
       api('/rest/v1/question_marks?select=question_id,flagged,note'),
@@ -150,6 +163,7 @@ const Cloud = (() => {
     (tests || []).forEach(t => byId.set(t.id, { id: t.id, date: Date.parse(t.taken_at), mode: t.mode, qids: t.qids, answers: t.answers, correct: t.correct, total: t.total, seconds: t.seconds }));
     Object.values(Q.tests).forEach(t => byId.set(t.id, t));
     const d = Store.data;
+    if (cardRes) { const cs = {}; cardRes.forEach(r => { cs[r.card_id] = { e: r.ease, i: r.interval_days, due: r.due, reps: r.reps, lapses: r.lapses, last: r.last_reviewed }; }); Object.assign(cs, Q.cards || {}); d.cards = cs; }
     d.q = q; d.tests = [...byId.values()].sort((a, b) => b.date - a.date);
     if (!Q.settings && settings && settings[0]) d.settings = { ...d.settings, ...settings[0].data };
     Store.save();
@@ -182,12 +196,17 @@ const Cloud = (() => {
   };
   let noChosenColumn = false;
   const inList = ids => '(' + ids.map(i => '"' + String(i).replace(/"/g, '') + '"').join(',') + ')';
+  // ---- flashcards ----
+  const toCard = r => ({ id: r.id, status: r.status, reviewedBy: r.reviewed_by || undefined, boards: r.boards, subject: r.subject, topic: r.topic || '', front: r.front, back: r.back, lessonId: r.lesson_id || undefined, references: r.refs || [] });
+  const toEditorCard = r => ({ ...toCard(r), archived: !!r.archived, updatedAt: r.updated_at, updatedBy: r.updated_by || '' });
+  const toCardRow = c => { const row = { id: c.id, status: c.status, boards: c.boards, subject: c.subject, topic: c.topic || null, front: c.front, back: c.back, lesson_id: c.lessonId || null, refs: c.references || [] }; if (typeof c.archived === 'boolean') row.archived = c.archived; return row; };
   // ---- lessons ----
   const toLesson = r => ({ id: r.id, status: r.status, reviewedBy: r.reviewed_by || undefined, boards: r.boards, subject: r.subject, title: r.title, summary: r.summary || '',
     order: r.position, blocks: r.blocks || [], references: r.refs || [], tier: r.tier });
   const toEditorLesson = r => ({ ...toLesson(r), archived: !!r.archived, updatedAt: r.updated_at, updatedBy: r.updated_by || '' });
   const toLessonRow = l => { const row = { id: l.id, status: l.status, boards: l.boards, subject: l.subject, title: l.title, summary: l.summary || '', position: l.order === undefined ? 100 : l.order,
     blocks: l.blocks, refs: l.references || [], tier: l.tier || 'pro' }; if (typeof l.archived === 'boolean') row.archived = l.archived; return row; };
+  const noCardsTable = e => e && (e.status === 404 || e.status === 400) && /flashcards|card_reviews|schema cache|relation/i.test(e.message || '');
   const noLessonsTable = e => e && (e.status === 404 || e.status === 400) && /lessons|schema cache|relation/i.test(e.message || '');
   async function allLessons(filter) {
     return api(`/rest/v1/lessons?select=*${filter}&order=position.asc,title.asc&limit=1000`);
@@ -376,6 +395,20 @@ const Cloud = (() => {
     },
     async peerMin() { const r = await api('/rest/v1/rpc/peer_min_users', { method: 'POST', body: {} }); return typeof r === 'number' ? r : 10; },
     async setPeerMin(n) { await api('/rest/v1/rpc/set_peer_min_users', { method: 'POST', body: { n } }); },
+    // ---- flashcards (members read reviewed ones; editors read and write all) ----
+    async cards() {
+      try { const list = (await api('/rest/v1/flashcards?select=*&archived=eq.false&order=subject.asc,id.asc&limit=5000')).map(toCard); await cacheSet('cards', { uid: uid(), at: Date.now(), list }); return list; }
+      catch (e) {
+        if (noCardsTable(e)) return [];                                     // database not upgraded yet
+        if (!e.offline) throw e;
+        const c = await cacheGet('cards'); if (c && c.uid === uid()) return c.list; return [];
+      }
+    },
+    async cardsReady() { try { await api('/rest/v1/flashcards?select=id&limit=1'); return true; } catch (e) { if (noCardsTable(e)) return false; throw e; } },
+    async editorCards() { return (await api('/rest/v1/flashcards?select=*&order=subject.asc,id.asc&limit=5000')).map(toEditorCard); },
+    async saveCards(list) { for (let i = 0; i < list.length; i += 50) await api('/rest/v1/flashcards?on_conflict=id', { method: 'POST', headers: { Prefer: 'resolution=merge-duplicates,return=minimal' }, body: list.slice(i, i + 50).map(toCardRow) }); },
+    patchCards: (ids, patch) => api('/rest/v1/flashcards?id=in.' + encodeURIComponent(inList(ids)), { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: patch }),
+    deleteCards: ids => api('/rest/v1/flashcards?id=in.' + encodeURIComponent(inList(ids)), { method: 'DELETE', headers: { Prefer: 'return=minimal' } }),
     // ---- lessons (members read reviewed ones; editors read and write all) ----
     async lessons() {
       try { const list = (await allLessons('&archived=eq.false')).map(toLesson); await cacheSet('lessons', { uid: uid(), at: Date.now(), list }); return list; }
@@ -423,6 +456,7 @@ const Cloud = (() => {
     queueMark(question_id) { change(q => { const s = Store.qstat(question_id) || {}; q.marks[question_id] = { flagged: !!s.flagged, note: s.note || '', updated_at: new Date().toISOString() }; }); },
     queueTest(rec) { change(q => { q.tests[rec.id] = rec; }); },
     queueSettings() { change(q => { const s = Store.data.settings; q.settings = { data: { theme: s.theme, showDrafts: s.showDrafts !== false }, updated_at: new Date().toISOString() }; }); },
+    queueCard(id, st) { change(q => { (q.cards ||= {})[id] = st; }); },
     queueReset() { change(q => { Object.assign(q, blankQueue(), { reset: true }); }); },
     sync, pending, get lastSync() { return lastSync; },
     userKey: () => `qbank.v1.${uid()}`

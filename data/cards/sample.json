@@ -1,0 +1,97 @@
+[
+ {
+  "id": "aem-card-001",
+  "status": "reviewed",
+  "boards": [
+   "aem"
+  ],
+  "subject": "Altitude & Decompression",
+  "topic": "Hypoxia",
+  "front": "The four types of hypoxia",
+  "back": "Hypoxic (low PO2 in the lungs), hypemic (carrying capacity), stagnant (blood flow), histotoxic (cells cannot use oxygen).",
+  "references": [
+   "PLACEHOLDER: sample card for the demo. Replace with a real source."
+  ],
+  "lessonId": "aem-hypoxia-types",
+  "reviewedBy": "Sample (demo)"
+ },
+ {
+  "id": "aem-card-002",
+  "status": "reviewed",
+  "boards": [
+   "aem"
+  ],
+  "subject": "Altitude & Decompression",
+  "topic": "Hypoxia",
+  "front": "Which type of hypoxia can a pulse oximeter miss?",
+  "back": "Hypemic, for example carbon monoxide. SpO2 can read falsely normal because the oximeter cannot tell carboxyhemoglobin from oxyhemoglobin.",
+  "references": [
+   "PLACEHOLDER: sample card for the demo. Replace with a real source."
+  ],
+  "lessonId": "aem-hypoxia-types",
+  "reviewedBy": "Sample (demo)"
+ },
+ {
+  "id": "aem-card-003",
+  "status": "reviewed",
+  "boards": [
+   "aem"
+  ],
+  "subject": "Altitude & Decompression",
+  "topic": "Gas laws",
+  "front": "Boyle's law in one line",
+  "back": "At constant temperature, the volume of a gas is inversely proportional to its pressure. Trapped gas expands as a flier climbs.",
+  "references": [
+   "PLACEHOLDER: sample card for the demo. Replace with a real source."
+  ],
+  "reviewedBy": "Sample (demo)"
+ },
+ {
+  "id": "om-card-001",
+  "status": "reviewed",
+  "boards": [
+   "om"
+  ],
+  "subject": "Industrial Hygiene",
+  "topic": "Controls",
+  "front": "Order of the hierarchy of controls, most to least effective",
+  "back": "Elimination, substitution, engineering controls, administrative controls, personal protective equipment.",
+  "references": [
+   "PLACEHOLDER: sample card for the demo. Replace with a real source."
+  ],
+  "lessonId": "om-hierarchy-of-controls",
+  "reviewedBy": "Sample (demo)"
+ },
+ {
+  "id": "pm-card-001",
+  "status": "reviewed",
+  "boards": [
+   "pm"
+  ],
+  "subject": "Biostatistics",
+  "topic": "Screening tests",
+  "front": "What does sensitivity tell you?",
+  "back": "The proportion of people WITH the disease who test positive: true positives over all with the disease.",
+  "references": [
+   "PLACEHOLDER: sample card for the demo. Replace with a real source."
+  ],
+  "lessonId": "pm-screening-test-performance",
+  "reviewedBy": "Sample (demo)"
+ },
+ {
+  "id": "pm-card-002",
+  "status": "reviewed",
+  "boards": [
+   "pm"
+  ],
+  "subject": "Biostatistics",
+  "topic": "Screening tests",
+  "front": "What happens to positive predictive value when prevalence falls?",
+  "back": "It falls. With the same sensitivity and specificity, a lower prevalence means a larger share of positives are false positives.",
+  "references": [
+   "PLACEHOLDER: sample card for the demo. Replace with a real source."
+  ],
+  "lessonId": "pm-screening-test-performance",
+  "reviewedBy": "Sample (demo)"
+ }
+]

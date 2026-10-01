@@ -1,6 +1,6 @@
 'use strict';
 const $app = document.getElementById('app'), $timer = document.getElementById('timer');
-let bank = { boards: [], subjects: {}, questions: [], byId: {}, config: {}, lessons: [], lessonFiles: [], peer: {}, choices: {}, program: null };
+let bank = { boards: [], subjects: {}, questions: [], byId: {}, config: {}, lessons: [], lessonFiles: [], cards: [], cardFiles: [], cardsMissing: false, peer: {}, choices: {}, program: null };
 const APP_VERSION = '1.3';
 let tick = null, ready = false, profile = null, refocus = null;
 
@@ -60,16 +60,17 @@ function applyTheme() {
 // Boards and subjects are not sensitive, so they always come from the static manifest. Questions come from the
 // private database in cloud mode, or from the static files (the pilot/demo mode) when accounts are not configured.
 async function loadMeta() {
-  if (window.__QBANK_DATA) { const m = window.__QBANK_DATA; bank.config = m.config || {}; bank.boards = m.boards; bank.subjects = m.subjects; bank.lessons = m.lessons || []; return m.questions; }
+  if (window.__QBANK_DATA) { const m = window.__QBANK_DATA; bank.config = m.config || {}; bank.boards = m.boards; bank.subjects = m.subjects; bank.lessons = m.lessons || []; bank.cards = m.cards || []; return m.questions; }
   const base = 'data/';
   const m = await (await fetch(base + 'manifest.json')).json();
   bank.config = await fetch(base + 'config.json').then(r => r.json()).catch(() => ({}));
-  bank.boards = m.boards; bank.subjects = m.subjects; bank.lessonFiles = m.lessons || [];
+  bank.boards = m.boards; bank.subjects = m.subjects; bank.lessonFiles = m.lessons || []; bank.cardFiles = m.cards || [];
   return m.files;
 }
 async function loadStatic(files) {
   const lists = Array.isArray(files) && typeof files[0] === 'object' ? [files] : await Promise.all(files.map(f => fetch('data/' + f).then(r => r.json())));
   setQuestions(lists.flat());
+  if (bank.cardFiles.length) bank.cards = (await Promise.all(bank.cardFiles.map(f => fetch('data/' + f).then(r => r.json()).catch(() => [])))).flat().filter(c => c.status === 'reviewed' && !c.archived);
   if (bank.lessonFiles.length) bank.lessons = (await Promise.all(bank.lessonFiles.map(f => fetch('data/' + f).then(r => r.json()).catch(() => [])))).flat();
 }
 function setQuestions(list) { bank.questions = list; bank.byId = Object.fromEntries(list.map(q => [q.id, q])); }
@@ -152,6 +153,11 @@ function feedbackDialog(q) {
   document.body.appendChild(d); (d.querySelector('a.btn') || d.querySelector('button')).focus();
 }
 
+async function loadCards() {
+  bank.cards = await Cloud.cards().catch(() => bank.cards || []);
+  bank.cardsMissing = !bank.cards.length && !(await Cloud.cardsReady().catch(() => true));
+}
+
 // ---------- router ----------
 async function route() {
   clearInterval(tick); $timer.hidden = true; Mascot.stop();
@@ -159,14 +165,14 @@ async function route() {
   const [p, arg, arg2, arg3] = location.hash.replace(/^#\/?/, '').split('/');
   if (Cloud.enabled && p !== 'admin' && Admin.changed) {      // questions were edited on the Admin pages; load the new set before practising
     Admin.changed = false;
-    try { setQuestions(await Cloud.questions()); bank.lessons = await Cloud.lessons(); } catch {}
+    try { setQuestions(await Cloud.questions()); bank.lessons = await Cloud.lessons(); await loadCards(); } catch {}
     if (location.hash.replace(/^#\/?/, '').split('/')[0] !== p) return;   // the person moved on while it loaded
   }
   document.querySelectorAll('nav a').forEach(l => l.classList.toggle('on', l.getAttribute('href').split('/').slice(0, 2).join('/') === '#/' + (p === 'test' ? 'create' : p === 'lesson' ? 'lessons' : p === 'results' || p === 'review' ? 'history' : p)));
   if (p === '' || p === 'results') refreshPeer();
   const t = Store.data.active;
   if (p === 'test' && t) return renderTest();
-  ({ '': dashboard, create: () => create(arg, arg2), flagged: flaggedPage, program: () => Program.facultyPage(arg), support: () => Support.page(arg), lessons: () => (arg ? Lessons.subjectPage(arg) : Lessons.indexPage()), lesson: () => Lessons.lessonPage(arg), history: historyPage, settings, admin: () => Admin.route(arg, arg2, arg3), results: () => results(arg), review: () => review(arg) }[p] || dashboard)();
+  ({ '': dashboard, create: () => create(arg, arg2), flagged: flaggedPage, program: () => Program.facultyPage(arg), cards: () => Cards.page(arg, arg2), support: () => Support.page(arg), lessons: () => (arg ? Lessons.subjectPage(arg) : Lessons.indexPage()), lesson: () => Lessons.lessonPage(arg), history: historyPage, settings, admin: () => Admin.route(arg, arg2, arg3), results: () => results(arg), review: () => review(arg) }[p] || dashboard)();
   window.scrollTo(0, 0);
 }
 window.addEventListener('hashchange', route);
@@ -175,6 +181,11 @@ window.addEventListener('hashchange', route);
 // "Focus areas": the member's weakest subjects (lowest percent correct, at least MIN answers), with the lessons for each and
 // a one-click practice of the questions they missed in it.
 const FOCUS_MIN = 5, FOCUS_BELOW = 80, FOCUS_SHOW = 3;
+function cardsNotice() {
+  if (!(bank.cards || []).length) return '';
+  const k = Cards.dueCount(), n = k.due + k.new;
+  return n ? `<div class="card notice">You have <b>${n}</b> flashcard${n === 1 ? '' : 's'} to study today${k.due ? ` (${k.due} due for review)` : ''}. <a href="#/cards/study">Study now</a></div>` : '';
+}
 function focusAreas() {
   const st = Store.data.q, by = {};
   bank.questions.forEach(q => {
@@ -237,6 +248,7 @@ function dashboard() {
     <div class="card stat"><b>${c + w ? pct(c, c + w) + '%' : '—'}</b><span class="muted">Overall correct</span></div>
     ${all.some(s => s.flagged) ? `<a class="card stat statlink" href="#/flagged"><b>${all.filter(s => s.flagged).length}</b><span class="muted">Flagged &rsaquo; review</span></a>` : `<div class="card stat"><b>0</b><span class="muted">Flagged</span></div>`}
   </div>
+  ${cardsNotice()}
   ${focusAreas()}
   <div class="card"><h2>Performance by subject</h2>
     ${rows.length ? `<table><thead><tr><th>Board</th><th>Subject</th><th>Used</th><th>Correct</th><th title="Average of all members, first tries">Group</th><th><span class="sr">Progress</span></th></tr></thead><tbody>${rows.join('')}</tbody></table>` : '<p class="muted">No questions loaded.</p>'}
@@ -711,6 +723,7 @@ async function startSession() {
     if (!profile || !profile.active) return renderBlocked(Cloud.session.email);
     setQuestions(await Cloud.questions());
     bank.lessons = await Cloud.lessons().catch(() => []);
+    await loadCards();
     bank.peer = await Cloud.peerStats(); bank.choices = await Cloud.peerChoices(); peerAt = Date.now();
     bank.program = await Cloud.myProgram();
     Cloud.prefetchImages(bank.questions.filter(privImg).map(privImg));   // in the background, so pictures also work offline
@@ -725,6 +738,7 @@ async function startSession() {
   Store.hooks.test = rec => Cloud.queueTest(rec);
   Store.hooks.settings = () => Cloud.queueSettings();
   Store.hooks.reset = () => Cloud.queueReset();
+  Store.hooks.card = (id, st) => Cloud.queueCard(id, st);
   lockUI(false); ready = true;
   document.getElementById('nav-program').hidden = profile.role !== 'faculty';
   document.getElementById('nav-support').hidden = false;
@@ -743,7 +757,7 @@ async function signOut() {
   }
   const key = Cloud.userKey();
   await Cloud.signOut(); Store.forget(key);
-  ['attempt', 'mark', 'test', 'settings', 'reset'].forEach(k => delete Store.hooks[k]);
+  ['attempt', 'mark', 'test', 'settings', 'reset', 'card'].forEach(k => delete Store.hooks[k]);
   profile = null; ready = false; Store.use('qbank.v1.signedout'); applyTheme();
   renderSignIn();
 }

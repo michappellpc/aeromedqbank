@@ -81,6 +81,38 @@ create table if not exists public.lessons (
   updated_at  timestamptz not null default now()
 );
 
+-- ------------------------------------------------------------- flashcards
+-- A card is a front and a back. Draft cards are visible to admins and reviewers only; reviewed ones are live for every active member
+-- (flashcards are free for everyone, so there is no tier). Each member's own schedule for a card is kept in card_reviews.
+create table if not exists public.flashcards (
+  id          text primary key check (id ~ '^[a-z0-9][a-z0-9-]*$'),
+  status      text not null default 'draft' check (status in ('draft', 'reviewed')),
+  reviewed_by text,
+  boards      text[] not null check (cardinality(boards) > 0),
+  subject     text not null,
+  topic       text,
+  front       text not null check (char_length(btrim(front)) between 1 and 600),
+  back        text not null check (char_length(btrim(back)) between 1 and 1500),
+  lesson_id   text,
+  refs        text[] not null default '{}',
+  archived    boolean not null default false,
+  updated_by  text,
+  updated_at  timestamptz not null default now()
+);
+
+create table if not exists public.card_reviews (
+  user_id       uuid not null references auth.users (id) on delete cascade,
+  card_id       text not null references public.flashcards (id) on delete cascade,
+  ease          real not null default 2.5 check (ease between 1.3 and 4),
+  interval_days int  not null default 0 check (interval_days between 0 and 3650),
+  due           date not null,
+  reps          int  not null default 0 check (reps >= 0),
+  lapses        int  not null default 0 check (lapses >= 0),
+  last_reviewed date,
+  updated_at    timestamptz not null default now(),
+  primary key (user_id, card_id)
+);
+
 -- Databases created before the reviewer role / archive existed are upgraded here (safe to re-run).
 alter table public.allowed_emails drop constraint if exists allowed_emails_role_check;
 alter table public.allowed_emails add constraint allowed_emails_role_check check (role in ('member', 'reviewer', 'faculty', 'admin'));
@@ -271,6 +303,8 @@ alter table public.allowed_emails  enable row level security;
 alter table public.profiles        enable row level security;
 alter table public.questions       enable row level security;
 alter table public.lessons         enable row level security;
+alter table public.flashcards      enable row level security;
+alter table public.card_reviews    enable row level security;
 alter table public.programs        enable row level security;
 alter table public.attempts        enable row level security;
 alter table public.question_marks  enable row level security;
@@ -287,6 +321,9 @@ drop policy if exists feedback_insert     on public.feedback;
 drop policy if exists feedback_own        on public.feedback;
 drop policy if exists lessons_read       on public.lessons;
 drop policy if exists lessons_edit       on public.lessons;
+drop policy if exists cards_read         on public.flashcards;
+drop policy if exists cards_edit         on public.flashcards;
+drop policy if exists card_reviews_own   on public.card_reviews;
 drop policy if exists attempts_read      on public.attempts;
 drop policy if exists attempts_insert    on public.attempts;
 drop policy if exists marks_own          on public.question_marks;
@@ -302,6 +339,9 @@ create policy feedback_insert  on public.feedback       for insert to authentica
 create policy feedback_own     on public.feedback       for select to authenticated using (user_id = auth.uid());
 create policy lessons_read    on public.lessons        for select to authenticated using (public.has_plan(tier) and not archived and status = 'reviewed');
 create policy lessons_edit    on public.lessons        for all    to authenticated using (public.can_edit()) with check (public.can_edit());
+create policy cards_read      on public.flashcards     for select to authenticated using (public.is_active() and not archived and status = 'reviewed');
+create policy cards_edit      on public.flashcards     for all    to authenticated using (public.can_edit()) with check (public.can_edit());
+create policy card_reviews_own on public.card_reviews  for all    to authenticated using (user_id = auth.uid() and public.is_active()) with check (user_id = auth.uid() and public.is_active());
 create policy attempts_read   on public.attempts       for select to authenticated using (user_id = auth.uid() and public.is_active());
 create policy attempts_insert on public.attempts       for insert to authenticated
   with check (user_id = auth.uid() and public.is_active() and at <= now() + interval '5 minutes');
@@ -317,6 +357,8 @@ grant select                         on public.profiles       to authenticated;
 grant select, insert, update, delete on public.allowed_emails to authenticated;
 grant select, insert, update, delete on public.questions      to authenticated;
 grant select, insert, update, delete on public.lessons        to authenticated;
+grant select, insert, update, delete on public.flashcards     to authenticated;
+grant select, insert, update, delete on public.card_reviews   to authenticated;
 grant select, insert, update, delete on public.programs       to authenticated;
 grant select, insert                 on public.feedback       to authenticated;
 grant select, insert                 on public.attempts       to authenticated;
@@ -394,6 +436,32 @@ drop trigger if exists lessons_guard on public.lessons;
 create trigger lessons_guard before insert or update on public.lessons
   for each row execute function public.lessons_guard();
 
+create or replace function public.cards_guard() returns trigger
+  language plpgsql security definer set search_path = public as
+$$
+declare who text;
+begin
+  new.updated_at := now();
+  if auth.uid() is null then
+    if new.updated_by is null then new.updated_by := 'upload tool'; end if;
+    return new;
+  end if;
+  select email into who from public.profiles where id = auth.uid();
+  new.updated_by := who;
+  if tg_op = 'UPDATE' and old.status = 'reviewed' and new.status = 'reviewed'
+     and (new.front, new.back, new.refs, new.subject, new.boards, new.topic, new.lesson_id)
+         is distinct from (old.front, old.back, old.refs, old.subject, old.boards, old.topic, old.lesson_id)
+  then new.status := 'draft'; end if;
+  if new.status <> 'reviewed' then new.reviewed_by := null;
+  elsif tg_op = 'INSERT' or old.status <> 'reviewed' then new.reviewed_by := who;
+  else new.reviewed_by := old.reviewed_by; end if;
+  return new;
+end $$;
+
+drop trigger if exists cards_guard on public.flashcards;
+create trigger cards_guard before insert or update on public.flashcards
+  for each row execute function public.cards_guard();
+
 -- ---------------------------------------------------------------- functions the app calls
 create or replace function public.my_progress()
   returns table (question_id text, seen int, correct int, wrong int, last_ok boolean)
@@ -416,6 +484,7 @@ begin
   delete from public.attempts       where user_id = auth.uid();
   delete from public.question_marks where user_id = auth.uid();
   delete from public.tests          where user_id = auth.uid();
+  delete from public.card_reviews   where user_id = auth.uid();
 end $$;
 
 -- admin-only summaries (raise an error for everyone else)
