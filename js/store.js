@@ -2,7 +2,7 @@
 // In cloud mode Cloud.js listens to Store.hooks and sends changes to the account; Store.use() switches to a per-account key.
 const Store = (() => {
   let KEY = 'qbank.v1';
-  const blank = () => ({ q: {}, tests: [], active: null, settings: { theme: 'auto' } });
+  const blank = () => ({ q: {}, tests: [], active: null, settings: { theme: 'auto' }, cards: {}, cardsMeta: { day: '', newSeen: 0 } });
   const load = () => { try { return JSON.parse(localStorage.getItem(KEY)) || blank(); } catch { return blank(); } };
   let d = load();
   const hooks = {};   // attempt(id, ok), mark(id), test(rec), settings(), reset()
@@ -18,6 +18,12 @@ const Store = (() => {
     record(id, ok, chosen) { const s = qs(id); s.seen++; ok ? s.correct++ : s.wrong++; s.last = ok ? 'c' : 'w'; save(); fire('attempt', id, ok, chosen); },
     toggleFlag(id) { const s = qs(id); s.flagged = !s.flagged; save(); fire('mark', id); return s.flagged; },
     setNote(id, t) { qs(id).note = t; save(); fire('mark', id); },
+    // flashcards: cards[id] = { e: ease, i: interval days, due: 'YYYY-MM-DD', reps, lapses, last }
+    cardState: id => (d.cards || {})[id] || null,
+    cardStates: () => d.cards || (d.cards = {}),
+    rateCard(id, st) { (d.cards || (d.cards = {}))[id] = st; save(); fire('card', id, st); },
+    newCardsSeen(day) { const m = d.cardsMeta || {}; return m.day === day ? m.newSeen || 0 : 0; },
+    countNewCard(day) { const m = d.cardsMeta && d.cardsMeta.day === day ? d.cardsMeta : (d.cardsMeta = { day, newSeen: 0 }); m.newSeen = (m.newSeen || 0) + 1; save(); },
     addTest(rec) { d.tests.unshift(rec); save(); fire('test', rec); },
     touchSettings() { save(); fire('settings'); },
     exportJSON: () => JSON.stringify(d, null, 2),

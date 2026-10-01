@@ -35,6 +35,9 @@ When you import or save a question, the app compares its wording with every ques
 ## Sorting the question list
 Admin > Questions has a Difficulty column, a **Difficulty** filter (Easy, Medium, Hard) and a **Sort by** choice (ID, Hardest first, Easiest first).
 
+## Flashcards
+The **Flashcards** tab has short cards a resident flips and rates (Again, Hard, Good, Easy). A simple spaced-repetition schedule (a form of SM-2) brings each card back just before it is forgotten, with up to 10 new cards a day. Each member's schedule is saved to their account, works offline, and is cleared by **Reset all progress**. Flashcards are free for everyone. Admins and reviewers manage them under **Admin > Flashcards** (add, edit, import from a chat, publish, archive, delete, backup), the same way as questions. Writing guide and AI prompt: `docs/CARD-GUIDE.md`. Run the latest `supabase/schema.sql` to switch them on. The demo site loads `data/cards/sample.json`.
+
 ## Support and replies (in the app, no email)
 The **Support** tab lets any signed-in member send the team a question (optional subject, then the message). Question feedback and Support share one system: the team answers from **Admin > Inbox** (filter by Support or Feedback, open the conversation, type a reply), and the member sees the reply under **Support** with a red count on the tab and a notice on the dashboard. Members can reply back. Reviewers can reply too without seeing who they are talking to; only admins see the sender. Nothing is sent by email. Run the latest `supabase/schema.sql` to switch this on.
 

@@ -431,6 +431,30 @@ eq  "a member cannot change a message's status"      "yes" "$(as a "select feedb
 eq  "a member cannot edit their message directly"    "yes" "$(as a "update feedback set message = 'changed later';" 2>&1 | grep -q 'permission denied' && echo yes)"
 root "insert into feedback (user_id, message, client_id) select '00000000-0000-0000-0000-0000000000b2', 'bulk message ' || g, 'bulk' || g from generate_series(1, 29) g;" >/dev/null
 eq  "a member is limited to 30 messages a day"       "yes" "$(as b "insert into feedback (message, client_id) values ('one too many','lim1');" 2>&1 | grep -q 'too many messages' && echo yes)"
+echo; echo "Flashcards"
+root "insert into flashcards (id, boards, subject, front, back, status) values
+  ('c-live','{aem}','S','Front live','Back live','reviewed'), ('c-draft','{aem}','S','Front draft','Back draft','draft'), ('c-arch','{aem}','S','Front arch','Back arch','reviewed');
+  update flashcards set archived = true where id = 'c-arch';" >/dev/null
+eq  "a free member sees the live cards (flashcards are free for everyone)" "1" "$(as d "select count(*) from flashcards;")"
+eq  "a pro member sees only the live card too"            "1" "$(as a "select count(*) from flashcards;")"
+eq  "an unlisted person sees no card"                      "0" "$(as c "select count(*) from flashcards;")"
+eq  "nobody signed out sees a card"                        "permission denied for table flashcards" "$(as anon "select count(*) from flashcards;" 2>&1 | sed -e 's/^ERROR:  //')"
+eq  "a reviewer sees every card, draft and archived"       "3" "$(as rev "select count(*) from flashcards;")"
+eq  "a member cannot add a card"                           "yes" "$(as a "insert into flashcards (id, boards, subject, front, back) values ('c-x','{aem}','S','f','b');" 2>&1 | grep -q 'row-level security' && echo yes)"
+eq  "a member cannot change a card"                        "0" "$(as a "update flashcards set back = 'hacked' where id = 'c-live' returning id;" | grep -c c-live)"
+eq  "a reviewer can add a card, and it starts as draft"   "draft" "$(as rev "insert into flashcards (id, boards, subject, front, back) values ('c-rev','{aem}','S','f','b') returning status;")"
+eq  "marking it reviewed records who did it"              "rev@x" "$(as rev "insert into flashcards (id, boards, subject, front, back) values ('c-rev','{aem}','S','f','b'); update flashcards set status = 'reviewed' where id = 'c-rev' returning reviewed_by;")"
+eq  "changing a reviewed card's text sends it back to draft" "draft" "$(as rev "insert into flashcards (id, boards, subject, front, back, status) values ('c-rev','{aem}','S','f','b','draft'); update flashcards set status = 'reviewed' where id = 'c-rev'; update flashcards set back = 'new back' where id = 'c-rev' returning status;")"
+eq  "a card needs a front and a back"                      "yes" "$(root "insert into flashcards (id, boards, subject, front, back) values ('c-bad','{aem}','S','   ','b');" | grep -q 'violates check constraint' && echo yes)"
+eq  "a very long back is refused"                          "yes" "$(root "insert into flashcards (id, boards, subject, front, back) values ('c-long','{aem}','S','f','$(printf 'x%.0s' $(seq 1 1501))');" | grep -q 'violates check constraint' && echo yes)"
+eq  "a member can save their own review"                   "1" "$(as a "insert into card_reviews (user_id, card_id, due, reps) values ('${U[a]}','c-live', current_date + 3, 1); commit;" >/dev/null; root "select count(*) from card_reviews where user_id='${U[a]}'")"
+eq  "and update it"                                        "6" "$(as a "update card_reviews set interval_days = 6 where user_id='${U[a]}' and card_id='c-live'; commit;" >/dev/null; root "select interval_days from card_reviews where user_id='${U[a]}'")"
+eq  "another member cannot read it"                        "0" "$(as b "select count(*) from card_reviews;")"
+eq  "nor write one for someone else"                       "yes" "$(as b "insert into card_reviews (user_id, card_id, due) values ('${U[a]}','c-live', current_date);" 2>&1 | grep -q 'row-level security' && echo yes)"
+eq  "an admin cannot read members' reviews either"         "0" "$(as admin "select count(*) from card_reviews;")"
+eq  "an out-of-range ease is refused"                      "yes" "$(root "insert into card_reviews (user_id, card_id, due, ease) values ('${U[b]}','c-live', current_date, 9);" | grep -q 'violates check constraint' && echo yes)"
+eq  "deleting a card deletes everyone's schedule for it"   "0" "$(root "delete from flashcards where id='c-live'" >/dev/null; root "select count(*) from card_reviews")"
+eq  "resetting progress clears reviews too"                "0" "$(root "insert into flashcards (id, boards, subject, front, back, status) values ('c-two','{aem}','S','f','b','reviewed'); insert into card_reviews (user_id, card_id, due) values ('${U[a]}','c-two', current_date);" >/dev/null; as a "select reset_my_progress(); commit;" >/dev/null; root "select count(*) from card_reviews")"
 echo; echo "Conversations and support"
 as a "insert into feedback (kind, subject, message, client_id, question_id, category) values ('support','Upgrading my plan','How do I get access to the pro questions?','sup1','q-free','typo'); commit;" >/dev/null
 SID=$(root "select id from feedback where client_id='sup1'")

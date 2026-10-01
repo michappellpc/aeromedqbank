@@ -144,6 +144,7 @@
     }
     if (v && !Array.isArray(v) && Array.isArray(v.questions)) v = v.questions;
     if (v && !Array.isArray(v) && Array.isArray(v.lessons)) v = v.lessons;
+    if (v && !Array.isArray(v) && Array.isArray(v.cards)) v = v.cards;
     if (v && !Array.isArray(v) && typeof v === 'object') v = [v];
     if (!Array.isArray(v)) return { error: `Expected a list of ${noun}s.` };
     if (!v.length) return { error: 'The list is empty.' };
