@@ -324,12 +324,12 @@ function paintTrend() {
   const pr = dashPrefs(), mode = pr.trend, tr = Perf.trend(Store.data.tests, 12, Perf.residual(Store.data.q, Store.data.tests)), grp = Perf.trendGroup(Store.data.tests, bank.peer);
   const hasPeer = Cloud.enabled && grp.some(g => g.overall !== null), cmp = hasPeer && pr.compare && mode !== 'off';
   document.querySelectorAll('[data-pt]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.pt === mode)));
-  const row = document.getElementById('trend-cmp-row'); row.hidden = !hasPeer || mode === 'off'; document.getElementById('trend-cmp').checked = pr.compare;
+  const row = document.getElementById('trend-cmp-row'); row.hidden = !Cloud.enabled || mode === 'off'; const box = document.getElementById('trend-cmp'); box.checked = pr.compare && hasPeer; box.disabled = !hasPeer;
   const lines = mode === 'both' ? [{ name: 'Overall', vals: tr.map(p => p.overall), cls: 'l1' }, { name: 'Recent', vals: tr.map(p => p.recent), cls: 'l2' }] : [{ name: mode === 'recent' ? 'Recent' : 'Overall', vals: tr.map(p => p[mode === 'recent' ? 'recent' : 'overall']), cls: 'l1' }];
   if (cmp) lines.push({ name: 'Everyone', vals: grp.map(g => g[mode === 'recent' ? 'recent' : 'overall']), cls: 'all' });
   const note = { overall: 'Your overall score: the running percent correct across every answer you have given, after each test. It ends at the Overall correct number above.', recent: 'Recent: the score on each test by itself.', both: 'Solid line: overall running score. Dashed line: the score on each test by itself.', off: '' }[mode]
     + (cmp ? ' Dotted line: everyone\'s first-try average on the same questions' + (mode === 'recent' ? ', test by test.' : ', running across the same tests.') : '');
-  document.getElementById('trend-note').textContent = note;
+  document.getElementById('trend-note').textContent = note + (Cloud.enabled && !hasPeer && mode !== 'off' ? ' Group averages are not available yet. They appear once enough members have answered the questions in your tests.' : '');
   document.getElementById('trend-body').innerHTML = mode === 'off' ? '<p class="muted small">Chart hidden. Choose Overall, Recent or Both to show it again.</p>' : lineChart(lines, mode === 'both' ? 'overall and recent scores' : mode === 'recent' ? 'test scores' : 'overall scores');
 }
 

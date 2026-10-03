@@ -49,24 +49,25 @@ A question's "Study this" link normally picks the best lesson automatically, and
 
 ## Copy (Questions, Lessons, Flashcards, Inbox)
 
-Each admin list has a **Copy** button. It builds one message from exactly what the list is showing, so your filters decide what goes (or just the rows you ticked), and lets you pick what Claude should do and add a note about how you like things done:
+Each admin list has a **Copy** button. It builds one message from exactly what the list is showing, so your filters decide what goes (on Questions, the Copy selected button at the bottom sends just the rows you ticked), and lets you pick what Claude should do and add a note about how you like things done:
 
-- **Questions:** check and fix errors, make harder, make easier, improve explanations, **verify and update facts** (laws, policies and guidelines change; Claude is given today's date and told not to guess), **check each question links to the best lesson**, or only your note. The lesson check sends the list of your lessons and the lesson each question shows now, and asks Claude to set `lessonId` only where a different lesson is clearly better, so lessons you add later can take over by themselves; it also lists questions that no lesson fits, with a title for a new lesson. It can include each question's measured performance (first-try percent, separation, the wrong choice picked most).
+On Questions there are two: **Copy** at the top sends every question the filters show; **Copy selected (N)** at the bottom sends only the questions you ticked.
+
+- **Questions:** check and fix errors, make harder, make easier, **match difficulty to its category** (Claude is given each question's first-try percent against its Easy, Medium or Hard range, and rewrites only the ones that sit outside it: harder if too easy for the label, easier if too hard, unchanged if inside the range or too few answers), improve explanations, **verify and update facts** (laws, policies and guidelines change; Claude is given today's date and told not to guess), **check each question links to the best lesson**, or only your note. The lesson check sends the list of your lessons and the lesson each question shows now, and asks Claude to set `lessonId` only where a different lesson is clearly better, so lessons you add later can take over by themselves; it also lists questions that no lesson fits, with a title for a new lesson. It can include each question's measured performance (first-try percent, separation, the wrong choice picked most).
 - **Lessons:** check and fix errors, verify and update facts, make clearer and shorter, add detail and pearls. **Flashcards:** check and fix, verify and update facts, make shorter and clearer.
 - **Inbox:** fix the questions members flagged (it includes each question's full JSON), summarize and group the feedback, or draft replies.
 
 You can read the message before copying, copy it or download it as a file, and long lists are split into parts (20 questions, 5 lessons, 40 cards or 25 messages each) so they fit in one chat message. The data is in the same JSON that **Import from a chat** accepts, marked draft, so Claude's reply can be pasted straight back and reviewed before anything goes live. Internal fields (who reviewed it, update times) are not sent. No database change.
 
-## Admin > Questions: sections by difficulty and tuning the average
+## Admin > Questions: sections by difficulty
 
 The Questions page now holds everything for judging and tuning difficulty (there is no separate Difficulty tab).
 
 - **Sections by difficulty** (click its title to minimize it; it stays minimized, with a one-line summary beside the title): one row per section, grouped by board, with how many **Easy, Medium and Hard** live questions it has and the **% correct** from members for each (and overall), plus draft counts and a totals row. Cells are colored against the range each label stands for. Click a section or a count to list those questions.
 - **Measured difficulty in the list:** each question shows its **first-try percent** (repeat tries are recall, not difficulty), **separation** (how much better the top 27% of members do than the bottom 27%: near 0 tells you little, below 0 means the key may be wrong), the wrong choice picked most, and flags (too easy, too hard, label does not match, weak separator, check the answer, unused choice, long answer, few answers). Admins, reviewers and faculty are left out of these numbers unless you tick the box.
 - **Filter and sort** by search, board, subject, status, tier, label, flag, enough answers, a percent range, and by measured difficulty, separation, answers or how recently rewritten.
-- **Tune the average** (expand it): your target, a histogram, average by label against your bands, and a plan for how many questions to rewrite (easiest first if too easy, hardest first if too hard) with a button to select them.
-- **Actions on a selection:** the existing ones (reviewed, draft, archive, tier, delete) plus Copy rewrite request (harder or easier; the questions, their numbers and the rules for a good rewrite go on the clipboard to paste into a chat, then bring the rewrites back with Import from a chat), Set label from data (keeps live questions live), Copy IDs and CSV.
-- **Did the rewrite work?** Each wording change (editor, import or upload tool) records how the old wording had done. Set Count to "Only answers since it was last rewritten" to see the new wording on its own, and open Details on a row for the history.
+- **Actions on a selection:** reviewed, draft, archive, tier, set label from data, CSV of the selection, delete, and **Copy selected** at the bottom of the page (see Copy below). The old rewrite-request and Copy IDs buttons are gone: Copy covers them with its tasks.
+- **Did the rewrite work?** Each wording change (editor, import or upload tool) records how the old wording had done, shown in a question's Details.
 
 The Overview page's **Hardest questions** list shows only questions under 70% correct (with at least 3 answers, archived ones left out), hardest first. Changing only the difficulty label does not send a live question back to draft. Run the latest `supabase/schema.sql` to switch the measured numbers on; until then the Questions page works as before.
 

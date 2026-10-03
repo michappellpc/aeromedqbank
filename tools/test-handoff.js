@@ -22,7 +22,7 @@ t('every item is marked draft', data.every(x => x.status === 'draft'));
 t('internal fields (who reviewed, update times, archived) are not sent', data.every(x => !('reviewedBy' in x) && !('updatedAt' in x) && !('archived' in x) && !('updatedBy' in x)));
 t('what is sent is exactly what Import from a chat accepts', data.every(x => { const r = QV.check(QV.normalize(x).clean, { boards: BANK.boards, subjects: BANK.subjects, ids: new Set(), stems: new Map(), label: x.id, recordsReviewer: true }); return errs(r).length === 0; }), JSON.stringify(data.map(x => errs(QV.check(QV.normalize(x).clean, { boards: BANK.boards, subjects: BANK.subjects, ids: new Set(), stems: new Map(), label: x.id, recordsReviewer: true })))));
 t('an empty note leaves no note line', !/MY NOTE/.test(H.build('questions', qs, { task: 'review', note: '   ' })));
-t('each task has its own instruction', ['review', 'harder', 'easier', 'explain', 'custom'].every(k => H.build('questions', qs, { task: k }).includes(H.TASKS.questions.find(x => x[0] === k)[2])));
+t('each task has its own instruction', ['review', 'harder', 'easier', 'match', 'explain', 'custom'].every(k => H.build('questions', qs, { task: k }).includes(H.TASKS.questions.find(x => x[0] === k)[2])));
 t('performance lines are added when given', /HOW THEY HAVE BEEN PERFORMING/.test(H.build('questions', qs, { task: 'harder', stats: { 'q-1': 'q-1: 92% correct' } })) && /- q-1: 92% correct/.test(H.build('questions', qs, { task: 'harder', stats: { 'q-1': 'q-1: 92% correct' } })));
 t('and left out when not', !/PERFORMING/.test(text));
 t('a part says which part it is', /This is part 2 of 3\./.test(H.build('questions', qs, { task: 'review', part: [1, 3] })) && !/This is part/.test(H.build('questions', qs, { task: 'review', part: [0, 1] })));
@@ -67,4 +67,6 @@ t('the lesson task is only offered for questions', H.TASKS.questions.some(x => x
 t('lessonId is sent with each question so a pinned lesson can be seen and changed', after(H.build('questions', [{ ...mq(1), lessonId: 'les-a' }], { task: 'lessons' }), 'THE QUESTIONS:\n')[0].lessonId === 'les-a');
 t('a lessonId in the reply is accepted by the importer', errs(QV.check(QV.normalize({ ...mq(1), lessonId: 'les-a' }).clean, { boards: BANK.boards, subjects: BANK.subjects, ids: new Set(), stems: new Map(), label: 'q-1', recordsReviewer: true, lessonIds: new Set(['les-a']) })).length === 0);
 
+t('there is a task that matches difficulty to the category using the performance numbers', (() => { const x = H.build('questions', qs, { task: 'match', stats: { 'q-1': 'q-1: 92% correct on the first try (30 members); labeled Hard' } }); return /TASK: Look at how each question has actually performed/.test(x) && /Easy should be answered correctly[^]*80%/.test(x) && /Leave a question unchanged/.test(x) && /HOW THEY HAVE BEEN PERFORMING/.test(x) && /- q-1: 92% correct/.test(x); })());
+t('it comes right after Make easier in the list', (() => { const k = H.TASKS.questions.map(x => x[0]); return k.indexOf('match') === k.indexOf('easier') + 1; })());
 console.log(`\n${pass} passed, ${fail} failed`); process.exit(fail ? 1 : 0);

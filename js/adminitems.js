@@ -1,14 +1,10 @@
 'use strict';
 // How each question really performs, for the Questions page in Admin: first-try difficulty, how well a question separates strong from weak
-// members, which choices are picked, a table of sections by difficulty with the percent correct, and a way to tune the average.
+// members, which choices are picked, a table of sections by difficulty with the percent correct.
 // The numbers come from the database (admin_item_analysis); the judging is in itemstats.js. admin.js draws the page and calls into this.
 const AdminItems = (() => {
   const L = ItemStats.LABELS;
-  const PREF = 'qbank.items';
-  const defaults = { target: 65, easyMin: 80, medMin: 55, minN: ItemStats.MIN_N, since: false, staff: false };
-  let prefs = { ...defaults };
-  try { prefs = { ...defaults, ...(JSON.parse(localStorage.getItem(PREF)) || {}) }; } catch {}
-  const savePrefs = () => { try { localStorage.setItem(PREF, JSON.stringify(prefs)); } catch {} };
+  const prefs = { target: 65, easyMin: 80, medMin: 55, minN: ItemStats.MIN_N, since: false, staff: false };      // fixed: there is no settings panel any more
   const bands = () => ({ 1: [prefs.easyMin, 100], 2: [prefs.medMin, prefs.easyMin - 1], 3: [0, prefs.medMin - 1] });
   let rows = null, items = [], index = new Map(), loadedFor = '', missing = false;
   const flagChip = f => `<span class="flagchip f-${f}" title="${esc(ItemStats.FLAG_TEXT[f][1])}">${esc(ItemStats.FLAG_TEXT[f][0])}</span>`;
@@ -70,52 +66,6 @@ const AdminItems = (() => {
     return `${c[1]} easy, ${c[2]} medium, ${c[3]} hard${fn >= 5 ? ` \u00b7 ${Math.round(100 * fc / fn)}% correct` : ''}`;
   }
 
-  // ------------------------------------------------------------------ tuning: settings, headline numbers, histogram, plan
-  function tuneHtml() {
-    return `<form id="ia-set" class="fgrid" onsubmit="return false" aria-label="Analysis settings">
-        <div><label for="ia-since">Count</label><select id="ia-since"><option value="all"${prefs.since ? '' : ' selected'}>All answers to each question</option><option value="since"${prefs.since ? ' selected' : ''}>Only answers since it was last rewritten</option></select></div>
-        <div><label for="ia-minn">Fewest first tries to judge a question</label><input id="ia-minn" type="number" min="5" max="200" value="${prefs.minN}"></div>
-        <div><label for="ia-target">Target average (% correct)</label><input id="ia-target" type="number" min="30" max="95" value="${prefs.target}"></div>
-        <div><label class="chk" style="margin-top:26px"><input type="checkbox" id="ia-staff"${prefs.staff ? ' checked' : ''}> Include admin, reviewer and faculty answers</label></div>
-        <details style="grid-column:1/-1"><summary>What counts as Easy, Medium and Hard</summary><div class="fgrid" style="margin-top:8px">
-          <div><label for="ia-easy">Easy is this % correct or more</label><input id="ia-easy" type="number" min="50" max="99" value="${prefs.easyMin}"></div>
-          <div><label for="ia-med">Medium is this % correct or more</label><input id="ia-med" type="number" min="10" max="98" value="${prefs.medMin}"></div>
-          <p class="muted small" style="grid-column:1/-1">Below the Medium line is Hard. A question is "off its label" when members find it a different difficulty than the label says.</p></div></details></form>
-      <div id="ia-top"></div>`;
-  }
-  function bindTune(onChange) {
-    const el = id => document.getElementById(id), set = (id, v) => { el(id).value = v; };
-    const num = (id, key, lo, hi) => el(id).addEventListener('change', e => { const v = Math.max(lo, Math.min(hi, Math.round(+e.target.value) || defaults[key])); e.target.value = v; prefs[key] = v; if (prefs.easyMin <= prefs.medMin) { prefs.medMin = Math.max(10, prefs.easyMin - 10); set('ia-med', prefs.medMin); } savePrefs(); analyze(); paintTop(); onChange(); });
-    num('ia-minn', 'minN', 5, 200); num('ia-target', 'target', 30, 95); num('ia-easy', 'easyMin', 50, 99); num('ia-med', 'medMin', 10, 98);
-    el('ia-since').addEventListener('change', async e => { prefs.since = e.target.value === 'since'; savePrefs(); await load(true); paintTop(); onChange(); });
-    el('ia-staff').addEventListener('change', async e => { prefs.staff = e.target.checked; savePrefs(); await load(true); paintTop(); onChange(); });
-    paintTop();
-  }
-  function paintTop() {
-    const box = document.getElementById('ia-top'); if (!box) return;
-    const live = items.filter(i => !i.archived && i.status === 'reviewed'), sm = ItemStats.summarize(live, { bands: bands() }), plan = ItemStats.shiftPlan(live, prefs.target);
-    const maxH = Math.max(1, ...sm.hist.map(h => h.count)), W = 520, H = 150, bw = 44, tx = 10 + (prefs.target / 100) * (10 * bw);
-    const hist = `<svg class="itemhist" viewBox="0 0 ${W + 20} ${H + 36}" role="img" aria-label="How many live questions fall in each first-try percent range: ${sm.hist.map(h => `${h.from} to ${h.to} percent, ${h.count}`).join('; ')}. Target ${prefs.target} percent.">
-      ${sm.hist.map((h, i) => { const hh = Math.round((h.count / maxH) * (H - 20)), x = 10 + i * bw, b = ItemStats.bandOf(h.from + 5, bands()); return `<rect x="${x + 3}" y="${H - hh}" width="${bw - 6}" height="${hh}" rx="3" fill="${b === 1 ? 'var(--good)' : b === 2 ? 'var(--gold)' : 'var(--bad)'}"/><text x="${x + bw / 2}" y="${H - hh - 4}" text-anchor="middle" class="axis">${h.count || ''}</text><text x="${x + bw / 2}" y="${H + 14}" text-anchor="middle" class="axis">${h.from}</text>`; }).join('')}
-      <line x1="${tx}" x2="${tx}" y1="4" y2="${H}" stroke="var(--fg)" stroke-width="2" stroke-dasharray="5 4"/><text x="${tx}" y="${H + 30}" text-anchor="middle" class="axis lastv">target ${prefs.target}%</text></svg>`;
-    box.innerHTML = missing ? '' : `
-      <div class="grid"><div class="card stat"><b>${sm.mean === null ? '-' : sm.mean + '%'}</b><span>Average correct, first try (target ${prefs.target}%)</span></div><div class="card stat"><b>${sm.judged}</b><span>Live questions judged (of ${live.length})</span></div>
-        <div class="card stat"><b>${sm.tooEasy} / ${sm.tooHard}</b><span>Too easy / too hard</span></div><div class="card stat"><b>${sm.check}</b><span>Check the answer key</span></div></div>
-      ${sm.judged ? `<div class="card"><h3 style="margin-top:0">Where the questions sit</h3><p class="muted">Live questions by first-try percent correct. Green is Easy, amber Medium, red Hard by your bands.</p>${hist}
-        <div class="scroll" role="region" tabindex="0" aria-label="Difficulty by label table"><table><caption class="sr">Average first-try percent by difficulty label</caption><thead><tr><th scope="col">Label</th><th scope="col">Questions</th><th scope="col">Intended</th><th scope="col">Actual average</th><th scope="col">Inside its band</th></tr></thead>
-        <tbody>${sm.byLabel.map(b => `<tr><th scope="row">${b.name}</th><td>${b.count}</td><td>${b.band[0]}% to ${b.band[1]}%</td><td>${b.avg === null ? '-' : b.avg + '%'}</td><td>${b.count ? `${b.inBand} of ${b.count}` : '-'}</td></tr>`).join('')}</tbody></table></div></div>
-        <div class="card"><h3 style="margin-top:0">Reaching your target</h3>${planHtml(plan)}</div>`
-        : `<div class="card"><h3 style="margin-top:0">Not enough answers yet</h3><p class="muted">A question is judged once ${prefs.minN} members have answered it. Come back as more answers arrive, or lower the number above.</p></div>`}`;
-    const sb = document.getElementById('ia-plan-sel'); if (sb) sb.onclick = () => Admin.selectIds(plan.ids, plan.direction);
-  }
-  function planHtml(plan) {
-    if (!plan) return '<p class="muted">Not enough judged questions yet.</p>';
-    if (plan.direction === 'none') return `<p>The average is ${plan.from}%, right on your ${prefs.target}% target.</p>`;
-    const dir = plan.direction, other = dir === 'harder' ? 'easiest' : 'hardest';
-    return `<p>The average is <b>${plan.from}%</b> and your target is <b>${prefs.target}%</b>. ${plan.reached ? `Rewriting the <b>${plan.k}</b> ${other} question${plan.k === 1 ? '' : 's'} to be ${dir} (to about ${prefs.target}% correct each) would bring it to about <b>${plan.to}%</b>.` : `Even rewriting every judged question would not reach it; try a target nearer ${Math.round(plan.to)}%.`}</p>
-      ${plan.k ? `<div class="row"><button type="button" id="ia-plan-sel" class="primary">Select these ${plan.k} questions</button></div><p class="muted small">Then use <b>Copy rewrite request</b> in the bar that appears, and bring the rewrites back with <b>Import from a chat</b>. Once members answer the new versions, switch Count to "Only answers since it was last rewritten" to see whether it worked.</p>` : ''}`;
-  }
-
   // ------------------------------------------------------------------ pieces of a row
   const get = id => index.get(id) || null;
   function cells(i) {                       // First try, Separation, Wrong choice picked most, Flags
@@ -132,30 +82,21 @@ const AdminItems = (() => {
       <div><h3 class="small" style="margin:0 0 4px">What the numbers say</h3><ul class="reclist small">${i.flags.length ? i.flags.map(f => `<li>${flagChip(f)} <span class="muted">${esc(ItemStats.FLAG_TEXT[f][1])}</span></li>`).join('') : '<li class="muted">Nothing stands out.</li>'}
         <li class="muted">${i.attempts} answers in all from ${i.users} members${i.lastAt ? `, last on ${esc(day(i.lastAt))}` : ''}.</li></ul>
         <h3 class="small" style="margin:10px 0 4px">Rewrite history</h3><div id="rev-${esc(i.id)}" class="small muted">Loading...</div>
-        <div class="row" style="margin-top:8px"><a class="btn" href="#/admin/questions/edit/${esc(i.id)}">Edit this question</a><button type="button" data-ask="harder" data-id="${esc(i.id)}">Copy request: make harder</button><button type="button" data-ask="easier" data-id="${esc(i.id)}">Copy request: make easier</button></div></div></div>`;
+        <div class="row" style="margin-top:8px"><a class="btn" href="#/admin/questions/edit/${esc(i.id)}">Edit this question</a></div></div></div>`;
   }
   async function loadRevisions(i) {
     const box = document.getElementById('rev-' + i.id); if (!box) return;
     try {
       const list = await Cloud.questionRevisions(i.id);
-      const cur = i.revisedAt ? `<li>Current wording since ${esc(day(i.revisedAt))}: ${prefs.since ? (i.pct === null ? 'no first tries yet' : `<b>${i.pct}%</b> (${i.n} first tries)`) : 'switch Count to "Only answers since it was last rewritten" to see it on its own'}.</li>` : '';
+      const cur = i.revisedAt ? `<li>Current wording since ${esc(day(i.revisedAt))}: ${i.pct === null ? 'no first tries yet' : `<b>${i.pct}%</b> (${i.n} first tries, all time)`}.</li>` : '';
       box.innerHTML = list.length ? `<ul class="reclist">${cur}${list.map(r => `<li>${esc(day(r.revised_at))} by ${esc(r.revised_by || 'unknown')}: the previous wording had ${r.first_n ? `<b>${Math.round(100 * r.first_correct / r.first_n)}%</b> correct (${r.first_n} first tries)` : 'no answers'}.</li>`).join('')}</ul>` : 'Never rewritten since tracking began.';
       box.classList.remove('muted');
     } catch { box.textContent = 'Not available yet (the database needs the latest schema).'; }
-    box.parentElement.querySelectorAll('[data-ask]').forEach(b => b.onclick = () => copyRequest([i.id], b.dataset.ask));
   }
   const download = (text, name, type) => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], { type })); a.download = name; a.click(); };
-  async function copyRequest(ids, dir) {
-    const picked = items.filter(i => ids.includes(i.id)); if (!picked.length) return toast('No data for the selected questions yet.');
-    const text = ItemStats.rewritePrompt(picked, dir, { target: prefs.target });
-    try { await navigator.clipboard.writeText(text); toast(`Copied a request to make ${picked.length === 1 ? 'this question' : picked.length + ' questions'} ${dir}. Paste it into your chat, then use Import from a chat.`); }
-    catch { download(text, 'rewrite-request.txt', 'text/plain'); toast('Could not copy, so it was downloaded as a file instead.'); }
-  }
   // Actions the Questions page adds to its selection bar. Returns true when the page should reload.
   async function act(kind, ids) {
     const sel = items.filter(i => ids.includes(i.id));
-    if (kind === 'harder' || kind === 'easier') { await copyRequest(ids, kind); return false; }
-    if (kind === 'ids') { await navigator.clipboard.writeText(ids.join('\n')).catch(() => {}); toast(`Copied ${ids.length} ${ids.length === 1 ? 'ID' : 'IDs'}.`); return false; }
     if (kind === 'csv') { download(ItemStats.csv(sel.length ? sel : []), 'question-difficulty-selected.csv', 'text/csv'); return false; }
     if (kind === 'relabel') {
       const rel = sel.filter(i => i.suggested && i.suggested !== i.label);
@@ -172,5 +113,5 @@ const AdminItems = (() => {
   const sorter = k => ({ attention: (a, b) => b.attention - a.attention, mhard: (a, b) => (a.pct ?? 101) - (b.pct ?? 101), measy: (a, b) => (b.pct ?? -1) - (a.pct ?? -1), 'gap-easy': (a, b) => (b.gap ?? -99) - (a.gap ?? -99), 'gap-hard': (a, b) => (a.gap ?? 99) - (b.gap ?? 99),
     'disc-low': (a, b) => (a.disc ?? 9) - (b.disc ?? 9), 'disc-high': (a, b) => (b.disc ?? -9) - (a.disc ?? -9), many: (a, b) => b.n - a.n, few: (a, b) => a.n - b.n, rewritten: (a, b) => String(b.revisedAt || '').localeCompare(String(a.revisedAt || '')) })[k] || null;
   const ready = () => !missing && !!rows;
-  return { load, reset, get, ready, summaryLine, get missing() { return missing; }, get prefs() { return prefs; }, sectionTable, tuneHtml, bindTune, paintTop, cells, detail, loadRevisions, act, copyRequest, SORTS, sorter, FLAGS, flagChip, download };
+  return { load, reset, get, ready, summaryLine, get missing() { return missing; }, get prefs() { return prefs; }, sectionTable, cells, detail, loadRevisions, act, SORTS, sorter, FLAGS, flagChip, download };
 })();
