@@ -86,6 +86,12 @@ const HlUI = (() => {
     pop.onmousedown = e => e.preventDefault();      // keep the selection while a button is pressed
     return pop;
   }
+  function reposition(el, rect) {
+    const w = el.offsetWidth, h = el.offsetHeight, coarse = matchMedia('(pointer: coarse)').matches;
+    let x = Math.max(8, Math.min(innerWidth - w - 8, rect.left + rect.width / 2 - w / 2)), y = coarse ? rect.bottom + 12 : rect.top - h - 8;
+    if (y < 8) y = rect.bottom + 8; if (y + h > innerHeight - 8) y = Math.max(8, rect.top - h - 8);
+    el.style.left = x + 'px'; el.style.top = y + 'px';
+  }
   function onSelection() {
     clearTimeout(popTimer);
     popTimer = setTimeout(() => {
@@ -102,7 +108,7 @@ const HlUI = (() => {
   }
   function onClick(e) {
     const m = e.target.closest && e.target.closest('mark.hl');
-    if (pop && !e.target.closest('.hlpop') && !m) hide();
+    if (pop && !e.target.closest('.hlpop') && !m) { const sl = getSelection(); if (!sl || sl.isCollapsed) hide(); }   // letting go of the mouse after a drag is also a click: keep the toolbar the drag opened
     if (!m || e.target.closest('.opt') || e.target.closest('.hlpop')) return;       // a click on highlighted text inside an answer choice still just picks the choice
     if (getSelection() && !getSelection().isCollapsed) return;
     const z = zoneOf(m), ids = m.dataset.hl.split(' '), p = show(m.getBoundingClientRect(), [['rm', 'Remove highlight'], ['card', 'Make flashcard']]); p.dataset.mark = '1';
@@ -123,6 +129,15 @@ const HlUI = (() => {
     root.querySelectorAll(`[data-hk="${k}"][data-hi="${CSS.escape(i)}"]`).forEach(z => { listFor(z).forEach(h => Store.delHl(h.id)); paint(z); }); changed();
   }
   document.addEventListener('selectionchange', onSelection);
+  let raf = 0;
+  window.addEventListener('scroll', () => {            // the toolbar follows the selected words as the page scrolls, and goes when they are off screen
+    if (!pop || raf) return;
+    raf = requestAnimationFrame(() => {
+      raf = 0; const s = selection();
+      if (s && s.rect.bottom > 0 && s.rect.top < innerHeight) { clearTimeout(popTimer); const keep = pop && !pop.dataset.mark; if (keep) { const h = pop; reposition(h, s.rect); } else hide(); }
+      else if (!s) hide();
+    });
+  }, { passive: true, capture: true });
   document.addEventListener('click', onClick);
   document.addEventListener('keydown', e => { if (e.key === 'Escape' && pop) hide(); });
   window.addEventListener('hashchange', hide);
