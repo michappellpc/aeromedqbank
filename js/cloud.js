@@ -489,7 +489,7 @@ const Cloud = (() => {
     queueAttempt(question_id, ok, chosen) { change(q => q.attempts.push({ question_id, ok, ...(chosen ? { chosen: String(chosen).slice(0, 3) } : {}), client_id: cid(), at: new Date().toISOString() })); },
     queueMark(question_id) { change(q => { const s = Store.qstat(question_id) || {}; q.marks[question_id] = { flagged: !!s.flagged, note: s.note || '', updated_at: new Date().toISOString() }; }); },
     queueTest(rec) { change(q => { q.tests[rec.id] = rec; }); },
-    queueSettings() { change(q => { const s = Store.data.settings; q.settings = { data: { theme: s.theme, showDrafts: s.showDrafts !== false, palette: s.palette || 'olive', exam: s.exam || null, quizMascot: s.quizMascot !== false, quizText: +s.quizText || 0, ...(s.cards ? { cards: s.cards } : {}) }, updated_at: new Date().toISOString() }; }); },
+    queueSettings() { change(q => { const s = Store.data.settings; q.settings = { data: { theme: s.theme, showDrafts: s.showDrafts !== false, palette: s.palette || 'olive', exam: s.exam || null, quizMascot: s.quizMascot !== false, quizText: +s.quizText || 0, ...(s.dash ? { dash: s.dash } : {}), ...(s.cards ? { cards: s.cards } : {}) }, updated_at: new Date().toISOString() }; }); },
     queueCard(id, st) { if (String(id).startsWith('my:')) return this.queueMine(String(id).slice(3)); change(q => { (q.cards ||= {})[id] = st; }); },
     queueHl(id) { change(q => { const h = (Store.data.hl || {})[id]; (q.hl ||= {})[id] = h ? hlToRow(h) : null; }); },
     queueMine(id) { change(q => { const c = (Store.data.mine || {})[id]; (q.mine ||= {})[id] = c ? mineToRow(c, (Store.data.cards || {})['my:' + id]) : null; }); },
