@@ -96,6 +96,10 @@ A Calculator button in the tools row of the question screen opens a floating cal
 
 The home page shows a "This day in history" card with one to three events for today's date. Aerospace medicine events come first. Days with none show an aviation or spaceflight event instead, so every day of the year (including February 29) has one. The events are in `js/onthisday-data.js` and the checks in `tools/test-onthisday.js` (every day covered, well-formed entries). Edit that file to correct or add events.
 
+## Halloween banner
+
+From October 1 through November 1 the dashboard banner is a harvest moon with a white plane and contrail, bats and a bare tree, with an orange button. It switches back to the usual banner on its own on November 2. A custom cover image set in the config always wins. The art and the date rule are in `js/mascot.js` (`Mascot.halloween`).
+
 ## Test history numbering
 
 History lists each quiz as Quiz 1, Quiz 2 and so on, oldest first. The results page shows the same number.

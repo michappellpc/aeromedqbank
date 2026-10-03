@@ -58,8 +58,24 @@ const Mascot = (() => {
   }
 
   // Dashboard cover: dawn sky, layered ridgelines, a jet and its contrail. Everything is vector, so it stays sharp at any size.
-  function scene(coverImage) {
-    const art = coverImage
+  // Halloween season (October, and November 1): a harvest moon, a plane with its contrail, bats and a bare tree. Outside the season the usual dawn scene returns by itself.
+  const halloween = (d = new Date()) => d.getMonth() === 9 || (d.getMonth() === 10 && d.getDate() === 1);
+  const BAT = (x, y, k, r) => `<g transform="translate(${x} ${y}) rotate(${r}) scale(${k})" fill="#05101b"><path d="M0 0 C-4 -6,-10 -8,-18 -6 C-14 -3,-14 0,-11 3 C-8 1,-5 2,-3 6 C-2 3,-1 2,0 2 C1 2,2 3,3 6 C5 2,8 1,11 3 C14 0,14 -3,18 -6 C10 -8,4 -6,0 0Z"/></g>`;
+  const HALLOWEEN_ART = `<svg class="cover-art" viewBox="0 0 1200 240" preserveAspectRatio="xMaxYMid slice" aria-hidden="true" focusable="false">
+      <defs><linearGradient id="hw-sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0a1626"/><stop offset=".55" stop-color="#16304f"/><stop offset="1" stop-color="#3b3a52"/></linearGradient>
+        <radialGradient id="hw-glow" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#ffb35c" stop-opacity=".6"/><stop offset="1" stop-color="#ffb35c" stop-opacity="0"/></radialGradient>
+        <linearGradient id="hw-trail" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".4" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#fff" stop-opacity=".9"/></linearGradient></defs>
+      <rect width="1200" height="240" fill="url(#hw-sky)"/>
+      <g fill="#fff"><circle cx="520" cy="30" r="1.3" opacity=".7"/><circle cx="640" cy="60" r="1" opacity=".5"/><circle cx="1130" cy="30" r="1.4" opacity=".8"/><circle cx="780" cy="22" r="1" opacity=".6"/></g>
+      <circle cx="990" cy="108" r="190" fill="url(#hw-glow)"/><circle cx="990" cy="108" r="64" fill="#ffb961"/><circle cx="970" cy="92" r="10" fill="#f0a04a" opacity=".6"/><circle cx="1015" cy="128" r="13" fill="#f0a04a" opacity=".5"/><circle cx="1003" cy="78" r="6" fill="#f0a04a" opacity=".5"/>
+      <path d="M470 124 C 640 124, 800 104, 940 80" stroke="url(#hw-trail)" stroke-width="3.5" fill="none" stroke-linecap="round"/><path d="M470 132 C 640 132, 800 112, 940 88" stroke="url(#hw-trail)" stroke-width="1.6" fill="none" stroke-linecap="round" opacity=".55"/>
+      <g transform="translate(946 79) rotate(-12) scale(1.45)" fill="#fff"><path d="M0 0 L-6 -3 L-18 -3 L-22 -12 L-25 -12 L-22 -3 L-34 -2 L-37 -6 L-39 -6 L-38 0 L-39 6 L-37 6 L-34 2 L-22 3 L-25 12 L-22 12 L-18 3 L-6 3 Z"/></g>
+      ${BAT(1090, 44, 1.2, 8)}${BAT(1150, 92, .9, -6)}${BAT(800, 40, .8, 4)}
+      <path d="M0 205 C 150 175, 300 215, 470 195 S 800 170, 960 200 S 1120 205, 1200 192 V240 H0Z" fill="#050e18"/>
+      <g stroke="#050e18" stroke-width="5" stroke-linecap="round" fill="none"><path d="M640 200 V140 M640 168 L615 138 M640 156 L668 126 M640 140 L630 112 M615 138 L600 130 M668 126 L684 122"/></g></svg>`;
+  function scene(coverImage, forceHalloween) {
+    const spooky = !coverImage && (forceHalloween === undefined ? halloween() : forceHalloween);
+    const art = spooky ? HALLOWEEN_ART : coverImage
       ? `<img class="cover-photo" src="${coverImage}" alt="">`
       : `<svg class="cover-art" viewBox="0 0 1200 240" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false">
       <defs><linearGradient id="cv-sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1c2a3a"/><stop offset=".55" stop-color="#3d5566"/><stop offset="1" stop-color="#d9b877"/></linearGradient>
@@ -74,7 +90,7 @@ const Mascot = (() => {
       <path d="M0 190 C120 150 230 176 350 156 C470 136 560 170 690 150 C820 130 930 168 1050 146 C1120 134 1170 142 1200 148 V240 H0Z" class="hill1" fill="#5d6f3b"/>
       <path d="M0 214 C140 186 260 206 400 190 C540 174 640 206 780 188 C900 174 1040 202 1200 182 V240 H0Z" class="hill2" fill="#3f4f25"/>
       <path d="M0 232 C180 214 360 230 560 220 C760 210 980 232 1200 218 V240 H0Z" class="hill3" fill="#2b3719"/></svg>`;
-    return `<div class="cover">${art}<div class="cover-shade"></div><div class="cover-body"><div class="cover-text" id="cover-text"></div><div class="scene-slot" id="scene-slot"></div></div></div>`;
+    return `<div class="cover${spooky ? ' halloween' : ''}">${art}<div class="cover-shade"></div><div class="cover-body"><div class="cover-text" id="cover-text"></div><div class="scene-slot" id="scene-slot"></div></div></div>`;
   }
 
   const timers = [];
@@ -99,5 +115,5 @@ const Mascot = (() => {
     wrong: ['Not quite. Read the explanation, then regroup.', 'Review it and move on. The next one is yours.', 'Every miss is useful before the boards.', 'Better to learn it here than on exam day.'],
     tips: ['Rule out what you can first.', 'Trust your first read.', 'Read the last line of the stem twice.', 'Slow is smooth, smooth is fast.']
   };
-  return { sprite, scene, mount, stop, pick, lines };
+  return { sprite, scene, halloween, mount, stop, pick, lines };
 })();
