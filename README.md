@@ -43,11 +43,21 @@ The question screen has a **Hide ram** button (and **Show ram** to bring it back
 
 The Overview page's **Hardest questions** list shows only questions under 70% correct (with at least 3 answers, archived ones left out), hardest first, and links to Difficulty for first-try numbers.
 
+## Copy for Claude (Questions, Lessons, Flashcards, Inbox)
+
+Each admin list has a **Copy for Claude** button. It builds one message from exactly what the list is showing, so your filters decide what goes (or just the rows you ticked), and lets you pick what Claude should do and add a note about how you like things done:
+
+- **Questions:** check and fix errors, make harder, make easier, improve explanations, or only your note. It can include each question's measured performance (first-try percent, separation, the wrong choice picked most).
+- **Lessons:** check and fix errors, make clearer and shorter, add detail and pearls. **Flashcards:** check and fix, make shorter and clearer.
+- **Inbox:** fix the questions members flagged (it includes each question's full JSON), summarize and group the feedback, or draft replies.
+
+You can read the message before copying, copy it or download it as a file, and long lists are split into parts (20 questions, 5 lessons, 40 cards or 25 messages each) so they fit in one chat message. The data is in the same JSON that **Import from a chat** accepts, marked draft, so Claude's reply can be pasted straight back and reviewed before anything goes live. Internal fields (who reviewed it, update times) are not sent. No database change.
+
 ## Admin > Questions: sections by difficulty and tuning the average
 
 The Questions page now holds everything for judging and tuning difficulty (there is no separate Difficulty tab).
 
-- **Sections by difficulty:** one row per section, grouped by board, with how many **Easy, Medium and Hard** live questions it has and the **% correct** from members for each (and overall), plus draft counts and a totals row. Cells are colored against the range each label stands for. Click a section or a count to list those questions.
+- **Sections by difficulty** (click its title to minimize it; it stays minimized, with a one-line summary beside the title): one row per section, grouped by board, with how many **Easy, Medium and Hard** live questions it has and the **% correct** from members for each (and overall), plus draft counts and a totals row. Cells are colored against the range each label stands for. Click a section or a count to list those questions.
 - **Measured difficulty in the list:** each question shows its **first-try percent** (repeat tries are recall, not difficulty), **separation** (how much better the top 27% of members do than the bottom 27%: near 0 tells you little, below 0 means the key may be wrong), the wrong choice picked most, and flags (too easy, too hard, label does not match, weak separator, check the answer, unused choice, long answer, few answers). Admins, reviewers and faculty are left out of these numbers unless you tick the box.
 - **Filter and sort** by search, board, subject, status, tier, label, flag, enough answers, a percent range, and by measured difficulty, separation, answers or how recently rewritten.
 - **Tune the average** (expand it): your target, a histogram, average by label against your bands, and a plan for how many questions to rewrite (easiest first if too easy, hardest first if too hard) with a button to select them.

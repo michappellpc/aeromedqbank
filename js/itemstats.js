@@ -71,6 +71,8 @@
     return { direction: harder ? 'harder' : 'easier', from: Math.round(mean * 10) / 10, to: Math.round(10 * sum / ok.length) / 10, ids: order.slice(0, k).map(i => i.id), k, reached };
   }
 
+  // One line about how a question has been performing (null when there is nothing to say yet)
+  const statLine = i => (!i || i.pct === null ? null : `${i.id}: ${i.pct}% correct on the first try (${i.n} members); labeled ${LABELS[i.label]}${i.disc === null ? '' : '; separates strong from weak members at ' + i.disc.toFixed(2)}${i.topWrong ? `; wrong choice picked most: ${i.topWrong.id} (${i.topWrong.share}%)` : ''}${i.dead.length ? `; almost never picked: ${i.dead.join(', ')}` : ''}${i.flags.includes('longans') ? '; the correct answer is much longer than the others' : ''}`);
   // A message to paste into a chat with an AI so it rewrites the chosen questions. direction: 'harder' | 'easier'. Returns text.
   function rewritePrompt(items, direction, opts = {}) {
     const target = opts.target, fields = opts.fields || ['id', 'status', 'boards', 'subject', 'topic', 'difficulty', 'stem', 'options', 'answer', 'explanation', 'optionNotes', 'references', 'tier'];
@@ -91,5 +93,5 @@
     const rows = items.map(i => [i.id, i.subject, i.topic, LABELS[i.label], i.pct === null ? '' : i.pct, i.n, i.attempts, i.disc === null ? '' : i.disc, i.topWrong ? i.topWrong.id : '', i.topWrong ? i.topWrong.share : '', i.suggested ? LABELS[i.suggested] : '', i.flags.filter(f => f !== 'fewdata').map(f => FLAG_TEXT[f][0]).join('; '), i.revisedAt ? String(i.revisedAt).slice(0, 10) : '']);
     return '﻿' + [head, ...rows].map(r => r.map(csvCell).join(',')).join('\r\n');
   }
-  return { LABELS, BANDS, MIN_N, FLAG_TEXT, bandOf, analyze, summarize, shiftPlan, rewritePrompt, csv };
+  return { LABELS, BANDS, MIN_N, FLAG_TEXT, bandOf, analyze, summarize, shiftPlan, rewritePrompt, statLine, csv };
 });

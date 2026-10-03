@@ -42,7 +42,7 @@ const AdminCards = (() => {
     $app.innerHTML = `${tabs('cards')}
       <div class="card"><div class="row spread"><div><h2 style="margin:0">Flashcards</h2>
         <p class="muted" style="margin:4px 0 0">${n.live} live for everyone &middot; ${n.draft} draft (hidden) &middot; ${n.arch} archived</p></div>
-        <div class="row"><a class="btn primary" href="#/admin/cards/new">Add a card</a><a class="btn" href="#/admin/cards/import">Import from a chat</a><button id="backup">Download backup</button></div></div></div>
+        <div class="row"><a class="btn primary" href="#/admin/cards/new">Add a card</a><a class="btn" href="#/admin/cards/import">Import from a chat</a><button id="claude" type="button" title="Copy the flashcards you are looking at, to paste into Claude">Copy for Claude</button><button id="backup">Download backup</button></div></div></div>
       <div class="card"><form id="flt" class="filters" onsubmit="return false" aria-label="Filter flashcards">
         <div><label for="fq">Search</label><input id="fq" type="search" value="${esc(view.q)}" placeholder="id, topic, or words on the card"></div>
         <div><label for="fs">Subject</label><select id="fs"><option value="">All</option>${subjects.map(s => `<option${s === view.subject ? ' selected' : ''}>${esc(s)}</option>`).join('')}</select></div>
@@ -55,6 +55,8 @@ const AdminCards = (() => {
     el('fs').onchange = e => { view.subject = e.target.value; view.page = 0; paint(); };
     el('fst').onchange = e => { view.status = e.target.value; view.page = 0; paint(); };
     el('fsh').onchange = e => { view.show = e.target.value; view.page = 0; paint(); };
+    el('claude').onclick = () => Handoff.open({ kind: 'cards', items: lastRows, selected: [...view.sel], importHash: '#/admin/cards/import',
+      describe: (() => { const p = []; if (view.q) p.push(`search "${view.q}"`); if (view.subject) p.push(view.subject); if (view.status) p.push(view.status === 'reviewed' ? 'live' : 'draft'); if (view.show !== 'active') p.push(view.show === 'all' ? 'including archived' : 'archived'); return p.length ? 'filters: ' + p.join(', ') : 'no filters'; })() });
     el('backup').onclick = () => {
       const out = cache.list.map(x => ({ id: x.id, status: x.status, boards: x.boards, subject: x.subject, topic: x.topic || undefined, front: x.front, back: x.back, lessonId: x.lessonId, references: x.references, archived: x.archived }));
       const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(out, null, 1)], { type: 'application/json' }));
@@ -63,8 +65,9 @@ const AdminCards = (() => {
     paint();
   }
 
+  let lastRows = [];
   function paint() {
-    const rows = filtered(), pages = Math.max(1, Math.ceil(rows.length / PAGE)); view.page = Math.min(view.page, pages - 1);
+    const rows = filtered(); lastRows = rows; const pages = Math.max(1, Math.ceil(rows.length / PAGE)); view.page = Math.min(view.page, pages - 1);
     const slice = rows.slice(view.page * PAGE, view.page * PAGE + PAGE), all = slice.length && slice.every(c => view.sel.has(c.id));
     document.getElementById('cres').innerHTML = rows.length ? `<div class="scroll" role="region" tabindex="0" aria-label="Flashcards table"><table class="qtable"><caption class="sr">Flashcards, ${rows.length} shown</caption><thead><tr>
       <th scope="col"><input type="checkbox" id="selall" aria-label="Select all shown"${all ? ' checked' : ''}></th><th scope="col">Card</th><th scope="col">Subject</th><th scope="col">Status</th><th scope="col">Updated</th></tr></thead><tbody>${slice.map(c => `<tr${c.archived ? ' class="dim"' : ''}>

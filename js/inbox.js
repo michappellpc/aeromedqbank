@@ -19,9 +19,14 @@ const Inbox = (() => {
     $app.innerHTML = `${Admin.tabs('inbox')}<div class="card"><div class="row spread"><div><h2 style="margin:0">Inbox</h2><p class="muted" style="margin:4px 0 0">${n} new &middot; ${rows.length} in total</p></div>
         <div class="row"><div><label for="ib-show" class="sr">Show</label><select id="ib-show" style="width:auto"><option value="new">New only</option><option value="open">New and read</option><option value="resolved">Resolved</option><option value="all">Everything</option></select></div>
           <div><label for="ib-kind" class="sr">Type</label><select id="ib-kind" style="width:auto"><option value="">Support and feedback</option><option value="support">Support only</option><option value="feedback">Question feedback only</option></select></div>
-          ${n ? '<button id="ib-all">Mark all read</button>' : ''}</div></div>${admin ? '' : '<p class="muted small">As a reviewer you see the messages but not who sent them.</p>'}</div>
+          <button id="ib-claude" type="button" title="Copy the messages you are looking at, with their questions, to paste into Claude">Copy for Claude</button>${n ? '<button id="ib-all">Mark all read</button>' : ''}</div></div>${admin ? '' : '<p class="muted small">As a reviewer you see the messages but not who sent them.</p>'}</div>
       <div id="ib-list"></div>`;
     document.getElementById('ib-show').value = view.show; document.getElementById('ib-kind').value = view.kind;
+    document.getElementById('ib-claude').onclick = async () => {
+      let qs = []; try { qs = await Cloud.editorQuestions(); } catch {}
+      const items = shown().map(r => ({ ...r, question: r.question_id ? qs.find(q => q.id === r.question_id) || null : null }));
+      Handoff.open({ kind: 'feedback', items, importHash: '#/admin/questions/import', describe: `${view.show === 'new' ? 'new only' : view.show === 'open' ? 'new and read' : view.show === 'resolved' ? 'resolved' : 'all'}${view.kind ? ', ' + (view.kind === 'support' ? 'support only' : 'question feedback only') : ''}` });
+    };
     const paint = () => {
       const list = shown(); const box = document.getElementById('ib-list');
       box.innerHTML = list.length ? list.map(r => `<article class="card msg" data-id="${r.id}"><div class="row spread"><div>${tag(r.status)} ${r.kind === 'support' ? '<span class="tag">Support</span>' : `<span class="tag">${esc(CAT[r.category] || r.category)}</span>`} <span class="muted">${esc(when(r.last_activity || r.created_at))}${admin && r.reporter ? ' &middot; ' + esc(r.reporter) : ''}</span></div>
