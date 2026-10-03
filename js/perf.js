@@ -10,10 +10,20 @@
   const pct = (c, n) => (n ? Math.round(100 * c / n) : null);
   const clean = d => { const o = { ...DEFAULTS, ...(d || {}) }; if (!['subject', 'topic'].includes(o.group)) o.group = DEFAULTS.group; if (!['recent', 'overall', 'both'].includes(o.show)) o.show = DEFAULTS.show; if (!RECENT[o.recent]) o.recent = DEFAULTS.recent; if (!SORTS[o.sort]) o.sort = DEFAULTS.sort; if (!['overall', 'recent', 'both', 'off'].includes(o.trend)) o.trend = DEFAULTS.trend; return o; };
 
-  // Chart points, oldest first: each test's own score (recent) and the running score over every test up to and including it (overall)
-  function trend(tests, n = 12) {
-    let c = 0, t = 0;
-    return (tests || []).slice().reverse().map(x => { c += x.correct; t += x.total; return { recent: pct(x.correct, x.total), overall: pct(c, t) }; }).slice(-n);
+  // Answers a test actually holds (a test that ended early lists its unanswered questions in total but they were never answered)
+  const answered = t => (t.answers && t.qids ? t.qids.filter(id => t.answers[id]).length : t.total);
+  // Answers that are counted in the per-question totals but are in no finished test: tests that were never finished, or answers given before tests were saved.
+  // They are put before the first test, so the overall line ends at exactly the "Overall correct" number.
+  function residual(qstat, tests) {
+    let c = 0, w = 0; Object.values(qstat || {}).forEach(s => { c += s.correct || 0; w += s.wrong || 0; });
+    let tc = 0, tw = 0; (tests || []).forEach(t => { tc += t.correct; tw += Math.max(0, answered(t) - t.correct); });
+    const rc = Math.max(0, c - tc), rw = Math.max(0, w - tw);
+    return { correct: rc, total: rc + rw };
+  }
+  // Chart points, oldest first: each test's own score (recent) and the running score over every answer up to and including it (overall)
+  function trend(tests, n = 12, base) {
+    let c = (base && base.correct) || 0, t = (base && base.total) || 0;
+    return (tests || []).slice().reverse().map(x => { c += x.correct; t += answered(x); return { recent: pct(x.correct, x.total), overall: pct(c, t) }; }).slice(-n);
   }
 
   // tests: newest first, as the app keeps them
@@ -60,5 +70,5 @@
     const cmp = { weak: nul(main, 1), strong: nul(main, -1), most: (a, b) => cnt(b) - cnt(a), least: (a, b) => cnt(a) - cnt(b), up: nul(r => r.change, -1), down: nul(r => r.change, 1), az: () => 0 }[sort] || (() => 0);
     return rows.map((r, i) => [r, i]).sort((a, b) => cmp(a[0], b[0]) || (sort === 'az' ? a[0].label.localeCompare(b[0].label) : 0) || a[1] - b[1]).map(x => x[0]);
   }
-  return { RECENT, SORTS, DEFAULTS, clean, trend, recentTests, aggregate, sortRows };
+  return { RECENT, SORTS, DEFAULTS, clean, trend, residual, recentTests, aggregate, sortRows };
 });
