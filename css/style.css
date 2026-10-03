@@ -549,3 +549,15 @@ mark.hl{background:#ffe27a;color:#1c1c1c;border-radius:2px;padding:0 1px;cursor:
 /* ---- Paused test ---- */
 .pausecard{max-width:520px;margin:40px auto;text-align:center}.pausecard .row{justify-content:center;margin-top:12px}
 .lessontools{margin:10px 0 14px;padding:8px 0;border-bottom:1px solid var(--line)}.lessontools #lh-hl{background:#ffe27a;color:#1c1c1c;border-color:#c9a400}
+
+/* ---- Question tools: in the sticky sidebar when wide, pinned to the top of the question when narrow ---- */
+.navcard{max-height:calc(100vh - 84px);overflow:auto}
+.navcard .sidetools{flex-direction:column;align-items:stretch;gap:6px;margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}
+.navcard .sidetools button{width:100%;text-align:center}
+.navcard .sidetools .textsize{display:flex;gap:6px}.navcard .sidetools .textsize button{flex:1}
+.navcard .sidetools>span[style]{display:none}
+@media(max-width:860px){
+  .navcard{max-height:none;overflow:visible}
+  .qcard>.marktools{position:sticky;top:50px;z-index:4;background:var(--card);padding:6px 0;margin-top:6px;border-bottom:1px solid var(--line)}
+}
+@media(max-width:860px){html{scroll-padding-top:112px;scroll-padding-bottom:130px}}
