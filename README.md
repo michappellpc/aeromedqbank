@@ -39,7 +39,7 @@ Admin > Questions has a Difficulty column, a **Difficulty** filter (Easy, Medium
 The home screen has an **Exam countdown** card: the member adds their exam date (and an optional name) and sees the days left, the date, and how many new questions a day would cover the ones they have not seen yet. It also reads "Today is the day" and, once the date passes, offers to change it. The date can be set or changed on the home screen or in Settings, is saved to the account (synced across devices) and works in the demo too.
 
 ## Quieting the ram during tests
-The question screen has a **Hide ram** button (and **Show ram** to bring it back), so the talking ram is not a distraction mid-test. It only affects tests: the dashboard and results keep the ram. The same choice is in Settings ("Show the ram while I take a test"), is saved to the account and follows the member between devices. Turning the mascot off entirely in Settings still removes it everywhere.
+The ram does not appear on the question screen. It stays on the dashboard and results, and turning the mascot off in Settings removes it everywhere.
 
 The Overview page's **Hardest questions** list shows only questions under 70% correct (with at least 3 answers, archived ones left out), hardest first, and links to Difficulty for first-try numbers.
 
@@ -119,7 +119,7 @@ Mode is two choice cards (Tutor, Timed). Boards, question status and difficulty 
 ## The question screen
 On a wide screen the tools (Highlight, Strike out, Clear marks, Calculator, text size) sit in the sticky sidebar under the progress bar, so they stay in reach as you scroll through a long explanation; on a narrow screen the same row stays pinned to the top of the question. The small toolbar that appears when you select text stays open after you let go of the mouse, and follows the words if you scroll.
 
-The tools (Highlight, Strike out, Clear marks) with **A-** and **A+** to change the text size (saved to the account). Submit, Previous, Next, Flag, Feedback, Hide ram and End test sit in a bar that stays at the bottom while you scroll. **End test** says how many questions are unanswered and flagged before it ends. After answering, the explanation is laid out in sections: a Correct or Incorrect banner, how other members did, the Explanation, a row for each answer choice's note, a lesson card and references. The Review page uses the same layout.
+The tools (Highlight, Strike out, Clear marks) with **A-** and **A+** to change the text size (saved to the account). Submit, Previous, Next, Flag, Feedback, Pause and End test sit in a bar that stays at the bottom while you scroll. **End test** says how many questions are unanswered and flagged before it ends. After answering, the explanation is laid out in sections: a Correct or Incorrect banner, how other members did, the Explanation, a row for each answer choice's note, a lesson card and references. The Review page uses the same layout.
 **Pause.** The Pause button in the action bar stops the clock and hides the question and choices (so a timed test cannot be studied while the time stands still). The paused screen shows how much time is left or used, with Resume and End test. A paused test stays paused after a reload, and the dashboard's "Continue where you left off" card says it is paused.
 
 
