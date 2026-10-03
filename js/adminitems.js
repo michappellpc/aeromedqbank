@@ -68,13 +68,6 @@ const AdminItems = (() => {
 
   // ------------------------------------------------------------------ pieces of a row
   const get = id => index.get(id) || null;
-  function cells(i) {                       // First try, Separation, Wrong choice picked most, Flags
-    if (!i) return '<td>-</td><td>-</td><td>-</td><td>-</td>';
-    const pct = i.pct === null ? `<span class="muted">-</span><br><span class="muted small">${i.n} first ${i.n === 1 ? 'try' : 'tries'} (too few)</span>`
-      : `<div class="pctcell"><b>${i.pct}%</b><div class="bar" aria-hidden="true"><i style="width:${i.pct}%;background:${scoreColor(i.pct)}"></i></div></div><span class="muted small">${i.n} first ${i.n === 1 ? 'try' : 'tries'}${i.enough ? '' : ' (too few)'}</span>`;
-    return `<td>${pct}${i.suggested && i.suggested !== i.label ? `<div class="small"><span class="muted">acts like</span> <b>${L[i.suggested]}</b></div>` : ''}</td><td>${i.disc === null ? '<span class="muted">-</span>' : i.disc.toFixed(2)}</td>
-      <td>${i.topWrong ? `<b>${esc(i.topWrong.id)}</b> <span class="muted">${i.topWrong.share}%</span>` : '<span class="muted">-</span>'}</td><td>${i.flags.filter(f => f !== 'fewdata').map(flagChip).join(' ') || '<span class="muted">-</span>'}</td>`;
-  }
   function detail(i) {                      // what is behind one question's numbers
     if (!i) return '<p class="muted">No data for this question yet.</p>';
     const opts = i.options.length ? `<ul class="optdist">${i.options.map(o => `<li class="${o.correct ? 'right' : ''}"><span class="k">${esc(o.id)}.</span><span class="optt">${esc(trunc(o.text, 90))}${o.correct ? ' <span class="tag reviewed">Correct</span>' : ''}${i.dead.includes(o.id) ? ' <span class="flagchip f-deadopt">Rarely picked</span>' : ''}</span><div class="bar" aria-hidden="true"><i style="width:${o.share}%;background:${o.correct ? 'var(--good)' : 'var(--gold)'}"></i></div><span class="pickn"><b>${o.share}%</b> <span class="muted small">(${o.n})</span></span></li>`).join('')}</ul>` : '<p class="muted">No choices.</p>';
@@ -113,5 +106,5 @@ const AdminItems = (() => {
   const sorter = k => ({ attention: (a, b) => b.attention - a.attention, mhard: (a, b) => (a.pct ?? 101) - (b.pct ?? 101), measy: (a, b) => (b.pct ?? -1) - (a.pct ?? -1), 'gap-easy': (a, b) => (b.gap ?? -99) - (a.gap ?? -99), 'gap-hard': (a, b) => (a.gap ?? 99) - (b.gap ?? 99),
     'disc-low': (a, b) => (a.disc ?? 9) - (b.disc ?? 9), 'disc-high': (a, b) => (b.disc ?? -9) - (a.disc ?? -9), many: (a, b) => b.n - a.n, few: (a, b) => a.n - b.n, rewritten: (a, b) => String(b.revisedAt || '').localeCompare(String(a.revisedAt || '')) })[k] || null;
   const ready = () => !missing && !!rows;
-  return { load, reset, get, ready, summaryLine, get missing() { return missing; }, get prefs() { return prefs; }, sectionTable, cells, detail, loadRevisions, act, SORTS, sorter, FLAGS, flagChip, download };
+  return { load, reset, get, ready, summaryLine, get missing() { return missing; }, get prefs() { return prefs; }, sectionTable, detail, loadRevisions, act, SORTS, sorter, FLAGS, flagChip, download };
 })();

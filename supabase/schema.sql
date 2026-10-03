@@ -1055,20 +1055,29 @@ begin
 end $$;
 
 -- ------------------------------------------------------------ group averages (like the percentages UWorld shows)
--- Only aggregate numbers leave the database, and only for a question that at least N different active members have answered.
--- N is chosen by an admin and can never go below 5, so a number can never point at one person. Each member's FIRST try counts.
-insert into public.app_settings (key, value) values ('peer_min_users', '10') on conflict (key) do nothing;
+-- Only aggregate numbers leave the database: how many members got a question right on their first try, and how many picked each choice.
+-- A figure shows once at least N different active members have answered the question. N is chosen by an admin and starts at 1, so figures show
+-- however few members have answered (with a very small group a figure can reflect one or two people). Raise N in Admin > Overview to hold small
+-- groups back. Each member's FIRST try counts.
+insert into public.app_settings (key, value) values ('peer_min_users', '1') on conflict (key) do nothing;
+-- One time: groups used to need 10 members. Move an existing setting to 1, once, and remember that it was done so a later choice by an admin is kept.
+do $$ begin
+  if not exists (select 1 from public.app_settings where key = 'peer_min_users_moved_to_1') then
+    update public.app_settings set value = '1' where key = 'peer_min_users';
+    insert into public.app_settings (key, value) values ('peer_min_users_moved_to_1', 'true');
+  end if;
+end $$;
 
 create or replace function public.peer_min_users() returns int
   language sql stable security definer set search_path = public as
-$$ select greatest(5, coalesce((select (value)::text::int from public.app_settings where key = 'peer_min_users'), 10)) $$;
+$$ select greatest(1, coalesce((select (value)::text::int from public.app_settings where key = 'peer_min_users'), 1)) $$;
 
 create or replace function public.set_peer_min_users(n int) returns void
   language plpgsql security definer set search_path = public as
 $$
 begin
   if not public.is_admin() then raise exception 'admins only'; end if;
-  if n < 5 or n > 1000 then raise exception 'choose a number from 5 to 1000'; end if;
+  if n < 1 or n > 1000 then raise exception 'choose a number from 1 to 1000'; end if;
   insert into public.app_settings (key, value) values ('peer_min_users', to_jsonb(n))
     on conflict (key) do update set value = excluded.value;
 end $$;
