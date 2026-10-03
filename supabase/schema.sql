@@ -161,6 +161,8 @@ alter table public.questions add column if not exists archived boolean not null 
 alter table public.questions add column if not exists updated_by text;
 -- When the wording (stem, choices, answer, explanation or picture) last changed. Null = never rewritten. Lets the admin tables count only answers to the current wording.
 alter table public.questions add column if not exists revised_at timestamptz;
+-- A lesson chosen by hand for this question's "Study this" link. Null = pick the best match automatically. Metadata, not wording: changing it keeps a live question live.
+alter table public.questions add column if not exists lesson_id text references public.lessons (id) on delete set null;
 
 -- One row each time a question's wording changes: how members had done on the old wording (first try per member), so a rewrite can be judged.
 create table if not exists public.question_revisions (

@@ -15,14 +15,18 @@
       ['harder', 'Make harder', 'Rewrite each question to be harder: make the wrong choices more tempting (plausible, from the same category as the right answer, each reflecting a real misconception), and add a clinically relevant detail or a second step of reasoning. Do not make it harder by being obscure or tricky in wording.'],
       ['easier', 'Make easier', 'Rewrite each question to be easier: make the stem clearer and more direct with one concept per question, and make the wrong choices easier to rule out while still plausible. Do not give the answer away in the wording.'],
       ['explain', 'Improve the explanations', 'Improve the explanation and the optionNotes of each question: make them accurate and concise, say why the right answer is right and why each wrong choice is wrong, and add a clinical pearl where it helps. Do not change the question or the answer.'],
+      ['facts', 'Verify and update facts (laws, policies, guidelines)', 'Verify and update the facts in each item. Policies, laws, regulations and guidelines change often, so check every claim that could be out of date (laws and regulations such as OSHA, ADA and FMLA, DoD and service instructions, FAA and ICAO standards, clinical guidelines and screening recommendations, drug doses and thresholds, statistics) against the most recent authoritative source you can find. Update anything that has changed, and update the "references" with the source and its year. Do not guess: if you cannot verify a claim, leave it unchanged and tell me which claims I should check myself.'],
+      ['lessons', 'Check each question links to the best lesson', 'Check whether each question links to the best lesson for the concept it tests. You get the list of lessons I have and the lesson each question shows now. Where a different lesson is clearly better, or none is shown and one fits, set "lessonId" on that question to that lesson\'s id. Leave "lessonId" out where the current lesson is already the best, so that better lessons I add later can take over by themselves. Do not change anything else about a question.'],
       ['custom', 'Only do what my note says', 'Do what my note below says.']],
     lessons: [
       ['review', 'Check and fix errors', 'Check each lesson for factual errors, unclear wording, typos and inconsistent numbers. Fix what is wrong and leave the rest alone.'],
       ['clearer', 'Make clearer and shorter', 'Rewrite each lesson to be clearer and shorter: plain wording, one idea per paragraph, and tables or steps where they help. Keep every important fact.'],
+      ['facts', 'Verify and update facts (laws, policies, guidelines)', 'Verify and update the facts in each item. Policies, laws, regulations and guidelines change often, so check every claim that could be out of date (laws and regulations such as OSHA, ADA and FMLA, DoD and service instructions, FAA and ICAO standards, clinical guidelines and screening recommendations, drug doses and thresholds, statistics) against the most recent authoritative source you can find. Update anything that has changed, and update the "references" with the source and its year. Do not guess: if you cannot verify a claim, leave it unchanged and tell me which claims I should check myself.'],
       ['deeper', 'Add detail and pearls', 'Add useful detail to each lesson: clinical pearls, key points, and test-taking tips as callouts, and a table or step flow where it helps. Keep it accurate and concise.'],
       ['custom', 'Only do what my note says', 'Do what my note below says.']],
     cards: [
       ['review', 'Check and fix errors', 'Check each card for factual errors, ambiguity and typos. Each card should test one fact. Fix what is wrong and leave the rest alone.'],
+      ['facts', 'Verify and update facts (laws, policies, guidelines)', 'Verify and update the facts in each item. Policies, laws, regulations and guidelines change often, so check every claim that could be out of date (laws and regulations such as OSHA, ADA and FMLA, DoD and service instructions, FAA and ICAO standards, clinical guidelines and screening recommendations, drug doses and thresholds, statistics) against the most recent authoritative source you can find. Update anything that has changed, and update the "references" with the source and its year. Do not guess: if you cannot verify a claim, leave it unchanged and tell me which claims I should check myself.'],
       ['tighter', 'Make shorter and clearer', 'Rewrite each card to be shorter and clearer, testing exactly one fact, with a prompt on the front and a short answer on the back.'],
       ['custom', 'Only do what my note says', 'Do what my note below says.']],
     feedback: [
@@ -33,7 +37,7 @@
   };
   const HEAD = 'I run a private board-prep question bank for aerospace, occupational and preventive medicine residents.';
   const pick = (o, keys) => { const r = {}; keys.forEach(k => { if (o[k] !== undefined && o[k] !== '' && !(Array.isArray(o[k]) && !o[k].length)) r[k] = o[k]; }); return r; };
-  const QF = ['id', 'boards', 'subject', 'topic', 'difficulty', 'stem', 'image', 'imageAlt', 'options', 'answer', 'explanation', 'optionNotes', 'references', 'tier'];
+  const QF = ['id', 'boards', 'subject', 'topic', 'difficulty', 'stem', 'image', 'imageAlt', 'options', 'answer', 'explanation', 'optionNotes', 'references', 'tier', 'lessonId'];
   const LF = ['id', 'boards', 'subject', 'title', 'summary', 'order', 'blocks', 'references', 'tier'];
   const CF = ['id', 'boards', 'subject', 'topic', 'front', 'back', 'lessonId', 'references'];
   const draft = o => ({ ...o, status: 'draft' });
@@ -63,12 +67,16 @@
     }
     const label = NOUN[kind][1], fields = { questions: QF, lessons: LF, cards: CF }[kind];
     lines.push(`${HEAD} ${part}Below are ${plural(kind, n)} as JSON, in the exact format my app imports.`, '', 'TASK: ' + instruction);
+    if (opts.task === 'facts' && opts.today) lines.push('', `Today's date is ${opts.today}. Treat anything that predates your most reliable knowledge as possibly out of date.`);
     if (note) lines.push('', 'MY NOTE: ' + note);
     lines.push('', 'RULES:', `- Return ALL ${n} ${label} as ONE JSON array in exactly the same format as the input. Keep every "id", "boards", "subject" and "tier" the same, and keep field names exactly.`, '- Set "status": "draft" on every item, so I can review it before it goes live. If an item needs no change, still include it unchanged.');
     if (kind === 'questions') lines.push('- Each question needs "stem", "options" (letters A, B, C, D with "text"), "answer" (a letter), "explanation", and "optionNotes" explaining each wrong choice. Keep every patient invented, with no real patient information. Keep the choices a similar length so the right one is not the longest.');
     if (kind === 'lessons') lines.push('- Keep the "blocks" structure: each block has a "type" (heading, text, list, callout, table, steps, compare, stats, chart or image) and the same fields it already has. In text use only **bold** and *italic*. Keep every fact accurate and every patient invented.');
     if (kind === 'cards') lines.push('- Each card has one prompt in "front" (up to 600 characters) and a short answer in "back" (up to 1500). Keep one fact per card.');
-    lines.push('- After the JSON, add a short list of what you changed and why.');
+    if (opts.task === 'facts') lines.push('- Keep the "references" list accurate: add or update the source and year for anything you changed.', '- After the JSON, list for every item you changed: what changed, the source, and how confident you are. Also list any claims you could not verify.');
+    else if (opts.task === 'lessons' && kind === 'questions') lines.push('- "lessonId" must be exactly one of the ids in the lesson list below. Include it only where a different lesson is clearly better, or where none is shown and one fits.', '- After the JSON, list the questions for which no lesson fits well, each with the title of a new lesson that would fit.');
+    else lines.push('- After the JSON, add a short list of what you changed and why.');
+    if (opts.task === 'lessons' && kind === 'questions' && opts.catalog) lines.push('', 'THE LESSONS I HAVE (id | subject | title | summary):', ...opts.catalog.map(l => `- ${l.id} | ${l.subject} | ${l.title}${l.summary ? ' | ' + String(l.summary).replace(/\s+/g, ' ').slice(0, 140) : ''}`), '', 'THE LESSON EACH QUESTION SHOWS NOW:', ...items.map(i => { const c = opts.current && opts.current[i.id]; return `- ${i.id}: ${c ? `${c.id} (${c.title}), ${c.pinned ? 'chosen by hand' : 'picked automatically'}` : 'none'}`; }));
     if (opts.stats && Object.keys(opts.stats).length) lines.push('', 'HOW THEY HAVE BEEN PERFORMING (percent of members right on their first try, and how well the question separates strong from weak members):', ...items.map(i => opts.stats[i.id]).filter(Boolean).map(l => '- ' + l));
     lines.push('', kind === 'questions' ? 'THE QUESTIONS:' : kind === 'lessons' ? 'THE LESSONS:' : 'THE FLASHCARDS:', json(items.map(i => draft(pick(i, fields)))));
     return lines.join('\n');
@@ -80,11 +88,12 @@
   function open(o) {
     const doc = root.document, kind = o.kind, all = o.items || [], sel = all.filter(i => (o.selected || []).includes(i.id));
     if (!all.length) return root.toast && root.toast(`There are no ${NOUN[kind][1]} to copy. Change the filters first.`);
+    const tasks = TASKS[kind].filter(t => !(t[0] === 'lessons' && !(o.lessons && o.lessons.length)));
     const d = doc.createElement('div'); d.className = 'modal';
     d.innerHTML = `<div class="card" role="dialog" aria-modal="true" aria-labelledby="hf-h" style="max-width:720px;width:100%;max-height:92vh;overflow:auto"><h2 id="hf-h" style="margin-top:0">Copy</h2>
       <p class="muted" id="hf-sum"></p>
       ${sel.length ? `<fieldset class="inline"><legend class="sr">Which ${NOUN[kind][1]}</legend><label class="chk"><input type="radio" name="hf-src" value="shown" checked> All ${all.length} shown by the filters</label><label class="chk"><input type="radio" name="hf-src" value="sel"> Only the ${sel.length} I selected</label></fieldset>` : ''}
-      <div class="fgrid"><div><label for="hf-task">What should Claude do?</label><select id="hf-task">${TASKS[kind].map(t => `<option value="${t[0]}">${esc(t[1])}</option>`).join('')}</select></div>
+      <div class="fgrid"><div><label for="hf-task">What should Claude do?</label><select id="hf-task">${tasks.map(t => `<option value="${t[0]}">${esc(t[1])}</option>`).join('')}</select></div>
         <div id="hf-partbox" hidden><label for="hf-part">Part</label><select id="hf-part"></select></div></div>
       <label for="hf-note">Your note to Claude (optional): how you like things done</label><textarea id="hf-note" rows="3" placeholder="e.g. Keep my explanations short. Use ABPM wording. Do not change the references."></textarea>
       ${o.stats ? '<label class="chk"><input type="checkbox" id="hf-stats" checked> Include how each has been performing</label>' : ''}
@@ -103,7 +112,10 @@
       if (parts.length > 1) { const keep = +ps.value || 0; ps.innerHTML = parts.map((p, i) => `<option value="${i}">${i + 1} of ${parts.length} (${plural(kind, p.length)})</option>`).join(''); ps.value = String(Math.min(keep, parts.length - 1)); pb.hidden = false; } else pb.hidden = true;
       const idx = parts.length > 1 ? +ps.value : 0, chosen = parts[idx] || [];
       const stats = o.stats && E('hf-stats') && E('hf-stats').checked ? Object.fromEntries(chosen.map(i => [i.id, o.stats(i)]).filter(x => x[1])) : null;
-      const text = build(kind, chosen, { task: E('hf-task').value, note: E('hf-note').value, part: [idx, parts.length], stats });
+      const tk = E('hf-task').value, today = new Date(); const ymd = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+      const catalog = tk === 'lessons' && o.lessons ? o.lessons.map(l => ({ id: l.id, subject: l.subject, title: l.title, summary: l.summary })) : null;
+      const shows = tk === 'lessons' && o.currentLesson ? Object.fromEntries(chosen.map(i => { const c = o.currentLesson(i); return [i.id, c ? { id: c.lesson.id, title: c.lesson.title, pinned: c.pinned } : null]; })) : null;
+      const text = build(kind, chosen, { task: tk, note: E('hf-note').value, part: [idx, parts.length], stats, today: ymd, catalog, current: shows });
       E('hf-prev').value = text; d._text = text;
       E('hf-sum').textContent = `${plural(kind, list.length)}${o.describe ? ' (' + o.describe + ')' : ''}${parts.length > 1 ? `. That is a lot for one message, so it is split into ${parts.length} parts of up to ${CHUNK[kind]}: copy one part at a time.` : '.'}`;
       E('hf-size').textContent = `About ${Math.round(text.length / 5).toLocaleString()} words in this message.`;

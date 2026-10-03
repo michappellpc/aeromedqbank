@@ -76,4 +76,15 @@ t('a different question on a nearby topic is not flagged', Q.nearDuplicate('A 41
 t('an unrelated question is not flagged', Q.nearDuplicate('Which regulation sets the permissible exposure limit for noise in general industry workplaces?', bank) === null);
 t('it picks the closest match', Q.nearDuplicate(base + ' Assume normal oxygen saturation.', bank).id === 'aem-001');
 t('an empty list or stem is safe', Q.nearDuplicate(base, []) === null && Q.nearDuplicate('', bank) === null);
+
+console.log('Lesson link');
+const base2 = { id: 'x-1', status: 'draft', boards: ['aem'], subject: 'Altitude & Decompression', stem: 'A stem that is long enough to be a question stem here?', options: [{ id: 'A', text: 'One' }, { id: 'B', text: 'Two' }, { id: 'C', text: 'Three' }, { id: 'D', text: 'Four' }], answer: 'A', explanation: 'Because.', tier: 'pro' };
+const lc = (q, extra = {}) => Q.check(q, { boards: [{ id: 'aem' }], subjects: { aem: ['Altitude & Decompression'] }, ids: new Set(), stems: new Map(), label: q.id, recordsReviewer: true, ...extra });
+t('lessonId is a known field and is kept', Q.FIELDS.includes('lessonId') && Q.normalize({ ...base2, lessonId: ' les-one ' }).clean.lessonId === 'les-one');
+t('a good lessonId passes', !lc({ ...base2, lessonId: 'les-one' }).some(r => r.level === 'error'));
+t('a malformed lessonId is an error', lc({ ...base2, lessonId: 'Not A Lesson!' }).some(r => r.level === 'error' && /lessonId/.test(r.msg)));
+t('an unknown lesson is a warning, not an error', (() => { const r = lc({ ...base2, lessonId: 'les-x' }, { lessonIds: new Set(['les-one']) }); return r.some(x => x.level === 'warn' && /does not match any lesson/.test(x.msg)) && !r.some(x => x.level === 'error'); })());
+t('a known lesson raises nothing', !lc({ ...base2, lessonId: 'les-one' }, { lessonIds: new Set(['les-one']) }).some(r => /lessonId/.test(r.msg)));
+t('no lessonId at all is fine', !lc(base2).some(r => /lessonId/.test(r.msg)));
+
 console.log(`\n${pass} passed, ${fail} failed`); process.exit(fail ? 1 : 0);

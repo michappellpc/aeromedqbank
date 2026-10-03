@@ -26,9 +26,16 @@ const quizMascotOn = () => mascotOn() && Store.data.settings.quizMascot !== fals
 const showDrafts = () => Store.data.settings.showDrafts !== false;
 // A link under an explanation to the most relevant lesson, or to the subject's lessons if none fits well.
 const relatedCache = new Map();
+// The lesson a question links to: the one chosen by hand if there is one, else the best match. Returns { lesson, pinned } or null.
+function lessonLinkFor(q) {
+  const lessons = bank.lessons || [];
+  if (q.lessonId) { const l = lessons.find(x => x.id === q.lessonId); if (l) return { lesson: l, pinned: true }; }
+  const m = lessons.length ? Related.match(q, lessons) : null;
+  return m ? { lesson: m.lesson, pinned: false } : null;
+}
 function relatedLesson(q) {
-  const lessons = bank.lessons || [], key = q.id + '|' + lessons.length;
-  if (!relatedCache.has(key)) relatedCache.set(key, lessons.length ? Related.match(q, lessons) : null);
+  const lessons = bank.lessons || [], key = q.id + '|' + lessons.length + '|' + (q.lessonId || '');
+  if (!relatedCache.has(key)) relatedCache.set(key, lessons.length ? lessonLinkFor(q) : null);
   const m = relatedCache.get(key);
   const tab = '<span class="sr"> (opens in a new tab)</span>';
   if (m) return `<p class="relatedcard"><span class="relatedlesson">Study this: <a href="#/lesson/${encodeURIComponent(m.lesson.id)}" target="_blank" rel="noopener">${esc(m.lesson.title)}${tab}</a></span></p>`;

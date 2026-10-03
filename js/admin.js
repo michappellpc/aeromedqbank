@@ -100,7 +100,7 @@ const Admin = (() => {
     });
     on('backup', 'click', () => backup(c.list));
     on('claude', 'click', () => Handoff.open({ kind: 'questions', items: lastRows, selected: [...view.sel], importHash: '#/admin/questions/import', describe: describeView(),
-      stats: AdminItems.ready() ? q => ItemStats.statLine(AdminItems.get(q.id)) : null }));
+      stats: AdminItems.ready() ? q => ItemStats.statLine(AdminItems.get(q.id)) : null, lessons: bank.lessons || [], currentLesson: lessonLinkFor }));
     paint();
   }
 
@@ -219,6 +219,12 @@ const Admin = (() => {
 (function () {
   const { tabs, ensure, refresh, LETTERS, subjectsFor, note, askText } = Admin;
   const IMG_TYPES = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp', 'image/gif': 'gif' };
+  // the lessons to choose from for a question: its own subject's first
+  const lessonOptions = q0 => {
+    const all = (bank.lessons || []).slice().sort((a, b) => a.title.localeCompare(b.title)), mine = all.filter(l => l.subject === q0.subject), rest = all.filter(l => l.subject !== q0.subject);
+    const opt = l => `<option value="${esc(l.id)}"${l.id === q0.lessonId ? ' selected' : ''}>${esc(l.title)}${l.status !== 'reviewed' ? ' (draft)' : ''}</option>`;
+    return (mine.length ? `<optgroup label="${esc(q0.subject || 'This subject')}">${mine.map(opt).join('')}</optgroup>` : '') + (rest.length ? `<optgroup label="Other subjects">${rest.map(opt).join('')}</optgroup>` : '');
+  };
   const blank = () => ({ id: '', status: 'draft', boards: ['aem'], subject: '', topic: '', difficulty: 2, tier: 'pro', stem: '', options: LETTERS.slice(0, 4).map(id => ({ id, text: '' })), answer: 'A', explanation: '', optionNotes: {}, references: [], image: null, imageAlt: '' });
   const slug = s => String(s || '').toLowerCase().replace(/&/g, ' ').replace(/[^a-z0-9]+/g, ' ').trim().split(' ')[0] || 'q';
 
@@ -265,6 +271,7 @@ const Admin = (() => {
           <div><label for="f-status">Status</label><select id="f-status"><option value="draft"${q0.status === 'draft' ? ' selected' : ''}>Draft (hidden from members)</option><option value="reviewed"${q0.status === 'reviewed' ? ' selected' : ''}>Reviewed (live for members)</option></select>
             <p class="hint"><b>Draft</b> questions are visible only to admins and reviewers. <b>Reviewed</b> questions are live for members, and choosing it records you as the reviewer. Changing the wording of a reviewed question hides it again until it is reviewed.</p></div>
           <div><label for="f-tier">Who can see it</label><select id="f-tier"><option value="pro"${q0.tier === 'pro' ? ' selected' : ''}>Pro members</option><option value="free"${q0.tier === 'free' ? ' selected' : ''}>Free members too</option></select></div>
+          <div><label for="f-lesson">Lesson to study (optional)</label><select id="f-lesson"><option value="">Choose the best match automatically</option>${lessonOptions(q0)}</select><p class="hint">Normally the app picks the best lesson itself and improves as you add lessons. Choose one here only to override it.</p></div>
           <div><label for="f-diff">Difficulty</label><select id="f-diff">${[1, 2, 3].map(n => `<option value="${n}"${(q0.difficulty || 2) === n ? ' selected' : ''}>${['', 'Easy', 'Medium', 'Hard'][n]}</option>`).join('')}</select></div>
         </div>
         <fieldset><legend>Board</legend><div class="row">${boardBoxes}</div></fieldset>
@@ -323,7 +330,7 @@ const Admin = (() => {
       const o = readOpts(), a = readAns(), boards = [...document.querySelectorAll('input[name=board]:checked')].map(e => e.value);
       const notes = {}; o.forEach((x, i) => { if (x.note.trim()) notes[LETTERS[i]] = x.note.trim(); });
       const keepImg = !removeImage && (pendingFile || q0.image);
-      return { id: el('f-id').value.trim(), status: el('f-status').value, boards, subject: el('f-subject').value, topic: el('f-topic').value.trim(), difficulty: +el('f-diff').value, tier: el('f-tier').value,
+      return { id: el('f-id').value.trim(), status: el('f-status').value, boards, subject: el('f-subject').value, topic: el('f-topic').value.trim(), difficulty: +el('f-diff').value, tier: el('f-tier').value, ...(el('f-lesson').value || q0.lessonId ? { lessonId: el('f-lesson').value } : {}),
         stem: el('f-stem').value, options: o.map((x, i) => ({ id: LETTERS[i], text: x.text })), answer: LETTERS[a], explanation: el('f-expl').value, optionNotes: Object.keys(notes).length ? notes : undefined,
         references: el('f-refs').value.split('\n'), image: keepImg ? (pendingFile ? 'private:pending.png' : q0.image) : null, imageAlt: keepImg ? el('f-alt').value.trim() : '' };
     }
@@ -341,7 +348,7 @@ const Admin = (() => {
     el('qf').onsubmit = async e => {
       e.preventDefault(); showErrors([]);
       const raw = read(), { clean } = QValidate.normalize(raw), stems = new Map(c.list.filter(x => x.id !== clean.id).map(x => [QValidate.norm(x.stem), x.id]));
-      const res = QValidate.check(clean, { boards: bank.boards, subjects: bank.subjects, ids: new Set(), stems, label: clean.id, recordsReviewer: true });
+      const res = QValidate.check(clean, { boards: bank.boards, subjects: bank.subjects, ids: new Set(), stems, label: clean.id, recordsReviewer: true, lessonIds: new Set((bank.lessons || []).map(l => l.id)) });
       const errors = res.filter(r => r.level === 'error').map(r => r.msg), warns = res.filter(r => r.level === 'warn').map(r => r.msg);
       if (!errors.length && clean.stem) { const near = QValidate.nearDuplicate(clean.stem, c.list.filter(x => x.id !== clean.id)); if (near) warns.push(`reads like a reworded copy of ${near.id} (${Math.round(near.score * 100)}% the same wording)`); }
       if (isNew && clean.id && c.list.some(x => x.id === clean.id)) errors.unshift(`the id "${clean.id}" is already used by another question`);
@@ -401,7 +408,7 @@ const Admin = (() => {
         const { clean, dropped } = QValidate.normalize(raw);
         if (!keep) { clean.status = 'draft'; delete clean.reviewedBy; delete clean.archived; } else if (!clean.status) clean.status = 'draft';
         delete clean.reviewedBy;                                  // the database records reviewers itself
-        const res = QValidate.check(clean, { boards: bank.boards, subjects: bank.subjects, ids, stems, label: clean.id || `item ${i + 1}`, recordsReviewer: true,
+        const res = QValidate.check(clean, { boards: bank.boards, subjects: bank.subjects, ids, stems, label: clean.id || `item ${i + 1}`, recordsReviewer: true, lessonIds: new Set((bank.lessons || []).map(l => l.id)),
           imageFiles: img => (String(img).startsWith('private:') ? [{ level: 'warn', msg: 'has a picture; attach it on the question\'s edit page after saving' }] : []) });
         const warns = res.filter(r => r.level === 'warn').map(r => r.msg), errs = res.filter(r => r.level === 'error').map(r => r.msg);
         let copyOf = null;
