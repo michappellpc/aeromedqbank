@@ -43,18 +43,18 @@ The question screen has a **Hide ram** button (and **Show ram** to bring it back
 
 The Overview page's **Hardest questions** list shows only questions under 70% correct (with at least 3 answers, archived ones left out), hardest first, and links to Difficulty for first-try numbers.
 
-## Admin > Difficulty (tuning the average)
+## Admin > Questions: sections by difficulty and tuning the average
 
-For tuning how hard the bank is. Difficulty is the share of members who get a question right on their **first try** (repeat tries are recall, not difficulty), over active members only (admins, reviewers and faculty are left out unless you tick the box, because they test questions rather than study them). Each question shows its first-try percent, its **separation** (how much better the top 27% of members do than the bottom 27%: 1 is perfect, near 0 tells you little, below 0 means the key may be wrong), and which choices members pick.
+The Questions page now holds everything for judging and tuning difficulty (there is no separate Difficulty tab).
 
-- **Headlines:** the average first-try percent against your target, a histogram of where the questions sit, the average by label (Easy, Medium, Hard) against the band each is meant to mean (adjustable), and the average by subject.
-- **Reaching your target:** how many questions to rewrite, easiest first when the average is too high and hardest first when it is too low, and a button to select them.
-- **Flags:** too easy, too hard, label does not match, weak separator, check the answer (a wrong choice is picked more than the right one, or stronger members do worse), unused choice, long answer, few answers.
-- **Filter and sort** by search, subject, label, flag, live or draft, enough answers, a percent range, and 11 sort orders (needs attention, easiest, hardest, furthest off its label, best or weakest separation, most or fewest answers, recently rewritten).
-- **Actions on a selection:** Copy rewrite request (harder or easier; puts the questions, their numbers and the rules for a good rewrite on the clipboard to paste into a chat, then bring the rewrites back with Import from a chat), Set label from data (keeps live questions live), Mark draft, Archive, Copy IDs, CSV.
-- **Did the rewrite work?** Each time a question's wording changes (editor, import or upload tool) the database records how the old wording had done and the date. Switch Count to "Only answers since it was last rewritten" to see the new wording on its own, and open Details for the history.
+- **Sections by difficulty:** one row per section, grouped by board, with how many **Easy, Medium and Hard** live questions it has and the **% correct** from members for each (and overall), plus draft counts and a totals row. Cells are colored against the range each label stands for. Click a section or a count to list those questions.
+- **Measured difficulty in the list:** each question shows its **first-try percent** (repeat tries are recall, not difficulty), **separation** (how much better the top 27% of members do than the bottom 27%: near 0 tells you little, below 0 means the key may be wrong), the wrong choice picked most, and flags (too easy, too hard, label does not match, weak separator, check the answer, unused choice, long answer, few answers). Admins, reviewers and faculty are left out of these numbers unless you tick the box.
+- **Filter and sort** by search, board, subject, status, tier, label, flag, enough answers, a percent range, and by measured difficulty, separation, answers or how recently rewritten.
+- **Tune the average** (expand it): your target, a histogram, average by label against your bands, and a plan for how many questions to rewrite (easiest first if too easy, hardest first if too hard) with a button to select them.
+- **Actions on a selection:** the existing ones (reviewed, draft, archive, tier, delete) plus Copy rewrite request (harder or easier; the questions, their numbers and the rules for a good rewrite go on the clipboard to paste into a chat, then bring the rewrites back with Import from a chat), Set label from data (keeps live questions live), Copy IDs and CSV.
+- **Did the rewrite work?** Each wording change (editor, import or upload tool) records how the old wording had done. Set Count to "Only answers since it was last rewritten" to see the new wording on its own, and open Details on a row for the history.
 
-Changing only the difficulty label no longer sends a live question back to draft. Run the latest `supabase/schema.sql` to switch this on.
+The Overview page's **Hardest questions** list shows only questions under 70% correct (with at least 3 answers, archived ones left out), hardest first. Changing only the difficulty label does not send a live question back to draft. Run the latest `supabase/schema.sql` to switch the measured numbers on; until then the Questions page works as before.
 
 ## Program insights (faculty)
 
