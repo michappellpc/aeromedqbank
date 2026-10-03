@@ -54,13 +54,14 @@ const Admin = (() => {
     pageTitle('Questions');
     const c = await ensure(); if (!c) return;
     await AdminItems.load(false);
+    if (!/^#\/admin\/questions\/?$/.test(location.hash)) return;     // you moved on (to the form, say) while the numbers loaded: do not draw the list over it
     const n = { all: c.list.length, rev: c.list.filter(q => q.status === 'reviewed' && !q.archived).length, arch: c.list.filter(q => q.archived).length };
     const boardOpts = bank.boards.map(b => `<option value="${esc(b.id)}"${view.board === b.id ? ' selected' : ''}>${esc(b.name)}</option>`).join('');
     $app.innerHTML = `${tabs('questions')}
       <div class="card"><div class="row spread"><div><h2 style="margin:0">Questions</h2>
         <p class="muted" style="margin:4px 0 0">${n.rev} live for members &middot; ${n.all - n.arch - n.rev} draft (hidden) &middot; ${n.arch} archived</p></div>
-        <div class="row"><a class="btn primary" href="#/admin/questions/new">Add a question</a><a class="btn" href="#/admin/questions/import">Import from a chat</a><button id="backup">Download backup</button></div></div></div>
-      <div class="card" id="secsum"><h2 style="margin:0 0 6px">Sections by difficulty</h2>${AdminItems.missing ? '<p class="muted small">The percent correct appears after the latest <code>supabase/schema.sql</code> is run in Supabase.</p>' : ''}<div id="secbody"></div></div>
+        <div class="row"><a class="btn primary" href="#/admin/questions/new">Add a question</a><a class="btn" href="#/admin/questions/import">Import from a chat</a><button id="claude" type="button" title="Copy the questions you are looking at, to paste into Claude">Copy for Claude</button><button id="backup">Download backup</button></div></div></div>
+      <details class="card" id="secsum"${secOpen() ? ' open' : ''}><summary><h2 style="display:inline;margin:0">Sections by difficulty</h2> <span class="muted small" id="secline"></span></summary>${AdminItems.missing ? '<p class="muted small">The percent correct appears after the latest <code>supabase/schema.sql</code> is run in Supabase.</p>' : ''}<div id="secbody" style="margin-top:8px"></div></details>
       <details class="card" id="tune"><summary><b>Tune the average</b> <span class="muted">target, histogram, and a plan for what to rewrite</span></summary><div style="margin-top:12px">${AdminItems.tuneHtml()}</div></details>
       <div class="card"><form id="flt" class="filters" onsubmit="return false" aria-label="Filter questions">
         <div><label for="fq">Search</label><input id="fq" type="search" value="${esc(view.q)}" placeholder="id, topic, or words in the question"></div>
@@ -91,16 +92,31 @@ const Admin = (() => {
     on('fl', 'change', e => { view.check = e.target.value; view.page = 0; paint(); });
     on('ffl', 'change', e => { view.flag = e.target.value; view.page = 0; paint(); }); on('fdt', 'change', e => { view.data = e.target.value; view.page = 0; paint(); });
     on('fmin', 'input', e => { view.min = e.target.value; view.page = 0; paint(); }); on('fmax', 'input', e => { view.max = e.target.value; view.page = 0; paint(); });
+    document.getElementById('secsum').addEventListener('toggle', e => { try { localStorage.setItem('qbank.secsum', e.target.open ? 'open' : 'closed'); } catch {} });
     paintSections(); AdminItems.bindTune(() => { paintSections(); paint(); });
     document.getElementById('secbody').addEventListener('click', e => {      // a section or a count in the table filters the list below it
       const b = e.target.closest('[data-sec]'); if (!b) return;
       view.board = ''; set('fb', ''); fillSubjects(); view.subject = b.dataset.sec; set('fs', view.subject); view.diff = b.dataset.lab || ''; set('fd', view.diff); view.status = ''; set('fst', ''); view.show = 'active'; set('fsh', 'active'); view.page = 0; paint(); document.getElementById('flt').scrollIntoView({ block: 'start' });
     });
     on('backup', 'click', () => backup(c.list));
+    on('claude', 'click', () => Handoff.open({ kind: 'questions', items: lastRows, selected: [...view.sel], importHash: '#/admin/questions/import', describe: describeView(),
+      stats: AdminItems.ready() ? q => ItemStats.statLine(AdminItems.get(q.id)) : null }));
     paint();
   }
 
-  const paintSections = () => { const b = document.getElementById('secbody'); if (b) b.innerHTML = AdminItems.sectionTable(cache.list); };
+  let lastRows = [];                                   // what the list is showing right now, in order: this is what Copy for Claude sends
+  const describeView = () => {
+    const bn = id => (bank.boards.find(b => b.id === id) || {}).name || id, p = [];
+    if (view.q) p.push(`search "${view.q}"`); if (view.board) p.push(bn(view.board)); if (view.subject) p.push(view.subject); if (view.diff) p.push(['', 'Easy', 'Medium', 'Hard'][view.diff]);
+    if (view.status) p.push(view.status === 'reviewed' ? 'live' : view.status); if (view.show !== 'active') p.push(view.show === 'all' ? 'including archived' : 'archived'); if (view.tier) p.push(view.tier + ' tier');
+    if (view.flag) p.push(view.flag === 'any' ? 'has a flag' : 'flag: ' + ItemStats.FLAG_TEXT[view.flag][0]); if (view.data) p.push(view.data === 'judged' ? 'enough answers' : 'too few answers'); if (view.min !== '' || view.max !== '') p.push(`${view.min || 0}% to ${view.max || 100}% correct`);
+    return p.length ? 'filters: ' + p.join(', ') : 'no filters';
+  };
+  const secOpen = () => { try { return localStorage.getItem('qbank.secsum') !== 'closed'; } catch { return true; } };      // the table can be minimized, and stays that way
+  const paintSections = () => {
+    const b = document.getElementById('secbody'); if (b) b.innerHTML = AdminItems.sectionTable(cache.list);
+    const line = document.getElementById('secline'); if (line) line.textContent = AdminItems.summaryLine(cache.list);
+  };
   function selectIds(ids, direction) {                  // from the plan: select the questions to rewrite and list the right ones first
     ids.forEach(id => view.sel.add(id)); view.show = 'active'; view.sort = direction === 'harder' ? 'measy' : 'mhard'; view.page = 0;
     document.getElementById('fsh').value = 'active'; document.getElementById('fo').value = view.sort; paint(); document.getElementById('flt').scrollIntoView(); toast(`Selected ${ids.length} questions.`);
@@ -123,7 +139,7 @@ const Admin = (() => {
 
   function paint() {
     const dir = view.sort === 'hard' ? -1 : view.sort === 'easy' ? 1 : 0, rows = filtered().sort((a, b) => { const m = AdminItems.sorter(view.sort); if (m) return m(AdminItems.get(a.id) || { attention: 0, flags: [] }, AdminItems.get(b.id) || { attention: 0, flags: [] }) || a.id.localeCompare(b.id); return dir ? dir * ((a.difficulty || 2) - (b.difficulty || 2)) || a.id.localeCompare(b.id) : 0; }), pages = Math.max(1, Math.ceil(rows.length / PAGE)); view.page = Math.min(view.page, pages - 1);
-    const extra = AdminItems.ready(), slice = rows.slice(view.page * PAGE, view.page * PAGE + PAGE), all = slice.length && slice.every(q => view.sel.has(q.id));
+    lastRows = rows; const extra = AdminItems.ready(), slice = rows.slice(view.page * PAGE, view.page * PAGE + PAGE), all = slice.length && slice.every(q => view.sel.has(q.id));
     const tag = q => q.archived ? '<span class="tag archived">Archived</span>' : q.status === 'reviewed' ? `<span class="tag reviewed">Reviewed</span>${q.reviewedBy ? ` <span class="muted">${esc(q.reviewedBy)}</span>` : ''}` : '<span class="tag draft">Draft</span>';
     document.getElementById('qres').innerHTML = rows.length ? `<div class="scroll" role="region" tabindex="0" aria-label="Questions table"><table class="qtable"><caption class="sr">Questions, ${rows.length} shown</caption><thead><tr>
       <th scope="col"><input type="checkbox" id="selall" aria-label="Select all shown"${all ? ' checked' : ''}></th><th scope="col">ID</th><th scope="col">Subject</th><th scope="col">Status</th><th scope="col">Difficulty</th><th scope="col">Tier</th><th scope="col">Answered</th>${extra ? '<th scope="col">First try</th><th scope="col" title="How well it separates strong from weak members: 1 is perfect, 0 is none, below 0 is backwards">Separation</th><th scope="col">Wrong choice picked most</th><th scope="col">Flags</th>' : ''}<th scope="col">Updated</th>${extra ? '<th scope="col"><span class="sr">Details</span></th>' : ''}</tr></thead><tbody>${slice.map(q => {

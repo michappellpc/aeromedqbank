@@ -565,3 +565,4 @@ mark.hl{background:#ffe27a;color:#1c1c1c;border-radius:2px;padding:0 1px;cursor:
 .sectable th[scope=row],.sectable thead th:first-child{text-align:left}.sectable tr.grouprow th{background:var(--sel);text-align:left;font-size:.85rem;text-transform:uppercase;letter-spacing:.04em}
 .sectable td{white-space:nowrap}.cellbtn{background:none!important;border:0!important;padding:0;min-height:0;font:inherit;color:inherit;text-decoration:underline;cursor:pointer;box-shadow:none}.cellbtn:hover{color:var(--link)}
 #tune>summary{cursor:pointer}
+#secsum>summary{cursor:pointer;display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}#secsum>summary::marker{color:var(--muted)}

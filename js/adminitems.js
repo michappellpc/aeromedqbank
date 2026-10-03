@@ -63,6 +63,13 @@ const AdminItems = (() => {
       <p class="muted small">Counts are live questions; the percent is the share of members' <b>first tries</b> that were right (shown once there are ${MIN} or more). Green means inside the range its label stands for (Easy ${bd[1][0]}%+, Medium ${bd[2][0]}% to ${bd[2][1]}%, Hard under ${bd[3][1] + 1}%), amber within 10 points of it, red further off. Click a section or a count to list those questions.</p>`;
   }
 
+  // The one line shown beside the title, so a minimized table still says something
+  function summaryLine(list) {
+    const live = list.filter(q => !q.archived && q.status === 'reviewed'), c = [0, 0, 0, 0]; let fn = 0, fc = 0;
+    live.forEach(q => { c[q.difficulty || 2]++; const i = index.get(q.id); if (i) { fn += i.n; fc += i.correct; } });
+    return `${c[1]} easy, ${c[2]} medium, ${c[3]} hard${fn >= 5 ? ` \u00b7 ${Math.round(100 * fc / fn)}% correct` : ''}`;
+  }
+
   // ------------------------------------------------------------------ tuning: settings, headline numbers, histogram, plan
   function tuneHtml() {
     return `<form id="ia-set" class="fgrid" onsubmit="return false" aria-label="Analysis settings">
@@ -165,5 +172,5 @@ const AdminItems = (() => {
   const sorter = k => ({ attention: (a, b) => b.attention - a.attention, mhard: (a, b) => (a.pct ?? 101) - (b.pct ?? 101), measy: (a, b) => (b.pct ?? -1) - (a.pct ?? -1), 'gap-easy': (a, b) => (b.gap ?? -99) - (a.gap ?? -99), 'gap-hard': (a, b) => (a.gap ?? 99) - (b.gap ?? 99),
     'disc-low': (a, b) => (a.disc ?? 9) - (b.disc ?? 9), 'disc-high': (a, b) => (b.disc ?? -9) - (a.disc ?? -9), many: (a, b) => b.n - a.n, few: (a, b) => a.n - b.n, rewritten: (a, b) => String(b.revisedAt || '').localeCompare(String(a.revisedAt || '')) })[k] || null;
   const ready = () => !missing && !!rows;
-  return { load, reset, get, ready, get missing() { return missing; }, get prefs() { return prefs; }, sectionTable, tuneHtml, bindTune, paintTop, cells, detail, loadRevisions, act, copyRequest, SORTS, sorter, FLAGS, flagChip, download };
+  return { load, reset, get, ready, summaryLine, get missing() { return missing; }, get prefs() { return prefs; }, sectionTable, tuneHtml, bindTune, paintTop, cells, detail, loadRevisions, act, copyRequest, SORTS, sorter, FLAGS, flagChip, download };
 })();

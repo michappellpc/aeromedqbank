@@ -51,7 +51,7 @@ const AdminLessons = (() => {
     const subjects = subjectsFor([]);
     $app.innerHTML = `${tabs('lessons')}
       <div class="card"><div class="row spread"><div><h2 style="margin:0">Lessons</h2><p class="muted" style="margin:4px 0 0">${n.live} live for members &middot; ${n.draft} draft (hidden) &middot; ${n.arch} archived</p></div>
-        <div class="row"><a class="btn primary" href="#/admin/lessons/new">Add a lesson</a><a class="btn" href="#/admin/lessons/import">Import from a chat</a><button id="backup">Download backup</button></div></div></div>
+        <div class="row"><a class="btn primary" href="#/admin/lessons/new">Add a lesson</a><a class="btn" href="#/admin/lessons/import">Import from a chat</a><button id="claude" type="button" title="Copy the lessons you are looking at, to paste into Claude">Copy for Claude</button><button id="backup">Download backup</button></div></div></div>
       <div class="card"><form id="flt" class="filters" onsubmit="return false" aria-label="Filter lessons">
         <div><label for="fq">Search</label><input id="fq" type="search" value="${esc(view.q)}" placeholder="title or id"></div>
         <div><label for="fs">Subject</label><select id="fs"><option value="">All</option>${subjects.map(s => `<option${s === view.subject ? ' selected' : ''}>${esc(s)}</option>`).join('')}</select></div>
@@ -63,10 +63,13 @@ const AdminLessons = (() => {
     on('fq', 'input', e => { view.q = e.target.value; paint(); }); on('fs', 'change', e => { view.subject = e.target.value; paint(); });
     on('fst', 'change', e => { view.status = e.target.value; paint(); }); on('fsh', 'change', e => { view.show = e.target.value; paint(); });
     on('backup', 'click', () => backup(c.list));
+    on('claude', 'click', () => Handoff.open({ kind: 'lessons', items: lastRows, selected: [...view.sel], importHash: '#/admin/lessons/import',
+      describe: (() => { const p = []; if (view.q) p.push(`search "${view.q}"`); if (view.subject) p.push(view.subject); if (view.status) p.push(view.status === 'reviewed' ? 'live' : 'draft'); if (view.show !== 'active') p.push(view.show === 'all' ? 'including archived' : 'archived'); return p.length ? 'filters: ' + p.join(', ') : 'no filters'; })() }));
     paint();
   }
+  let lastRows = [];
   function paint() {
-    const rows = filtered(), box = document.getElementById('lres');
+    const rows = filtered(), box = document.getElementById('lres'); lastRows = rows;
     box.innerHTML = rows.length ? `<div class="scroll" role="region" tabindex="0" aria-label="Lessons table"><table class="qtable"><caption class="sr">Lessons, ${rows.length} shown</caption><thead><tr><th scope="col"><input type="checkbox" id="selall" aria-label="Select all shown"></th><th scope="col">Lesson</th><th scope="col">Subject</th><th scope="col">Status</th><th scope="col">Who can see it</th><th scope="col">Updated</th></tr></thead>
       <tbody>${rows.map(l => `<tr${l.archived ? ' class="dim"' : ''}><td><input type="checkbox" data-sel="${esc(l.id)}" aria-label="Select ${esc(l.title)}"${view.sel.has(l.id) ? ' checked' : ''}></td>
         <td><a href="#/admin/lessons/edit/${esc(l.id)}">${esc(l.title)}</a><div class="muted small">${esc(l.id)}</div></td><td>${esc(l.subject)}</td><td>${tag(l)}</td><td>${l.tier === 'free' ? 'Free members too' : 'Pro members'}</td><td>${day(l.updatedAt)}<div class="muted small">${esc(l.updatedBy)}</div></td></tr>`).join('')}</tbody></table></div>`
