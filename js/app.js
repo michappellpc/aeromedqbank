@@ -20,7 +20,7 @@ const pickBadge = (qid, optId) => {
   return `<span class="pick"><span class="sr">${n}% of members chose this answer</span><span aria-hidden="true">${n}%</span></span><i class="pickbar" aria-hidden="true" style="width:${n}%"></i>`;
 };
 let peerAt = 0;
-function refreshPeer() { if (!Cloud.enabled || Date.now() - peerAt < 300000) return; peerAt = Date.now(); Cloud.peerStats().then(m => { bank.peer = m; }); Cloud.peerChoices().then(m => { bank.choices = m; }); }
+function refreshPeer() { if (!Cloud.enabled || Date.now() - peerAt < 300000) return; peerAt = Date.now(); Cloud.peerStats().then(m => { bank.peer = m; paintTrend(); }); Cloud.peerChoices().then(m => { bank.choices = m; }); }
 const mascotOn = () => Store.data.settings.mascot !== false;
 const showDrafts = () => Store.data.settings.showDrafts !== false;
 // A link under an explanation to the most relevant lesson, or to the subject's lessons if none fits well.
@@ -296,27 +296,39 @@ function ring(p, size = 132) {                       // score ring: the number i
 function trendChart(tests, what = 'test scores') {                          // last scores, oldest to newest
   return lineChart([{ name: 'Score', vals: tests.slice(0, 12).reverse().map(t => pct(t.correct, t.total)), cls: 'l1' }], what);
 }
-function lineChart(lines, what) {                                           // one or two lines, oldest to newest; the second line is dashed so color is never the only signal
+function lineChart(lines, what) {                                           // oldest to newest; vals may hold null (no data), which breaks the line. Each line has its own dash so color is never the only signal
   const n = lines[0].vals.length;
   if (n < 2) return '';
   const W = 640, H = 150, L = 52, R = 12, T = 16, B = 16, x = i => L + (W - L - R) * i / (n - 1), y = v => T + (H - T - B) * (1 - v / 100);
-  const one = lines.length === 1;
-  const draw = (ln, k) => { const stroke = k ? 'var(--gold)' : 'var(--link)', last = ln.vals[n - 1];
-    return `<polyline points="${ln.vals.map((v, i) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ')}" fill="none" stroke="${stroke}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"${k ? ' stroke-dasharray="7 5"' : ''}/>
-    ${ln.vals.map((v, i) => `<circle cx="${x(i).toFixed(1)}" cy="${y(v).toFixed(1)}" r="${i === n - 1 ? 4.5 : 3}" fill="var(--card)" stroke="${stroke}" stroke-width="2"/>`).join('')}
-    <text x="${x(n - 1).toFixed(1)}" y="${(y(last) + (!one && last < lines[1 - k].vals[n - 1] || (!one && last === lines[1 - k].vals[n - 1] && k) ? 18 : -9)).toFixed(1)}" text-anchor="end" class="axis lastv">${one ? '' : ln.name + ' '}${last}%</text>`; };
-  const label = lines.map(ln => `${ln.name.toLowerCase()}: ${ln.vals.join('%, ')}%`).join('; ');
+  const STYLE = { l1: ['var(--link)', ''], l2: ['var(--gold)', '7 5'], all: ['var(--muted)', '2 6'] };
+  const one = lines.length === 1, ends = [];
+  const draw = (ln, k) => {
+    const [stroke, dash] = STYLE[ln.cls || (k ? 'l2' : 'l1')], dsh = dash ? ` stroke-dasharray="${dash}"` : '';
+    const runs = []; ln.vals.forEach((v, i) => { if (v === null || v === undefined) { runs.push(null); return; } if (!runs.length || runs[runs.length - 1] === null) runs.push([]); runs[runs.length - 1].push(`${x(i).toFixed(1)},${y(v).toFixed(1)}`); });
+    const lastI = ln.vals.reduce((a, v, i) => (v === null || v === undefined ? a : i), -1);
+    if (lastI >= 0) ends.push({ k, i: lastI, v: ln.vals[lastI], y: y(ln.vals[lastI]) - 9, name: ln.name });
+    return runs.filter(r => r && r.length > 1).map(r => `<polyline points="${r.join(' ')}" fill="none" stroke="${stroke}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"${dsh}/>`).join('')
+      + ln.vals.map((v, i) => (v === null || v === undefined ? '' : `<circle cx="${x(i).toFixed(1)}" cy="${y(v).toFixed(1)}" r="${i === lastI ? 4.5 : 3}" fill="var(--card)" stroke="${stroke}" stroke-width="2"/>`)).join('');
+  };
+  const body = lines.map(draw).join('');
+  ends.sort((a, b) => a.y - b.y); ends.forEach((e, j) => { if (j && e.y - ends[j - 1].y < 15) e.y = ends[j - 1].y + 15; e.y = Math.min(e.y, H - 3); });
+  const labels = ends.map(e => `<text x="${x(e.i).toFixed(1)}" y="${e.y.toFixed(1)}" text-anchor="end" class="axis lastv">${one ? '' : e.name + ' '}${e.v}%</text>`).join('');
+  const label = lines.map(ln => `${ln.name.toLowerCase()}: ${ln.vals.map(v => (v === null || v === undefined ? 'no data' : v + '%')).join(', ')}`).join('; ');
   return `<svg class="trend" viewBox="0 0 ${W} ${H}" role="img" aria-label="Last ${n} ${what}, oldest to newest. ${label}">
     ${[0, 50, 100].map(v => `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" class="grid0"/><text x="${L - 5}" y="${y(v) + 4}" text-anchor="end" class="axis">${v}</text>`).join('')}
-    ${lines.map(draw).join('')}</svg>`;
+    ${body}${labels}</svg>`;
 }
 const TRENDS = { overall: 'Overall', recent: 'Recent', both: 'Both', off: 'Hide' };
 function paintTrend() {
   const el = document.getElementById('trend-card'); if (!el) return;
-  const mode = dashPrefs().trend, tr = Perf.trend(Store.data.tests, 12, Perf.residual(Store.data.q, Store.data.tests));
+  const pr = dashPrefs(), mode = pr.trend, tr = Perf.trend(Store.data.tests, 12, Perf.residual(Store.data.q, Store.data.tests)), grp = Perf.trendGroup(Store.data.tests, bank.peer);
+  const hasPeer = Cloud.enabled && grp.some(g => g.overall !== null), cmp = hasPeer && pr.compare && mode !== 'off';
   document.querySelectorAll('[data-pt]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.pt === mode)));
-  const lines = mode === 'both' ? [{ name: 'Overall', vals: tr.map(p => p.overall) }, { name: 'Recent', vals: tr.map(p => p.recent) }] : [{ name: mode === 'recent' ? 'Recent' : 'Overall', vals: tr.map(p => p[mode === 'recent' ? 'recent' : 'overall']) }];
-  const note = { overall: 'Your overall score: the running percent correct across every answer you have given, after each test. It ends at the Overall correct number above.', recent: 'Recent: the score on each test by itself.', both: 'Solid line: overall running score. Dashed line: the score on each test by itself.', off: '' }[mode];
+  const row = document.getElementById('trend-cmp-row'); row.hidden = !hasPeer || mode === 'off'; document.getElementById('trend-cmp').checked = pr.compare;
+  const lines = mode === 'both' ? [{ name: 'Overall', vals: tr.map(p => p.overall), cls: 'l1' }, { name: 'Recent', vals: tr.map(p => p.recent), cls: 'l2' }] : [{ name: mode === 'recent' ? 'Recent' : 'Overall', vals: tr.map(p => p[mode === 'recent' ? 'recent' : 'overall']), cls: 'l1' }];
+  if (cmp) lines.push({ name: 'Everyone', vals: grp.map(g => g[mode === 'recent' ? 'recent' : 'overall']), cls: 'all' });
+  const note = { overall: 'Your overall score: the running percent correct across every answer you have given, after each test. It ends at the Overall correct number above.', recent: 'Recent: the score on each test by itself.', both: 'Solid line: overall running score. Dashed line: the score on each test by itself.', off: '' }[mode]
+    + (cmp ? ' Dotted line: everyone\'s first-try average on the same questions' + (mode === 'recent' ? ', test by test.' : ', running across the same tests.') : '');
   document.getElementById('trend-note').textContent = note;
   document.getElementById('trend-body').innerHTML = mode === 'off' ? '<p class="muted small">Chart hidden. Choose Overall, Recent or Both to show it again.</p>' : lineChart(lines, mode === 'both' ? 'overall and recent scores' : mode === 'recent' ? 'test scores' : 'overall scores');
 }
@@ -352,6 +364,7 @@ function bindPerf() {
   document.getElementById('perf-rec').onchange = e => setDash({ recent: e.target.value });
   document.getElementById('perf-sort').onchange = e => setDash({ sort: e.target.value });
   document.querySelectorAll('[data-pt]').forEach(b => b.onclick = () => setDash({ trend: b.dataset.pt }));
+  const cmpBox = document.getElementById('trend-cmp'); if (cmpBox) cmpBox.onchange = e => setDash({ compare: e.target.checked });
   paintPerf(); paintTrend();
 }
 
@@ -389,7 +402,8 @@ function dashboard() {
   </div>
   ${thisDay()}
   ${Store.data.tests.length >= 2 ? `<div class="card" id="trend-card"><h2>Score trend</h2>
-    <div class="perfctl"><div class="seg" role="group" aria-label="Which score the chart shows">${Object.entries(TRENDS).map(([k, v]) => `<button type="button" data-pt="${k}">${v}</button>`).join('')}</div></div>
+    <div class="perfctl"><div class="seg" role="group" aria-label="Which score the chart shows">${Object.entries(TRENDS).map(([k, v]) => `<button type="button" data-pt="${k}">${v}</button>`).join('')}</div>
+      <label class="chk" id="trend-cmp-row" hidden><input type="checkbox" id="trend-cmp"> Compare with everyone</label></div>
     <p class="muted small" id="trend-note" aria-live="polite"></p><div id="trend-body"></div></div>` : ''}
   ${cardsNotice()}
   ${focusAreas()}
