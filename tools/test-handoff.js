@@ -46,4 +46,25 @@ t('a missing question is said so', /About question q-gone:\n\(the question no lo
 t('the fix task asks for verdicts, then corrected questions as JSON', /valid, not valid, or needs more information/.test(text) && /ONE JSON array containing only the corrected questions/.test(text));
 t('the reply task asks for plain text instead', !/ONE JSON array/.test(H.build('feedback', msgs, { task: 'reply' })) && /Draft a short, kind, plain reply/.test(H.build('feedback', msgs, { task: 'reply' })));
 t('support messages have no question block', !/About question undefined/.test(text));
+
+console.log('Verify facts, and check the lesson link');
+let ft = H.build('questions', qs, { task: 'facts', today: '2026-10-05' });
+t('the facts task says to check laws, policies and guidelines against current sources', /Verify and update the facts/.test(ft) && /OSHA, ADA and FMLA/.test(ft) && /most recent authoritative source/.test(ft));
+t('it gives today\'s date', /Today's date is 2026-10-05/.test(ft));
+t('it forbids guessing and asks what changed, the source and the confidence', /Do not guess/.test(ft) && /what changed, the source, and how confident you are/.test(ft) && /claims you could not verify/.test(ft));
+t('and the questions still come as importable JSON', after(ft, 'THE QUESTIONS:\n').length === 3);
+t('the same task is there for lessons and flashcards', /Verify and update the facts/.test(H.build('lessons', [lesson], { task: 'facts', today: '2026-10-05' })) && /Verify and update the facts/.test(H.build('cards', [card], { task: 'facts', today: '2026-10-05' })));
+t('the facts task is offered for questions, lessons and flashcards', ['questions', 'lessons', 'cards'].every(k => H.TASKS[k].some(x => x[0] === 'facts')));
+const cat = [{ id: 'les-a', subject: 'Altitude & Decompression', title: 'Hypoxia basics', summary: 'Types of hypoxia' }, { id: 'les-b', subject: 'Altitude & Decompression', title: 'Decompression sickness', summary: 'DCS' }];
+const cur = { 'q-1': { id: 'les-a', title: 'Hypoxia basics', pinned: false }, 'q-2': { id: 'les-b', title: 'Decompression sickness', pinned: true }, 'q-3': null };
+let lt = H.build('questions', qs, { task: 'lessons', catalog: cat, current: cur });
+t('the lesson-link task asks for lessonId only where a different lesson is clearly better', /"lessonId" on that question/.test(lt) && /Leave "lessonId" out where the current lesson is already the best/.test(lt) && /exactly one of the ids in the lesson list/.test(lt));
+t('it lists the lessons I have', /THE LESSONS I HAVE/.test(lt) && /- les-a \| Altitude & Decompression \| Hypoxia basics \| Types of hypoxia/.test(lt) && /- les-b \|/.test(lt));
+t('and the lesson each question shows now, and whether it was chosen by hand', /- q-1: les-a \(Hypoxia basics\), picked automatically/.test(lt) && /- q-2: les-b \(Decompression sickness\), chosen by hand/.test(lt) && /- q-3: none/.test(lt));
+t('it asks for new lesson titles where nothing fits', /title of a new lesson that would fit/.test(lt));
+t('the question JSON is still the last thing and still parses', after(lt, 'THE QUESTIONS:\n').length === 3);
+t('the lesson task is only offered for questions', H.TASKS.questions.some(x => x[0] === 'lessons') && !H.TASKS.lessons.some(x => x[0] === 'lessons') && !H.TASKS.cards.some(x => x[0] === 'lessons'));
+t('lessonId is sent with each question so a pinned lesson can be seen and changed', after(H.build('questions', [{ ...mq(1), lessonId: 'les-a' }], { task: 'lessons' }), 'THE QUESTIONS:\n')[0].lessonId === 'les-a');
+t('a lessonId in the reply is accepted by the importer', errs(QV.check(QV.normalize({ ...mq(1), lessonId: 'les-a' }).clean, { boards: BANK.boards, subjects: BANK.subjects, ids: new Set(), stems: new Map(), label: 'q-1', recordsReviewer: true, lessonIds: new Set(['les-a']) })).length === 0);
+
 console.log(`\n${pass} passed, ${fail} failed`); process.exit(fail ? 1 : 0);

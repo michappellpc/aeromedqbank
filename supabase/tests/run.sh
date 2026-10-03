@@ -598,4 +598,12 @@ eq  "a member cannot read the rewrite history"                "0" "$(as a "selec
 eq  "or write to it"                                          "yes" "$(as a "insert into question_revisions (question_id) values ('it-15');" 2>&1 | grep -q 'permission denied' && echo yes)"
 eq  "an editor cannot edit it by hand either"                 "yes" "$(as admin "update question_revisions set first_n = 99;" 2>&1 | grep -q 'permission denied' && echo yes)"
 eq  "deleting a question removes its history"                 "0" "$(root "delete from questions where id = 'it-15'; select count(*) from question_revisions where question_id = 'it-15';")"
+echo; echo "Question lesson link"
+root "insert into lessons (id, boards, subject, title, tier, status, blocks) values ('les-pin','{aem}','S','Pinned lesson','free','reviewed','[]');" >/dev/null
+eq  "an admin can choose a lesson for a live question and it stays live" "reviewed,les-pin" "$(as admin "update questions set lesson_id = 'les-pin' where id = 'q-free' returning status||','||lesson_id; commit;" | head -1)"
+eq  "members can read the chosen lesson with the question"     "les-pin" "$(as a "select lesson_id from questions where id = 'q-free';")"
+eq  "a lesson that does not exist is refused"                   "yes" "$(as admin "update questions set lesson_id = 'no-such-lesson' where id = 'q-free';" 2>&1 | grep -q 'violates foreign key' && echo yes)"
+eq  "a member cannot choose one"                                "0" "$(as a "update questions set lesson_id = null where id = 'q-free' returning id;" | grep -c .)"
+eq  "choosing a lesson does not count as a rewrite"             "0" "$(root "select count(*) from question_revisions where question_id = 'q-free' and revised_by is not null and revised_at > now() - interval '1 minute';")"
+eq  "deleting the lesson clears the choice on its questions"    "none" "$(root "delete from lessons where id = 'les-pin'; select coalesce(lesson_id, 'none') from questions where id = 'q-free';")"
 echo; echo "$PASS passed, $FAIL failed"; [[ $FAIL -eq 0 ]]

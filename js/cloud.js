@@ -203,7 +203,7 @@ const Cloud = (() => {
   const toQuestion = r => ({
     id: r.id, status: r.status, reviewedBy: r.reviewed_by || undefined, boards: r.boards, subject: r.subject, topic: r.topic || '',
     difficulty: r.difficulty || 2, stem: r.stem, image: r.image || undefined, imageAlt: r.image_alt || undefined,
-    options: r.options, answer: r.answer, explanation: r.explanation, optionNotes: r.option_notes || undefined, references: r.refs || [], tier: r.tier
+    options: r.options, answer: r.answer, explanation: r.explanation, optionNotes: r.option_notes || undefined, references: r.refs || [], tier: r.tier, lessonId: r.lesson_id || undefined
   });
 
   const toEditorQuestion = r => ({ ...toQuestion(r), archived: !!r.archived, updatedAt: r.updated_at, updatedBy: r.updated_by || '' });
@@ -213,6 +213,7 @@ const Cloud = (() => {
       image: q.image || null, image_alt: q.imageAlt || null, options: q.options, answer: q.answer, explanation: q.explanation, option_notes: q.optionNotes || null,
       refs: q.references || [], tier: q.tier || 'pro' };
     if (typeof q.archived === 'boolean') row.archived = q.archived;
+    if (q.lessonId !== undefined) row.lesson_id = q.lessonId || null;      // only sent when set or cleared, so an older database is not troubled
     return row;
   };
   let noChosenColumn = false;

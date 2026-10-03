@@ -43,12 +43,16 @@ The question screen has a **Hide ram** button (and **Show ram** to bring it back
 
 The Overview page's **Hardest questions** list shows only questions under 70% correct (with at least 3 answers, archived ones left out), hardest first, and links to Difficulty for first-try numbers.
 
+## Choosing a lesson for a question
+
+A question's "Study this" link normally picks the best lesson automatically, and improves as you add lessons. To override it, open the question in Admin and choose a **Lesson to study**; choose "best match automatically" to go back. The choice is metadata, so changing it keeps a live question live, and it is also accepted as `lessonId` in Import from a chat (a `lessonId` that matches no lesson is a warning). If the chosen lesson is later deleted, the question goes back to the automatic pick. Run the latest `supabase/schema.sql` to add it.
+
 ## Copy (Questions, Lessons, Flashcards, Inbox)
 
 Each admin list has a **Copy** button. It builds one message from exactly what the list is showing, so your filters decide what goes (or just the rows you ticked), and lets you pick what Claude should do and add a note about how you like things done:
 
-- **Questions:** check and fix errors, make harder, make easier, improve explanations, or only your note. It can include each question's measured performance (first-try percent, separation, the wrong choice picked most).
-- **Lessons:** check and fix errors, make clearer and shorter, add detail and pearls. **Flashcards:** check and fix, make shorter and clearer.
+- **Questions:** check and fix errors, make harder, make easier, improve explanations, **verify and update facts** (laws, policies and guidelines change; Claude is given today's date and told not to guess), **check each question links to the best lesson**, or only your note. The lesson check sends the list of your lessons and the lesson each question shows now, and asks Claude to set `lessonId` only where a different lesson is clearly better, so lessons you add later can take over by themselves; it also lists questions that no lesson fits, with a title for a new lesson. It can include each question's measured performance (first-try percent, separation, the wrong choice picked most).
+- **Lessons:** check and fix errors, verify and update facts, make clearer and shorter, add detail and pearls. **Flashcards:** check and fix, verify and update facts, make shorter and clearer.
 - **Inbox:** fix the questions members flagged (it includes each question's full JSON), summarize and group the feedback, or draft replies.
 
 You can read the message before copying, copy it or download it as a file, and long lists are split into parts (20 questions, 5 lessons, 40 cards or 25 messages each) so they fit in one chat message. The data is in the same JSON that **Import from a chat** accepts, marked draft, so Claude's reply can be pasted straight back and reviewed before anything goes live. Internal fields (who reviewed it, update times) are not sent. No database change.
