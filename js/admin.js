@@ -60,9 +60,8 @@ const Admin = (() => {
     $app.innerHTML = `${tabs('questions')}
       <div class="card"><div class="row spread"><div><h2 style="margin:0">Questions</h2>
         <p class="muted" style="margin:4px 0 0">${n.rev} live for members &middot; ${n.all - n.arch - n.rev} draft (hidden) &middot; ${n.arch} archived</p></div>
-        <div class="row"><a class="btn primary" href="#/admin/questions/new">Add a question</a><a class="btn" href="#/admin/questions/import">Import from a chat</a><button id="claude" type="button" aria-label="Copy these questions to paste into a chat" title="Copy the questions you are looking at, to paste into a chat">Copy</button><button id="backup">Download backup</button></div></div></div>
+        <div class="row"><a class="btn primary" href="#/admin/questions/new">Add a question</a><a class="btn" href="#/admin/questions/import">Import from a chat</a><button id="claude" type="button" aria-label="Copy every question the filters show, to paste into a chat" title="Copy every question the filters show, to paste into a chat">Copy</button><button id="backup">Download backup</button></div></div></div>
       <details class="card" id="secsum"${secOpen() ? ' open' : ''}><summary><h2 style="display:inline;margin:0">Sections by difficulty</h2> <span class="muted small" id="secline"></span><span class="collapser"><span class="c-open">Minimize &#9650;</span><span class="c-closed">Show table &#9660;</span></span></summary>${AdminItems.missing ? '<p class="muted small">The percent correct appears after the latest <code>supabase/schema.sql</code> is run in Supabase.</p>' : ''}<div id="secbody" style="margin-top:8px"></div></details>
-      <details class="card" id="tune"><summary><b>Tune the average</b> <span class="muted">target, histogram, and a plan for what to rewrite</span></summary><div style="margin-top:12px">${AdminItems.tuneHtml()}</div></details>
       <div class="card"><form id="flt" class="filters" onsubmit="return false" aria-label="Filter questions">
         <div><label for="fq">Search</label><input id="fq" type="search" value="${esc(view.q)}" placeholder="id, topic, or words in the question"></div>
         <div><label for="fb">Board</label><select id="fb"><option value="">All</option>${boardOpts}</select></div>
@@ -76,7 +75,8 @@ const Admin = (() => {
         <div><label for="ffl">Flag</label><select id="ffl"><option value="">Any</option><option value="any">Has any flag</option>${AdminItems.FLAGS.map(f => `<option value="${f}">${esc(ItemStats.FLAG_TEXT[f][0])}</option>`).join('')}</select></div>
         <div><label for="fdt">Data</label><select id="fdt"><option value="">All</option><option value="judged">Enough answers</option><option value="few">Too few answers</option></select></div>
         <div><label for="fmin">% correct from</label><input id="fmin" type="number" min="0" max="100" value="${esc(view.min)}"></div><div><label for="fmax">to</label><input id="fmax" type="number" min="0" max="100" value="${esc(view.max)}"></div></form></div>
-      <div id="bulk"></div><div class="card" id="qres"></div>`;
+      <div id="bulk"></div><div class="card" id="qres"></div>
+      <div class="card row spread" id="qbottom"><div class="row"><button id="copysel" type="button" disabled>Copy selected (0)</button><span class="muted small" id="copyhint">Tick questions in the table, then copy just those to paste into a chat.</span></div></div>`;
     const set = (id, v) => { document.getElementById(id).value = v; };
     const fillSubjects = () => { const s = document.getElementById('fs'); s.innerHTML = '<option value="">All</option>' + subjectsFor(view.board ? [view.board] : []).map(x => `<option${x === view.subject ? ' selected' : ''}>${esc(x)}</option>`).join(''); };
     fillSubjects(); set('ffl', view.flag); set('fdt', view.data); set('fst', view.status); set('fsh', view.show); set('ft', view.tier); set('fl', view.check || ''); set('fd', view.diff); set('fo', view.sort);
@@ -93,14 +93,19 @@ const Admin = (() => {
     on('ffl', 'change', e => { view.flag = e.target.value; view.page = 0; paint(); }); on('fdt', 'change', e => { view.data = e.target.value; view.page = 0; paint(); });
     on('fmin', 'input', e => { view.min = e.target.value; view.page = 0; paint(); }); on('fmax', 'input', e => { view.max = e.target.value; view.page = 0; paint(); });
     document.getElementById('secsum').addEventListener('toggle', e => { try { localStorage.setItem('qbank.secsum', e.target.open ? 'open' : 'closed'); } catch {} });
-    paintSections(); AdminItems.bindTune(() => { paintSections(); paint(); });
+    paintSections();
     document.getElementById('secbody').addEventListener('click', e => {      // a section or a count in the table filters the list below it
       const b = e.target.closest('[data-sec]'); if (!b) return;
       view.board = ''; set('fb', ''); fillSubjects(); view.subject = b.dataset.sec; set('fs', view.subject); view.diff = b.dataset.lab || ''; set('fd', view.diff); view.status = ''; set('fst', ''); view.show = 'active'; set('fsh', 'active'); view.page = 0; paint(); document.getElementById('flt').scrollIntoView({ block: 'start' });
     });
     on('backup', 'click', () => backup(c.list));
-    on('claude', 'click', () => Handoff.open({ kind: 'questions', items: lastRows, selected: [...view.sel], importHash: '#/admin/questions/import', describe: describeView(),
+    on('claude', 'click', () => Handoff.open({ kind: 'questions', items: lastRows, selected: [], importHash: '#/admin/questions/import', describe: describeView(),
       stats: AdminItems.ready() ? q => ItemStats.statLine(AdminItems.get(q.id)) : null, lessons: bank.lessons || [], currentLesson: lessonLinkFor }));
+    on('copysel', 'click', () => {
+      const chosen = cache.list.filter(q => view.sel.has(q.id)); if (!chosen.length) return;
+      Handoff.open({ kind: 'questions', items: chosen, selected: [], importHash: '#/admin/questions/import', describe: `${chosen.length} selected question${chosen.length === 1 ? '' : 's'}`,
+        stats: AdminItems.ready() ? q => ItemStats.statLine(AdminItems.get(q.id)) : null, lessons: bank.lessons || [], currentLesson: lessonLinkFor });
+    });
     paint();
   }
 
@@ -117,11 +122,6 @@ const Admin = (() => {
     const b = document.getElementById('secbody'); if (b) b.innerHTML = AdminItems.sectionTable(cache.list);
     const line = document.getElementById('secline'); if (line) line.textContent = AdminItems.summaryLine(cache.list);
   };
-  function selectIds(ids, direction) {                  // from the plan: select the questions to rewrite and list the right ones first
-    ids.forEach(id => view.sel.add(id)); view.show = 'active'; view.sort = direction === 'harder' ? 'measy' : 'mhard'; view.page = 0;
-    document.getElementById('fsh').value = 'active'; document.getElementById('fo').value = view.sort; paint(); document.getElementById('flt').scrollIntoView(); toast(`Selected ${ids.length} questions.`);
-  }
-
   const measured = q => {                               // the filters that use the measured numbers
     if (!view.flag && !view.data && view.min === '' && view.max === '') return true;
     const i = AdminItems.get(q.id); if (!i) return false;
@@ -164,17 +164,18 @@ const Admin = (() => {
 
   function bulkBar() {
     const ids = [...view.sel].filter(id => cache.list.some(q => q.id === id)), box = document.getElementById('bulk');
+    const cs = document.getElementById('copysel'); if (cs) { cs.disabled = !ids.length; cs.textContent = `Copy selected (${ids.length})`; }
     if (!ids.length) { box.innerHTML = ''; return; }
     const chosen = cache.list.filter(q => ids.includes(q.id)), allArch = chosen.every(q => q.archived), anyArch = chosen.some(q => q.archived);
     box.innerHTML = `<div class="card bulkbar" role="region" aria-label="Actions for selected questions"><b>${ids.length} selected</b>
       <button data-b="review">Mark reviewed (publish)</button><button data-b="draft">Mark draft (hide)</button>${allArch ? '<button data-b="restore">Restore</button>' : '<button data-b="archive">Archive</button>'}
-      <button data-b="free">Set tier: free</button><button data-b="pro">Set tier: pro</button>${AdminItems.ready() ? `<button data-b="harder">Copy rewrite request: harder</button><button data-b="easier">Copy rewrite request: easier</button><button data-b="relabel" title="Change each label to the difficulty members actually find">Set label from data</button>` : ''}<button data-b="ids">Copy IDs</button>${AdminItems.ready() ? '<button data-b="csv">CSV of selected</button>' : ''}${allArch ? '<button data-b="delete" class="danger">Delete permanently</button>' : ''}<button data-b="clear" class="linkish">Clear</button></div>`;
+      <button data-b="free">Set tier: free</button><button data-b="pro">Set tier: pro</button>${AdminItems.ready() ? `<button data-b="relabel" title="Change each label to the difficulty members actually find">Set label from data</button>` : ''}${AdminItems.ready() ? '<button data-b="csv">CSV of selected</button>' : ''}${allArch ? '<button data-b="delete" class="danger">Delete permanently</button>' : ''}<button data-b="clear" class="linkish">Clear</button></div>`;
     box.querySelectorAll('[data-b]').forEach(b => b.onclick = () => bulk(b.dataset.b, ids, anyArch));
   }
 
   async function bulk(kind, ids) {
     if (kind === 'clear') { view.sel.clear(); return paint(); }
-    if (['harder', 'easier', 'relabel', 'ids', 'csv'].includes(kind)) { try { if (await AdminItems.act(kind, ids)) { view.sel.clear(); refresh(); AdminItems.reset(); list(); } } catch (e) { toast(e.offline ? 'No connection. Nothing was changed.' : 'That did not work: ' + e.message); } return; }
+    if (['relabel', 'csv'].includes(kind)) { try { if (await AdminItems.act(kind, ids)) { view.sel.clear(); refresh(); AdminItems.reset(); list(); } } catch (e) { toast(e.offline ? 'No connection. Nothing was changed.' : 'That did not work: ' + e.message); } return; }
     const n = ids.length, s = n === 1 ? 'question' : 'questions';
     try {
       if (kind === 'review' && !(await ask(`Mark ${n} ${s} as reviewed by you (${myEmail()})? This makes ${n === 1 ? 'it' : 'them'} visible to members, so only do it if you have read and checked ${n === 1 ? 'it' : 'them'}. Your name is recorded on ${n === 1 ? 'it' : 'each'}.`, 'Mark reviewed'))) return;
@@ -199,7 +200,7 @@ const Admin = (() => {
     toast(`Downloaded ${out.length} questions. Keep this file somewhere safe.`);
   }
 
-  return { tabs, askText, ensure, refresh, list, view, selectIds, subjectsFor, LETTERS, note, myEmail, isEditor, role, get cache() { return cache; },
+  return { tabs, askText, ensure, refresh, list, view, subjectsFor, LETTERS, note, myEmail, isEditor, role, get cache() { return cache; },
     route(a, b, c) {
       if (!a) return role() === 'admin' ? adminPage() : (location.hash = '#/admin/questions');
       if (a === 'lessons' && typeof AdminLessons !== 'undefined') return AdminLessons.route(b, c);
