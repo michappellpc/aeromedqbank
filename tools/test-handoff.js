@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Tests for "Copy for Claude" (js/handoff.js): the message it builds, and that what it sends is exactly what Import from a chat accepts.
+// Tests for "Copy" (js/handoff.js): the message it builds, and that what it sends is exactly what Import from a chat accepts.
 //   node tools/test-handoff.js
 const H = require('../js/handoff.js'), QV = require('../js/qvalidate.js'), LV = require('../js/lvalidate.js'), CV = require('../js/cvalidate.js');
 let pass = 0, fail = 0;

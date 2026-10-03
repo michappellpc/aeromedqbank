@@ -1,5 +1,5 @@
 'use strict';
-// "Copy for Claude": turns the questions, lessons, flashcards or feedback you are looking at (so the filters you set decide what goes) into
+// "Copy": turns the questions, lessons, flashcards or feedback you are looking at (so the filters you set decide what goes) into
 // one message to paste into a chat. The data is in the same JSON format that Import from a chat accepts, so Claude's reply can be pasted straight
 // back. The builders are pure (tested in Node); open() is the small dialog. Loaded before the admin pages.
 (function (root, factory) {
@@ -81,7 +81,7 @@
     const doc = root.document, kind = o.kind, all = o.items || [], sel = all.filter(i => (o.selected || []).includes(i.id));
     if (!all.length) return root.toast && root.toast(`There are no ${NOUN[kind][1]} to copy. Change the filters first.`);
     const d = doc.createElement('div'); d.className = 'modal';
-    d.innerHTML = `<div class="card" role="dialog" aria-modal="true" aria-labelledby="hf-h" style="max-width:720px;width:100%;max-height:92vh;overflow:auto"><h2 id="hf-h" style="margin-top:0">Copy for Claude</h2>
+    d.innerHTML = `<div class="card" role="dialog" aria-modal="true" aria-labelledby="hf-h" style="max-width:720px;width:100%;max-height:92vh;overflow:auto"><h2 id="hf-h" style="margin-top:0">Copy</h2>
       <p class="muted" id="hf-sum"></p>
       ${sel.length ? `<fieldset class="inline"><legend class="sr">Which ${NOUN[kind][1]}</legend><label class="chk"><input type="radio" name="hf-src" value="shown" checked> All ${all.length} shown by the filters</label><label class="chk"><input type="radio" name="hf-src" value="sel"> Only the ${sel.length} I selected</label></fieldset>` : ''}
       <div class="fgrid"><div><label for="hf-task">What should Claude do?</label><select id="hf-task">${TASKS[kind].map(t => `<option value="${t[0]}">${esc(t[1])}</option>`).join('')}</select></div>
