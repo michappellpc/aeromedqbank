@@ -292,20 +292,36 @@ function ring(p, size = 132) {                       // score ring: the number i
     <text x="60" y="68" text-anchor="middle" class="ringtxt">${p}%</text></svg>`;
 }
 function trendChart(tests, what = 'test scores') {                          // last scores, oldest to newest
-  const list = tests.slice(0, 12).reverse().map(t => pct(t.correct, t.total));
-  if (list.length < 2) return '';
-  const W = 640, H = 150, L = 52, R = 12, T = 16, B = 16, x = i => L + (W - L - R) * i / (list.length - 1), y = v => T + (H - T - B) * (1 - v / 100);
-  const pts = list.map((v, i) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ');
-  return `<svg class="trend" viewBox="0 0 ${W} ${H}" role="img" aria-label="Last ${list.length} ${what}, oldest to newest: ${list.join('%, ')}%">
+  return lineChart([{ name: 'Score', vals: tests.slice(0, 12).reverse().map(t => pct(t.correct, t.total)), cls: 'l1' }], what);
+}
+function lineChart(lines, what) {                                           // one or two lines, oldest to newest; the second line is dashed so color is never the only signal
+  const n = lines[0].vals.length;
+  if (n < 2) return '';
+  const W = 640, H = 150, L = 52, R = 12, T = 16, B = 16, x = i => L + (W - L - R) * i / (n - 1), y = v => T + (H - T - B) * (1 - v / 100);
+  const one = lines.length === 1;
+  const draw = (ln, k) => { const stroke = k ? 'var(--gold)' : 'var(--link)', last = ln.vals[n - 1];
+    return `<polyline points="${ln.vals.map((v, i) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ')}" fill="none" stroke="${stroke}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"${k ? ' stroke-dasharray="7 5"' : ''}/>
+    ${ln.vals.map((v, i) => `<circle cx="${x(i).toFixed(1)}" cy="${y(v).toFixed(1)}" r="${i === n - 1 ? 4.5 : 3}" fill="var(--card)" stroke="${stroke}" stroke-width="2"/>`).join('')}
+    <text x="${x(n - 1).toFixed(1)}" y="${(y(last) + (!one && last < lines[1 - k].vals[n - 1] || (!one && last === lines[1 - k].vals[n - 1] && k) ? 18 : -9)).toFixed(1)}" text-anchor="end" class="axis lastv">${one ? '' : ln.name + ' '}${last}%</text>`; };
+  const label = lines.map(ln => `${ln.name.toLowerCase()}: ${ln.vals.join('%, ')}%`).join('; ');
+  return `<svg class="trend" viewBox="0 0 ${W} ${H}" role="img" aria-label="Last ${n} ${what}, oldest to newest. ${label}">
     ${[0, 50, 100].map(v => `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" class="grid0"/><text x="${L - 5}" y="${y(v) + 4}" text-anchor="end" class="axis">${v}</text>`).join('')}
-    <polyline points="${pts}" fill="none" stroke="var(--link)" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
-    ${list.map((v, i) => `<circle cx="${x(i).toFixed(1)}" cy="${y(v).toFixed(1)}" r="${i === list.length - 1 ? 4.5 : 3}" fill="var(--card)" stroke="var(--link)" stroke-width="2"/>`).join('')}
-    <text x="${x(list.length - 1).toFixed(1)}" y="${(y(list[list.length - 1]) - 9).toFixed(1)}" text-anchor="end" class="axis lastv">${list[list.length - 1]}%</text></svg>`;
+    ${lines.map(draw).join('')}</svg>`;
+}
+const TRENDS = { overall: 'Overall', recent: 'Recent', both: 'Both', off: 'Hide' };
+function paintTrend() {
+  const el = document.getElementById('trend-card'); if (!el) return;
+  const mode = dashPrefs().trend, tr = Perf.trend(Store.data.tests);
+  document.querySelectorAll('[data-pt]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.pt === mode)));
+  const lines = mode === 'both' ? [{ name: 'Overall', vals: tr.map(p => p.overall) }, { name: 'Recent', vals: tr.map(p => p.recent) }] : [{ name: mode === 'recent' ? 'Recent' : 'Overall', vals: tr.map(p => p[mode === 'recent' ? 'recent' : 'overall']) }];
+  const note = { overall: 'Your overall score: the running percent correct across all your tests, after each one.', recent: 'Recent: the score on each test by itself.', both: 'Solid line: overall running score. Dashed line: the score on each test by itself.', off: '' }[mode];
+  document.getElementById('trend-note').textContent = note;
+  document.getElementById('trend-body').innerHTML = mode === 'off' ? '<p class="muted small">Chart hidden. Choose Overall, Recent or Both to show it again.</p>' : lineChart(lines, mode === 'both' ? 'overall and recent scores' : mode === 'recent' ? 'test scores' : 'overall scores');
 }
 
 // ---------- performance by subject or topic: recent, overall or both ----------
 const dashPrefs = () => Perf.clean(Store.data.settings.dash);
-function setDash(patch) { Store.data.settings.dash = { ...dashPrefs(), ...patch }; Store.touchSettings(); paintPerf(); }
+function setDash(patch) { Store.data.settings.dash = { ...dashPrefs(), ...patch }; Store.touchSettings(); paintPerf(); paintTrend(); }
 function paintPerf() {
   const pr = dashPrefs(), d = Perf.aggregate({ group: pr.group, questions: bank.questions, boards: bank.boards, subjects: bank.subjects, qstat: Store.data.q, tests: Store.data.tests, peer: bank.peer, recent: pr.recent });
   const showR = pr.show !== 'overall', showO = pr.show !== 'recent', both = pr.show === 'both', topic = pr.group === 'topic';
@@ -333,7 +349,8 @@ function bindPerf() {
   document.querySelectorAll('[data-ps]').forEach(b => b.onclick = () => setDash({ show: b.dataset.ps }));
   document.getElementById('perf-rec').onchange = e => setDash({ recent: e.target.value });
   document.getElementById('perf-sort').onchange = e => setDash({ sort: e.target.value });
-  paintPerf();
+  document.querySelectorAll('[data-pt]').forEach(b => b.onclick = () => setDash({ trend: b.dataset.pt }));
+  paintPerf(); paintTrend();
 }
 
 function dashboard() {
@@ -359,7 +376,9 @@ function dashboard() {
     <div class="card stat" id="tile-recent"><b id="tile-recent-v">—</b><span class="muted" id="tile-recent-l">Recent correct</span></div>
     ${all.some(s => s.flagged) ? `<a class="card stat statlink" href="#/flagged"><b>${all.filter(s => s.flagged).length}</b><span class="muted">Flagged &rsaquo; review</span></a>` : `<div class="card stat"><b>0</b><span class="muted">Flagged</span></div>`}
   </div>
-  ${Store.data.tests.length >= 2 ? `<div class="card"><h2>Recent scores</h2>${trendChart(Store.data.tests)}</div>` : ''}
+  ${Store.data.tests.length >= 2 ? `<div class="card" id="trend-card"><h2>Score trend</h2>
+    <div class="perfctl"><div class="seg" role="group" aria-label="Which score the chart shows">${Object.entries(TRENDS).map(([k, v]) => `<button type="button" data-pt="${k}">${v}</button>`).join('')}</div></div>
+    <p class="muted small" id="trend-note" aria-live="polite"></p><div id="trend-body"></div></div>` : ''}
   ${cardsNotice()}
   ${focusAreas()}
   <div class="card" id="perf"><h2 id="perf-title">Performance by subject</h2>
