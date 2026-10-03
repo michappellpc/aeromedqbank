@@ -264,6 +264,8 @@ root "insert into auth.users (id, email) select ('00000000-0000-0000-0001-' || l
   insert into attempts (user_id, question_id, ok, client_id, at) select ('00000000-0000-0000-0001-' || lpad(g::text, 12, '0'))::uuid, 'q-free', g <= 8, 'p' || g, now() - interval '2 days' from generate_series(1, 12) g;
   insert into attempts (user_id, question_id, ok, client_id, at) values ('00000000-0000-0000-0001-000000000009', 'q-free', true, 'p9b', now() - interval '1 day');
   insert into attempts (user_id, question_id, ok, client_id, at) select ('00000000-0000-0000-0001-' || lpad(g::text, 12, '0'))::uuid, 'q-pro', true, 'r' || g, now() from generate_series(1, 4) g;" >/dev/null
+eq  "groups start at a minimum of 1, so even a small group shows" "1" "$(as admin "select peer_min_users();")"
+as admin "select set_peer_min_users(10); commit;" >/dev/null     # the checks below hold small groups back with a minimum of 10
 eq  "a member sees the group figure for a well-answered question" "13,69" "$(as a "select users||','||pct_correct from peer_stats() where question_id='q-free';")"
 eq  "only each person's first try counts (13 people, one had two tries)" "13" "$(as a "select users from peer_stats() where question_id='q-free';")"
 eq  "a question with too few people shows nothing"   "0" "$(as a "select count(*) from peer_stats() where question_id='q-pro';")"
@@ -271,7 +273,9 @@ eq  "an unlisted person gets nothing"                "0" "$(as c "select count(*
 eq  "a free member gets figures for free questions only" "q-free" "$(as d "select string_agg(question_id, ',') from peer_stats();")"
 eq  "draft and archived questions have no figures"   "0" "$(as a "select count(*) from peer_stats() where question_id in ('q-draft','q-arch');")"
 eq  "a member cannot change the minimum"             "yes" "$(as a "select set_peer_min_users(5);" 2>&1 | grep -q 'admins only' && echo yes)"
-eq  "the minimum cannot go below 5"                  "yes" "$(as admin "select set_peer_min_users(2);" 2>&1 | grep -q 'from 5 to 1000' && echo yes)"
+eq  "the minimum cannot go below 1"                  "yes" "$(as admin "select set_peer_min_users(0);" 2>&1 | grep -q 'from 1 to 1000' && echo yes)"
+eq  "a minimum of 1 is allowed and shows a small group" "4" "$(as admin "select set_peer_min_users(1); commit;" >/dev/null; as a "select users from peer_stats() where question_id='q-pro';")"
+as admin "select set_peer_min_users(10); commit;" >/dev/null
 eq  "raising the minimum hides small groups"         "0" "$(as admin "select set_peer_min_users(20); commit;" >/dev/null; as a "select count(*) from peer_stats();")"
 as admin "select set_peer_min_users(10); commit;" >/dev/null
 eq  "anonymous visitors cannot call it"              "yes" "$(as anon "select * from peer_stats();" 2>&1 | grep -q 'permission denied' && echo yes)"

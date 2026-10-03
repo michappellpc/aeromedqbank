@@ -12,12 +12,12 @@ const fmt = s => { s = Math.max(0, Math.round(s)); const h = Math.floor(s / 3600
 const shuffle = a => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.random() * (i + 1) | 0; [a[i], a[j]] = [a[j], a[i]]; } return a; };
 const boardName = id => (bank.boards.find(b => b.id === id) || {}).name || id;
 const isDraft = q => q.status !== 'reviewed';
-const peerLine = id => { const p = bank.peer && bank.peer[id]; return p ? `<span class="peer"><b>${p.pct}%</b> of members answered this correctly on their first try (${p.users} members)</span>` : ''; };
-// The share of members who picked an option, shown after answering once enough members have a recorded first pick.
+const peerLine = id => { const p = bank.peer && bank.peer[id]; return p ? `<span class="peer"><b>${p.pct}%</b> of members answered this correctly on their first try (${p.users} ${p.users === 1 ? 'member' : 'members'})</span>` : ''; };
+// How many members picked an option (and the share), shown after answering. First picks only.
 const pickBadge = (qid, optId) => {
   const c = bank.choices && bank.choices[qid]; if (!c || !c.total) return '';
-  const n = Math.round(100 * (c.counts[optId] || 0) / c.total);
-  return `<span class="pick"><span class="sr">${n}% of members chose this answer</span><span aria-hidden="true">${n}%</span></span><i class="pickbar" aria-hidden="true" style="width:${n}%"></i>`;
+  const k = c.counts[optId] || 0, n = Math.round(100 * k / c.total);
+  return `<span class="pick"><span class="sr">${k} of ${c.total} ${c.total === 1 ? 'member' : 'members'} chose this answer (${n}%)</span><span aria-hidden="true">${n}% &middot; ${k}</span></span><i class="pickbar" aria-hidden="true" style="width:${n}%"></i>`;
 };
 let peerAt = 0;
 function refreshPeer() { if (!Cloud.enabled || Date.now() - peerAt < 300000) return; peerAt = Date.now(); Cloud.peerStats().then(m => { bank.peer = m; paintTrend(); }); Cloud.peerChoices().then(m => { bank.choices = m; }); }
@@ -994,7 +994,7 @@ async function adminPage() {
         `<tr><td>${esc(m.email)}${m.display_name ? `<div class="muted small">${esc(m.display_name)}</div>` : ''}</td><td>${m.active ? esc(m.role === 'admin' ? 'Admin' : m.role === 'reviewer' ? 'Reviewer' : m.role === 'faculty' ? 'Faculty' : m.plan) : 'Not approved'}</td><td>${m.attempts}</td><td>${m.attempts ? pct(m.correct, m.attempts) + '%' : '-'}</td><td>${m.last_active ? new Date(m.last_active).toLocaleDateString() : '-'}</td></tr>`).join('')}</tbody></table></div></div>
       <div id="prog-admin"></div>
       <div class="card"><h2>Group averages</h2>
-        <form id="peerf" class="row" style="align-items:flex-end"><div><label for="pm">Show a group average once this many members have answered a question</label><input id="pm" type="number" min="5" max="1000" value="${peerMin}"></div><button class="primary" type="submit">Save</button></form>
+        <form id="peerf" class="row" style="align-items:flex-end"><div><label for="pm">Show a group average once this many members have answered a question (1 shows every figure, even from one member)</label><input id="pm" type="number" min="1" max="1000" value="${peerMin}"></div><button class="primary" type="submit">Save</button></form>
         <p class="muted">Members then see "72% of members answered this correctly" after they answer, in their results and in the subject table. Each member's first try counts. Nothing is shown for fewer than 5 people, so no one can be singled out.</p>
         <p class="notice" id="pm-msg" hidden role="alert"></p></div>
       <div class="card"><h2>Sign-up</h2><label class="chk"><input type="checkbox" id="su-open"${signupOn ? ' checked' : ''}> Let anyone create a free account on the sign-in page</label>
