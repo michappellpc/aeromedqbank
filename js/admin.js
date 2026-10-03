@@ -3,7 +3,7 @@
 // Loaded before app.js; it uses app.js's helpers (esc, ask, toast, pageTitle, bank, profile, $app) when it runs.
 const Admin = (() => {
   let cache = null;                       // { list, stats: Map(id -> {attempts, pct}) }
-  const view = { q: '', board: '', subject: '', status: '', show: 'active', tier: '', check: '', diff: '', sort: '', page: 0, sel: new Set() };
+  const view = { q: '', board: '', subject: '', status: '', show: 'active', tier: '', check: '', diff: '', sort: '', flag: '', data: '', min: '', max: '', page: 0, sel: new Set(), open: new Set() };
   const PAGE = 50;
   const role = () => (profile && profile.role) || '';
   const isEditor = () => role() === 'admin' || role() === 'reviewer';
@@ -14,7 +14,7 @@ const Admin = (() => {
   const LETTERS = ['A', 'B', 'C', 'D', 'E', 'F'];
 
   function tabs(active) {
-    const items = role() === 'admin' ? [['overview', '#/admin', 'Overview'], ['questions', '#/admin/questions', 'Questions'], ['difficulty', '#/admin/difficulty', 'Difficulty'], ['lessons', '#/admin/lessons', 'Lessons'], ['cards', '#/admin/cards', 'Flashcards'], ['inbox', '#/admin/inbox', 'Inbox']] : [['questions', '#/admin/questions', 'Questions'], ['difficulty', '#/admin/difficulty', 'Difficulty'], ['lessons', '#/admin/lessons', 'Lessons'], ['cards', '#/admin/cards', 'Flashcards'], ['inbox', '#/admin/inbox', 'Inbox']];
+    const items = role() === 'admin' ? [['overview', '#/admin', 'Overview'], ['questions', '#/admin/questions', 'Questions'], ['lessons', '#/admin/lessons', 'Lessons'], ['cards', '#/admin/cards', 'Flashcards'], ['inbox', '#/admin/inbox', 'Inbox']] : [['questions', '#/admin/questions', 'Questions'], ['lessons', '#/admin/lessons', 'Lessons'], ['cards', '#/admin/cards', 'Flashcards'], ['inbox', '#/admin/inbox', 'Inbox']];
     return `<div class="tabs" role="navigation" aria-label="Admin sections">${items.map(([k, h, t]) => `<a href="${h}"${k === active ? ' aria-current="page" class="on"' : ''}>${t}${k === 'inbox' && Admin.unread ? ` <span class="navbadge inline">${Admin.unread}</span>` : ''}</a>`).join('')}</div>`;
   }
 
@@ -47,18 +47,21 @@ const Admin = (() => {
     }
     return cache;
   }
-  const refresh = () => { cache = null; Admin.changed = true; };
+  const refresh = () => { cache = null; Admin.changed = true; if (typeof AdminItems !== 'undefined') AdminItems.reset(); };
 
   // ------------------------------------------------------------------ list
   async function list() {
     pageTitle('Questions');
     const c = await ensure(); if (!c) return;
+    await AdminItems.load(false);
     const n = { all: c.list.length, rev: c.list.filter(q => q.status === 'reviewed' && !q.archived).length, arch: c.list.filter(q => q.archived).length };
     const boardOpts = bank.boards.map(b => `<option value="${esc(b.id)}"${view.board === b.id ? ' selected' : ''}>${esc(b.name)}</option>`).join('');
     $app.innerHTML = `${tabs('questions')}
       <div class="card"><div class="row spread"><div><h2 style="margin:0">Questions</h2>
         <p class="muted" style="margin:4px 0 0">${n.rev} live for members &middot; ${n.all - n.arch - n.rev} draft (hidden) &middot; ${n.arch} archived</p></div>
         <div class="row"><a class="btn primary" href="#/admin/questions/new">Add a question</a><a class="btn" href="#/admin/questions/import">Import from a chat</a><button id="backup">Download backup</button></div></div></div>
+      <div class="card" id="secsum"><h2 style="margin:0 0 6px">Sections by difficulty</h2>${AdminItems.missing ? '<p class="muted small">The percent correct appears after the latest <code>supabase/schema.sql</code> is run in Supabase.</p>' : ''}<div id="secbody"></div></div>
+      <details class="card" id="tune"><summary><b>Tune the average</b> <span class="muted">target, histogram, and a plan for what to rewrite</span></summary><div style="margin-top:12px">${AdminItems.tuneHtml()}</div></details>
       <div class="card"><form id="flt" class="filters" onsubmit="return false" aria-label="Filter questions">
         <div><label for="fq">Search</label><input id="fq" type="search" value="${esc(view.q)}" placeholder="id, topic, or words in the question"></div>
         <div><label for="fb">Board</label><select id="fb"><option value="">All</option>${boardOpts}</select></div>
@@ -67,12 +70,15 @@ const Admin = (() => {
         <div><label for="fsh">Show</label><select id="fsh"><option value="active">Active</option><option value="archived">Archived</option><option value="all">Both</option></select></div>
         <div><label for="ft">Tier</label><select id="ft"><option value="">All</option><option value="free">Free</option><option value="pro">Pro</option></select></div>
         <div><label for="fd">Difficulty</label><select id="fd"><option value="">All</option><option value="1">Easy</option><option value="2">Medium</option><option value="3">Hard</option></select></div>
-        <div><label for="fo">Sort by</label><select id="fo"><option value="">ID</option><option value="hard">Hardest first</option><option value="easy">Easiest first</option></select></div>
-        <div><label for="fl">Checks</label><select id="fl"><option value="">All questions</option><option value="long">Correct answer much longer</option></select></div></form></div>
+        <div><label for="fo">Sort by</label><select id="fo"><option value="">ID</option><option value="hard">Label: hardest first</option><option value="easy">Label: easiest first</option>${AdminItems.SORTS.map(([v, t]) => `<option value="${v}">${t}</option>`).join('')}</select></div>
+        <div><label for="fl">Checks</label><select id="fl"><option value="">All questions</option><option value="long">Correct answer much longer</option></select></div>
+        <div><label for="ffl">Flag</label><select id="ffl"><option value="">Any</option><option value="any">Has any flag</option>${AdminItems.FLAGS.map(f => `<option value="${f}">${esc(ItemStats.FLAG_TEXT[f][0])}</option>`).join('')}</select></div>
+        <div><label for="fdt">Data</label><select id="fdt"><option value="">All</option><option value="judged">Enough answers</option><option value="few">Too few answers</option></select></div>
+        <div><label for="fmin">% correct from</label><input id="fmin" type="number" min="0" max="100" value="${esc(view.min)}"></div><div><label for="fmax">to</label><input id="fmax" type="number" min="0" max="100" value="${esc(view.max)}"></div></form></div>
       <div id="bulk"></div><div class="card" id="qres"></div>`;
     const set = (id, v) => { document.getElementById(id).value = v; };
     const fillSubjects = () => { const s = document.getElementById('fs'); s.innerHTML = '<option value="">All</option>' + subjectsFor(view.board ? [view.board] : []).map(x => `<option${x === view.subject ? ' selected' : ''}>${esc(x)}</option>`).join(''); };
-    fillSubjects(); set('fst', view.status); set('fsh', view.show); set('ft', view.tier); set('fl', view.check || ''); set('fd', view.diff); set('fo', view.sort);
+    fillSubjects(); set('ffl', view.flag); set('fdt', view.data); set('fst', view.status); set('fsh', view.show); set('ft', view.tier); set('fl', view.check || ''); set('fd', view.diff); set('fo', view.sort);
     const on = (id, ev, fn) => document.getElementById(id).addEventListener(ev, fn);
     on('fq', 'input', e => { view.q = e.target.value; view.page = 0; paint(); });
     on('fb', 'change', e => { view.board = e.target.value; view.subject = ''; view.page = 0; fillSubjects(); paint(); });
@@ -83,29 +89,49 @@ const Admin = (() => {
     on('fd', 'change', e => { view.diff = e.target.value; view.page = 0; paint(); });
     on('fo', 'change', e => { view.sort = e.target.value; view.page = 0; paint(); });
     on('fl', 'change', e => { view.check = e.target.value; view.page = 0; paint(); });
+    on('ffl', 'change', e => { view.flag = e.target.value; view.page = 0; paint(); }); on('fdt', 'change', e => { view.data = e.target.value; view.page = 0; paint(); });
+    on('fmin', 'input', e => { view.min = e.target.value; view.page = 0; paint(); }); on('fmax', 'input', e => { view.max = e.target.value; view.page = 0; paint(); });
+    paintSections(); AdminItems.bindTune(() => { paintSections(); paint(); });
+    document.getElementById('secbody').addEventListener('click', e => {      // a section or a count in the table filters the list below it
+      const b = e.target.closest('[data-sec]'); if (!b) return;
+      view.board = ''; set('fb', ''); fillSubjects(); view.subject = b.dataset.sec; set('fs', view.subject); view.diff = b.dataset.lab || ''; set('fd', view.diff); view.status = ''; set('fst', ''); view.show = 'active'; set('fsh', 'active'); view.page = 0; paint(); document.getElementById('flt').scrollIntoView({ block: 'start' });
+    });
     on('backup', 'click', () => backup(c.list));
     paint();
   }
 
+  const paintSections = () => { const b = document.getElementById('secbody'); if (b) b.innerHTML = AdminItems.sectionTable(cache.list); };
+  function selectIds(ids, direction) {                  // from the plan: select the questions to rewrite and list the right ones first
+    ids.forEach(id => view.sel.add(id)); view.show = 'active'; view.sort = direction === 'harder' ? 'measy' : 'mhard'; view.page = 0;
+    document.getElementById('fsh').value = 'active'; document.getElementById('fo').value = view.sort; paint(); document.getElementById('flt').scrollIntoView(); toast(`Selected ${ids.length} questions.`);
+  }
+
+  const measured = q => {                               // the filters that use the measured numbers
+    if (!view.flag && !view.data && view.min === '' && view.max === '') return true;
+    const i = AdminItems.get(q.id); if (!i) return false;
+    const lo = view.min === '' ? null : +view.min, hi = view.max === '' ? null : +view.max;
+    return (!view.flag || (view.flag === 'any' ? i.flags.some(f => f !== 'fewdata') : i.flags.includes(view.flag))) && (!view.data || (view.data === 'judged') === i.enough)
+      && (lo === null || (i.pct !== null && i.pct >= lo)) && (hi === null || (i.pct !== null && i.pct <= hi));
+  };
   const filtered = () => {
     const w = view.q.trim().toLowerCase();
     return cache.list.filter(q =>
       (view.show === 'all' || (view.show === 'archived') === q.archived) && (!view.board || q.boards.includes(view.board)) && (!view.subject || q.subject === view.subject) &&
-      (!view.status || q.status === view.status) && (!view.tier || q.tier === view.tier) && (view.check !== 'long' || QValidate.lengthTell(q)) && (!view.diff || (q.difficulty || 2) === +view.diff) &&
+      (!view.status || q.status === view.status) && (!view.tier || q.tier === view.tier) && (view.check !== 'long' || QValidate.lengthTell(q)) && (!view.diff || (q.difficulty || 2) === +view.diff) && measured(q) &&
       (!w || q.id.includes(w) || (q.topic || '').toLowerCase().includes(w) || q.stem.toLowerCase().includes(w)));
   };
 
   function paint() {
-    const dir = view.sort === 'hard' ? -1 : view.sort === 'easy' ? 1 : 0, rows = filtered().sort((a, b) => dir ? dir * ((a.difficulty || 2) - (b.difficulty || 2)) || a.id.localeCompare(b.id) : 0), pages = Math.max(1, Math.ceil(rows.length / PAGE)); view.page = Math.min(view.page, pages - 1);
-    const slice = rows.slice(view.page * PAGE, view.page * PAGE + PAGE), all = slice.length && slice.every(q => view.sel.has(q.id));
+    const dir = view.sort === 'hard' ? -1 : view.sort === 'easy' ? 1 : 0, rows = filtered().sort((a, b) => { const m = AdminItems.sorter(view.sort); if (m) return m(AdminItems.get(a.id) || { attention: 0, flags: [] }, AdminItems.get(b.id) || { attention: 0, flags: [] }) || a.id.localeCompare(b.id); return dir ? dir * ((a.difficulty || 2) - (b.difficulty || 2)) || a.id.localeCompare(b.id) : 0; }), pages = Math.max(1, Math.ceil(rows.length / PAGE)); view.page = Math.min(view.page, pages - 1);
+    const extra = AdminItems.ready(), slice = rows.slice(view.page * PAGE, view.page * PAGE + PAGE), all = slice.length && slice.every(q => view.sel.has(q.id));
     const tag = q => q.archived ? '<span class="tag archived">Archived</span>' : q.status === 'reviewed' ? `<span class="tag reviewed">Reviewed</span>${q.reviewedBy ? ` <span class="muted">${esc(q.reviewedBy)}</span>` : ''}` : '<span class="tag draft">Draft</span>';
     document.getElementById('qres').innerHTML = rows.length ? `<div class="scroll" role="region" tabindex="0" aria-label="Questions table"><table class="qtable"><caption class="sr">Questions, ${rows.length} shown</caption><thead><tr>
-      <th scope="col"><input type="checkbox" id="selall" aria-label="Select all shown"${all ? ' checked' : ''}></th><th scope="col">ID</th><th scope="col">Subject</th><th scope="col">Status</th><th scope="col">Difficulty</th><th scope="col">Tier</th><th scope="col">Answered</th><th scope="col">Updated</th></tr></thead><tbody>${slice.map(q => {
+      <th scope="col"><input type="checkbox" id="selall" aria-label="Select all shown"${all ? ' checked' : ''}></th><th scope="col">ID</th><th scope="col">Subject</th><th scope="col">Status</th><th scope="col">Difficulty</th><th scope="col">Tier</th><th scope="col">Answered</th>${extra ? '<th scope="col">First try</th><th scope="col" title="How well it separates strong from weak members: 1 is perfect, 0 is none, below 0 is backwards">Separation</th><th scope="col">Wrong choice picked most</th><th scope="col">Flags</th>' : ''}<th scope="col">Updated</th>${extra ? '<th scope="col"><span class="sr">Details</span></th>' : ''}</tr></thead><tbody>${slice.map(q => {
       const s = cache.stats.get(q.id);
       return `<tr${q.archived ? ' class="dim"' : ''}><td><input type="checkbox" data-sel="${esc(q.id)}" aria-label="Select ${esc(q.id)}"${view.sel.has(q.id) ? ' checked' : ''}></td>
         <td><a href="#/admin/questions/edit/${esc(q.id)}">${esc(q.id)}</a><div class="muted small">${esc((q.stem || '').slice(0, 70))}${q.stem && q.stem.length > 70 ? '...' : ''}</div></td>
         <td>${esc(q.subject)}<div class="muted small">${esc(q.topic || '')}</div></td><td>${tag(q)}${QValidate.lengthTell(q) ? ' <span class="tag" title="The correct answer is much longer than the other choices">Long answer</span>' : ''}</td><td>${['', 'Easy', 'Medium', 'Hard'][q.difficulty || 2]}</td><td>${esc(q.tier)}</td>
-        <td>${s && s.attempts ? `${s.attempts} &middot; ${Math.round(s.pct)}%` : '-'}</td><td>${day(q.updatedAt)}<div class="muted small">${esc(q.updatedBy)}</div></td></tr>`;
+        <td>${s && s.attempts ? `${s.attempts} &middot; ${Math.round(s.pct)}%` : '-'}</td>${extra ? AdminItems.cells(AdminItems.get(q.id)) : ''}<td>${day(q.updatedAt)}<div class="muted small">${esc(q.updatedBy)}</div></td>${extra ? `<td><button type="button" data-open="${esc(q.id)}" aria-expanded="${view.open.has(q.id)}" aria-label="${view.open.has(q.id) ? 'Hide' : 'Show'} the numbers for ${esc(q.id)}">${view.open.has(q.id) ? 'Hide' : 'Details'}</button></td>` : ''}</tr>${extra && view.open.has(q.id) ? `<tr class="detailrow"><td></td><td colspan="12">${AdminItems.detail(AdminItems.get(q.id))}</td></tr>` : ''}`;
     }).join('')}</tbody></table></div>
       <div class="row spread" style="margin-top:10px"><span class="muted" aria-live="polite">${rows.length} question${rows.length === 1 ? '' : 's'}${pages > 1 ? `, page ${view.page + 1} of ${pages}` : ''}</span>
         ${pages > 1 ? `<span class="row"><button id="pv"${view.page ? '' : ' disabled'}>Previous</button><button id="nx"${view.page < pages - 1 ? '' : ' disabled'}>Next</button></span>` : ''}</div>`
@@ -113,6 +139,8 @@ const Admin = (() => {
     const el = id => document.getElementById(id);
     if (el('selall')) el('selall').onchange = e => { slice.forEach(q => e.target.checked ? view.sel.add(q.id) : view.sel.delete(q.id)); paint(); };
     document.querySelectorAll('[data-sel]').forEach(b => b.onchange = () => { b.checked ? view.sel.add(b.dataset.sel) : view.sel.delete(b.dataset.sel); bulkBar(); });
+    document.querySelectorAll('[data-open]').forEach(b => b.onclick = () => { const id = b.dataset.open; view.open.has(id) ? view.open.delete(id) : view.open.add(id); paint(); const t = document.querySelector(`[data-open="${CSS.escape(id)}"]`); if (t) t.focus(); });
+    slice.filter(q => view.open.has(q.id)).forEach(q => { const i = AdminItems.get(q.id); if (i) AdminItems.loadRevisions(i); });
     if (el('pv')) el('pv').onclick = () => { view.page--; paint(); document.getElementById('qres').scrollIntoView(); };
     if (el('nx')) el('nx').onclick = () => { view.page++; paint(); document.getElementById('qres').scrollIntoView(); };
     bulkBar();
@@ -124,12 +152,13 @@ const Admin = (() => {
     const chosen = cache.list.filter(q => ids.includes(q.id)), allArch = chosen.every(q => q.archived), anyArch = chosen.some(q => q.archived);
     box.innerHTML = `<div class="card bulkbar" role="region" aria-label="Actions for selected questions"><b>${ids.length} selected</b>
       <button data-b="review">Mark reviewed (publish)</button><button data-b="draft">Mark draft (hide)</button>${allArch ? '<button data-b="restore">Restore</button>' : '<button data-b="archive">Archive</button>'}
-      <button data-b="free">Set tier: free</button><button data-b="pro">Set tier: pro</button>${allArch ? '<button data-b="delete" class="danger">Delete permanently</button>' : ''}<button data-b="clear" class="linkish">Clear</button></div>`;
+      <button data-b="free">Set tier: free</button><button data-b="pro">Set tier: pro</button>${AdminItems.ready() ? `<button data-b="harder">Copy rewrite request: harder</button><button data-b="easier">Copy rewrite request: easier</button><button data-b="relabel" title="Change each label to the difficulty members actually find">Set label from data</button>` : ''}<button data-b="ids">Copy IDs</button>${AdminItems.ready() ? '<button data-b="csv">CSV of selected</button>' : ''}${allArch ? '<button data-b="delete" class="danger">Delete permanently</button>' : ''}<button data-b="clear" class="linkish">Clear</button></div>`;
     box.querySelectorAll('[data-b]').forEach(b => b.onclick = () => bulk(b.dataset.b, ids, anyArch));
   }
 
   async function bulk(kind, ids) {
     if (kind === 'clear') { view.sel.clear(); return paint(); }
+    if (['harder', 'easier', 'relabel', 'ids', 'csv'].includes(kind)) { try { if (await AdminItems.act(kind, ids)) { view.sel.clear(); refresh(); AdminItems.reset(); list(); } } catch (e) { toast(e.offline ? 'No connection. Nothing was changed.' : 'That did not work: ' + e.message); } return; }
     const n = ids.length, s = n === 1 ? 'question' : 'questions';
     try {
       if (kind === 'review' && !(await ask(`Mark ${n} ${s} as reviewed by you (${myEmail()})? This makes ${n === 1 ? 'it' : 'them'} visible to members, so only do it if you have read and checked ${n === 1 ? 'it' : 'them'}. Your name is recorded on ${n === 1 ? 'it' : 'each'}.`, 'Mark reviewed'))) return;
@@ -154,12 +183,12 @@ const Admin = (() => {
     toast(`Downloaded ${out.length} questions. Keep this file somewhere safe.`);
   }
 
-  return { tabs, askText, ensure, refresh, list, view, subjectsFor, LETTERS, note, myEmail, isEditor, role, get cache() { return cache; },
+  return { tabs, askText, ensure, refresh, list, view, selectIds, subjectsFor, LETTERS, note, myEmail, isEditor, role, get cache() { return cache; },
     route(a, b, c) {
       if (!a) return role() === 'admin' ? adminPage() : (location.hash = '#/admin/questions');
       if (a === 'lessons' && typeof AdminLessons !== 'undefined') return AdminLessons.route(b, c);
       if (a === 'cards' && typeof AdminCards !== 'undefined') return AdminCards.route(b, c);
-      if (a === 'difficulty' && typeof AdminItems !== 'undefined') return AdminItems.page();
+      if (a === 'difficulty') return (location.hash = '#/admin/questions');       // the difficulty numbers now live on the Questions page
       if (a === 'inbox' && typeof Inbox !== 'undefined') return Inbox.page();
       if (a !== 'questions') return list();
       if (!b) return list();
