@@ -601,3 +601,4 @@ th,td{padding:9px 10px}
 .cover.halloween .cover-shade{background:linear-gradient(90deg,rgba(5,12,22,.7) 0,rgba(5,12,22,.3) 50%,rgba(5,12,22,0) 100%)}
 .cover.halloween{background:linear-gradient(180deg,#0a1626 0,#16304f 55%,#3b3a52 100%)}
 @media(max-width:700px){.cover.halloween .cover-art{transform:translateX(14%)}}
+#trend-cmp-row[hidden]{display:none}#trend-cmp-row:has(input:disabled){color:var(--muted)}
