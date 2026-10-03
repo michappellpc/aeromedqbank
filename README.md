@@ -92,6 +92,14 @@ In a lesson, the tools row at the top has a Highlight button (works on whatever 
 
 A Calculator button in the tools row of the question screen opens a floating calculator that stays open from question to question. It handles + - x / ^ and brackets, percent, factorial, square root, log, ln, e^x, pi, e, 1/x and a memory of the last answer, and keeps the last five results. Type a sum and press Enter, or use the keypad. Drag it by its title bar on a computer; on a phone it opens as a sheet above the bottom bar. Escape or the X closes it. The maths is a small parser, not `eval`, with tests in `tools/test-calc.js`. No database change.
 
+## This day in history
+
+The home page shows a "This day in history" card with one to three events for today's date. Aerospace medicine events come first. Days with none show an aviation or spaceflight event instead, so every day of the year (including February 29) has one. The events are in `js/onthisday-data.js` and the checks in `tools/test-onthisday.js` (every day covered, well-formed entries). Edit that file to correct or add events.
+
+## Test history numbering
+
+History lists each quiz as Quiz 1, Quiz 2 and so on, oldest first. The results page shows the same number.
+
 ## Performance on the home page
 
 The dashboard has a "Performance" card. A Subject / Topic toggle picks the grouping, and a Recent / Overall / Both toggle picks which scores show. "Both" adds a Change column. "Recent means" sets the window (last 5 tests, last 10 tests, last 30 days). You can sort by name, recent score, overall score, change, or questions answered. Choices sync with the account. The "Score trend" chart above it starts on Overall (the running percent correct across all tests). Buttons switch it to Recent (each test by itself), Both (solid and dashed lines), or Hide, and the choice syncs with the account. A "Recent correct" tile sits beside the overall tile. Logic is in `js/perf.js` and tested by `tools/test-perf.js`.

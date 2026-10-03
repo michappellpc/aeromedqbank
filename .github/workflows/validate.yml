@@ -27,6 +27,8 @@ jobs:
         run: node tools/test-handoff.js
       - name: Dashboard performance tests
         run: node tools/test-perf.js
+      - name: This-day-in-history tests
+        run: node tools/test-onthisday.js
       - name: Test the related-lesson matching
         run: node tools/test-related.js
       - name: Test the lesson rules and sample lessons

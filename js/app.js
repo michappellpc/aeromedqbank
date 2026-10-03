@@ -353,6 +353,15 @@ function bindPerf() {
   paintPerf(); paintTrend();
 }
 
+// ---------- this day in history ----------
+const OTD_KIND = { m: 'Aerospace medicine', a: 'Aviation', s: 'Spaceflight' };
+function thisDay() {
+  const d = new Date(), items = OnThisDay.forDate(d.getMonth() + 1, d.getDate());
+  if (!items.length) return '';
+  return `<div class="card" id="otd"><h2>This day in history <span class="muted small">${esc(d.toLocaleDateString(undefined, { month: 'long', day: 'numeric' }))}</span></h2>
+    <ul class="otd">${items.map(e => `<li><b>${e.y}</b> <span class="tag">${OTD_KIND[e.k]}</span> ${esc(e.t)}</li>`).join('')}</ul></div>`;
+}
+
 function dashboard() {
   pageTitle('Dashboard');
   const st = Store.data.q, all = Object.values(st);
@@ -376,6 +385,7 @@ function dashboard() {
     <div class="card stat" id="tile-recent"><b id="tile-recent-v">—</b><span class="muted" id="tile-recent-l">Recent correct</span></div>
     ${all.some(s => s.flagged) ? `<a class="card stat statlink" href="#/flagged"><b>${all.filter(s => s.flagged).length}</b><span class="muted">Flagged &rsaquo; review</span></a>` : `<div class="card stat"><b>0</b><span class="muted">Flagged</span></div>`}
   </div>
+  ${thisDay()}
   ${Store.data.tests.length >= 2 ? `<div class="card" id="trend-card"><h2>Score trend</h2>
     <div class="perfctl"><div class="seg" role="group" aria-label="Which score the chart shows">${Object.entries(TRENDS).map(([k, v]) => `<button type="button" data-pt="${k}">${v}</button>`).join('')}</div></div>
     <p class="muted small" id="trend-note" aria-live="polite"></p><div id="trend-body"></div></div>` : ''}
@@ -700,7 +710,7 @@ function results(id) {
   const subj = Object.entries(by).sort((a, b) => pct(a[1].c, a[1].n) - pct(b[1].c, b[1].n) || a[0].localeCompare(b[0]));
   const weak = subj.find(([, o]) => o.c < o.n);
   const prev = Store.data.tests.filter(x => x.id !== r.id && x.date < r.date).slice(0, 5), prevAvg = prev.length ? Math.round(prev.reduce((a, x) => a + pct(x.correct, x.total), 0) / prev.length) : null;
-  $app.innerHTML = `<div class="card resulthead"><div id="res-mascot"></div><h2>Results</h2><div class="resrow">
+  $app.innerHTML = `<div class="card resulthead"><div id="res-mascot"></div><h2>Results <span class="muted small">Quiz ${Store.data.tests.length - Store.data.tests.indexOf(r)}</span></h2><div class="resrow">
     ${ring(p)}
     <div class="grid resstats"><div class="stat"><b>${r.correct}/${r.total}</b><span class="muted">Correct</span></div>
     <div class="stat"><b>${fmt(r.seconds)}</b><span class="muted">Time</span></div>
@@ -733,8 +743,8 @@ function review(id) {
 function historyPage() {
   pageTitle('Test history');
   const T = Store.data.tests;
-  $app.innerHTML = `<div class="card"><h2>Test history</h2>${T.length ? `<table><thead><tr><th>Date</th><th>Mode</th><th>Score</th><th>Time</th><th><span class="sr">Details</span></th></tr></thead><tbody>${T.map(r =>
-    `<tr><td>${new Date(r.date).toLocaleString()}</td><td>${r.mode}</td><td>${r.correct}/${r.total} (${pct(r.correct, r.total)}%)</td><td>${fmt(r.seconds)}</td><td><a href="#/results/${r.id}">View</a></td></tr>`).join('')}</tbody></table>` : '<p class="muted">No completed tests yet.</p>'}</div>`;
+  $app.innerHTML = `<div class="card"><h2>Test history</h2>${T.length ? `<table><thead><tr><th>Quiz</th><th>Date</th><th>Mode</th><th>Score</th><th>Time</th><th><span class="sr">Details</span></th></tr></thead><tbody>${T.map((r, i) =>
+    `<tr><td>Quiz ${T.length - i}</td><td>${new Date(r.date).toLocaleString()}</td><td>${r.mode}</td><td>${r.correct}/${r.total} (${pct(r.correct, r.total)}%)</td><td>${fmt(r.seconds)}</td><td><a href="#/results/${r.id}" aria-label="View Quiz ${T.length - i}">View</a></td></tr>`).join('')}</tbody></table>` : '<p class="muted">No completed tests yet.</p>'}</div>`;
   labelScrolls();
 }
 
