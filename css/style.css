@@ -568,3 +568,9 @@ mark.hl{background:#ffe27a;color:#1c1c1c;border-radius:2px;padding:0 1px;cursor:
 #secsum>summary{cursor:pointer;display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}#secsum>summary::marker{color:var(--muted)}
 .collapser{margin-left:auto;padding:5px 12px;border:1px solid var(--line);border-radius:var(--r);background:var(--card);font-size:.85rem;font-weight:600}
 #secsum:not([open]) .c-open,#secsum[open] .c-closed{display:none}#secsum>summary:hover .collapser{border-color:var(--link);color:var(--link)}#secsum>summary:focus-visible{outline:3px solid var(--link);outline-offset:2px}
+
+/* ---- Dashboard: performance by subject or topic ---- */
+.perfctl{display:flex;flex-wrap:wrap;gap:12px 16px;align-items:flex-end;margin:6px 0 8px}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:var(--r);overflow:hidden}.seg button{border:0;border-radius:0;min-height:38px;padding:6px 14px;background:var(--card)}
+.seg button+button{border-left:1px solid var(--line)}.seg button[aria-pressed=true]{background:var(--btn);border-color:var(--btn);color:#fff}
+.perfctl select{width:auto}.chg{white-space:nowrap;font-weight:600}.chg.up{color:var(--good)}.chg.down{color:var(--bad)}.chg.flat{color:var(--muted)}

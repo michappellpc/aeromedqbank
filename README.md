@@ -92,6 +92,10 @@ In a lesson, the tools row at the top has a Highlight button (works on whatever 
 
 A Calculator button in the tools row of the question screen opens a floating calculator that stays open from question to question. It handles + - x / ^ and brackets, percent, factorial, square root, log, ln, e^x, pi, e, 1/x and a memory of the last answer, and keeps the last five results. Type a sum and press Enter, or use the keypad. Drag it by its title bar on a computer; on a phone it opens as a sheet above the bottom bar. Escape or the X closes it. The maths is a small parser, not `eval`, with tests in `tools/test-calc.js`. No database change.
 
+## Performance on the home page
+
+The dashboard has a "Performance" card. A Subject / Topic toggle picks the grouping, and a Recent / Overall / Both toggle picks which scores show. "Both" adds a Change column. "Recent means" sets the window (last 5 tests, last 10 tests, last 30 days). You can sort by name, recent score, overall score, change, or questions answered. Choices sync with the account. A "Recent correct" tile sits beside the overall tile. Logic is in `js/perf.js` and tested by `tools/test-perf.js`.
+
 ## Navigation
 
 On desktop every link sits in the top bar. On phones the bottom bar keeps Dashboard, New Test, Lessons and Flashcards on one row, and a More button opens a panel with History, Support, Program, Admin and Settings. More lights up while you are on one of those pages and shows a red dot when Support or the inbox has something new. Escape, tapping outside or choosing a link closes the panel.

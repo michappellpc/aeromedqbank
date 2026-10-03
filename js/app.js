@@ -303,20 +303,43 @@ function trendChart(tests, what = 'test scores') {                          // l
     <text x="${x(list.length - 1).toFixed(1)}" y="${(y(list[list.length - 1]) - 9).toFixed(1)}" text-anchor="end" class="axis lastv">${list[list.length - 1]}%</text></svg>`;
 }
 
+// ---------- performance by subject or topic: recent, overall or both ----------
+const dashPrefs = () => Perf.clean(Store.data.settings.dash);
+function setDash(patch) { Store.data.settings.dash = { ...dashPrefs(), ...patch }; Store.touchSettings(); paintPerf(); }
+function paintPerf() {
+  const pr = dashPrefs(), d = Perf.aggregate({ group: pr.group, questions: bank.questions, boards: bank.boards, subjects: bank.subjects, qstat: Store.data.q, tests: Store.data.tests, peer: bank.peer, recent: pr.recent });
+  const showR = pr.show !== 'overall', showO = pr.show !== 'recent', both = pr.show === 'both', topic = pr.group === 'topic';
+  const sortKey = !both && ['up', 'down'].includes(pr.sort) ? 'weak' : pr.sort, rows = Perf.sortRows(d.rows, sortKey, pr.show);
+  document.getElementById('perf-title').textContent = `Performance by ${pr.group}`;
+  document.querySelectorAll('[data-pg]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.pg === pr.group)));
+  document.querySelectorAll('[data-ps]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.ps === pr.show)));
+  const rec = document.getElementById('perf-rec'); rec.value = pr.recent; rec.disabled = !showR;
+  const so = document.getElementById('perf-sort'), keys = Object.keys(Perf.SORTS).filter(k => both || !['up', 'down'].includes(k));
+  if (so.options.length !== keys.length) so.innerHTML = keys.map(k => `<option value="${k}">${Perf.SORTS[k]}</option>`).join('');
+  so.value = sortKey;
+  // the score tiles follow the same choice
+  document.getElementById('tile-overall').hidden = !showO; document.getElementById('tile-recent').hidden = !showR;
+  document.getElementById('tile-recent-v').textContent = d.recentScore === null ? '—' : d.recentScore + '%';
+  document.getElementById('tile-recent-l').textContent = `Recent correct (${Perf.RECENT[pr.recent].replace(/^Your /, '').replace(/^The /, '').toLowerCase()})`;
+  document.getElementById('perf-note').textContent = showR ? (d.testsInWindow ? `Recent: ${Perf.RECENT[pr.recent].toLowerCase()}, ${d.testsInWindow} test${d.testsInWindow === 1 ? '' : 's'} and ${d.recentAnswered} answer${d.recentAnswered === 1 ? '' : 's'}.` : 'Recent scores appear once you have finished a test.') : '';
+  const cell = (p, n) => (p === null ? '<span class="muted">—</span>' : `<b>${p}%</b> <span class="muted small">(${n})</span>`);
+  const chg = r => { if (r.change === null) return '<span class="muted">—</span>'; const up = r.change > 0, dn = r.change < 0; return `<span class="chg ${up ? 'up' : dn ? 'down' : 'flat'}"><span aria-hidden="true">${up ? '\u25b2' : dn ? '\u25bc' : '='}</span> ${up ? '+' : dn ? '\u2212' : ''}${Math.abs(r.change)}<span class="sr"> points ${up ? 'up' : dn ? 'down' : 'no change'} compared with overall</span></span>`; };
+  const measure = r => (showR && !showO ? r.recent : r.overall);
+  document.getElementById('perf-body').innerHTML = rows.length ? `<div class="scroll" role="region" tabindex="0" aria-label="Performance table"><table><caption class="sr">Your performance by ${pr.group}, ${esc(Perf.SORTS[sortKey].toLowerCase())}</caption><thead><tr>${topic ? '' : '<th scope="col">Board</th>'}<th scope="col">${topic ? 'Subject and topic' : 'Subject'}</th><th scope="col">Used</th>${showR ? '<th scope="col">Recent</th>' : ''}${showO ? '<th scope="col">Overall</th>' : ''}${both ? '<th scope="col" title="Recent compared with overall">Change</th>' : ''}${showO ? '<th scope="col" title="Average of all members, first tries">Group</th>' : ''}<th scope="col"><span class="sr">Progress</span></th></tr></thead><tbody>
+    ${rows.map(r => `<tr>${topic ? '' : `<td>${esc(r.board)}</td>`}<td>${esc(r.label)}</td><td>${r.seen}/${r.total}</td>${showR ? `<td>${cell(r.recent, r.rn)}</td>` : ''}${showO ? `<td>${cell(r.overall, r.on)}</td>` : ''}${both ? `<td>${chg(r)}</td>` : ''}${showO ? `<td>${r.group === null ? '—' : r.group + '%'}</td>` : ''}<td style="width:20%"><div class="bar" aria-hidden="true"><i style="width:${measure(r) || 0}%"></i></div></td></tr>`).join('')}</tbody></table></div>` : '<p class="muted">No questions loaded.</p>';
+}
+function bindPerf() {
+  document.querySelectorAll('[data-pg]').forEach(b => b.onclick = () => setDash({ group: b.dataset.pg }));
+  document.querySelectorAll('[data-ps]').forEach(b => b.onclick = () => setDash({ show: b.dataset.ps }));
+  document.getElementById('perf-rec').onchange = e => setDash({ recent: e.target.value });
+  document.getElementById('perf-sort').onchange = e => setDash({ sort: e.target.value });
+  paintPerf();
+}
+
 function dashboard() {
   pageTitle('Dashboard');
   const st = Store.data.q, all = Object.values(st);
   const used = all.filter(s => s.seen).length, c = all.reduce((a, s) => a + s.correct, 0), w = all.reduce((a, s) => a + s.wrong, 0);
-  const rows = [];
-  for (const b of bank.boards) for (const subj of bank.subjects[b.id] || []) {
-    const qs = bank.questions.filter(q => q.boards.includes(b.id) && q.subject === subj);
-    if (!qs.length) continue;
-    let cc = 0, ww = 0, seen = 0;
-    qs.forEach(q => { const s = st[q.id]; if (s) { cc += s.correct; ww += s.wrong; if (s.seen) seen++; } });
-    let pu = 0, pc = 0; qs.forEach(q => { const g = bank.peer[q.id]; if (g) { pu += g.users; pc += g.users * g.pct; } });
-    rows.push(`<tr><td>${esc(b.name)}</td><td>${esc(subj)}</td><td>${seen}/${qs.length}</td><td>${cc + ww ? pct(cc, cc + ww) + '%' : '—'}</td><td>${pu ? Math.round(pc / pu) + '%' : '—'}</td>
-      <td style="width:22%"><div class="bar"><i style="width:${pct(cc, cc + ww)}%"></i></div></td></tr>`);
-  }
   const active = Store.data.active;
   const acc = c + w ? pct(c, c + w) : null, missed = all.filter(s => s.last === 'w').length;
   const hello = acc === null ? 'Welcome, Doc. Ready for your first set of questions?'
@@ -332,18 +355,26 @@ function dashboard() {
   <div class="grid">
     <div class="card stat"><b>${bank.questions.length}</b><span class="muted">Questions in bank</span></div>
     <div class="card stat"><b>${used}</b><span class="muted">Used (${pct(used, bank.questions.length)}%)</span></div>
-    <div class="card stat"><b>${c + w ? pct(c, c + w) + '%' : '—'}</b><span class="muted">Overall correct</span></div>
+    <div class="card stat" id="tile-overall"><b>${c + w ? pct(c, c + w) + '%' : '—'}</b><span class="muted">Overall correct</span></div>
+    <div class="card stat" id="tile-recent"><b id="tile-recent-v">—</b><span class="muted" id="tile-recent-l">Recent correct</span></div>
     ${all.some(s => s.flagged) ? `<a class="card stat statlink" href="#/flagged"><b>${all.filter(s => s.flagged).length}</b><span class="muted">Flagged &rsaquo; review</span></a>` : `<div class="card stat"><b>0</b><span class="muted">Flagged</span></div>`}
   </div>
   ${Store.data.tests.length >= 2 ? `<div class="card"><h2>Recent scores</h2>${trendChart(Store.data.tests)}</div>` : ''}
   ${cardsNotice()}
   ${focusAreas()}
-  <div class="card"><h2>Performance by subject</h2>
-    ${rows.length ? `<div class="scroll" role="region" tabindex="0"><table><thead><tr><th>Board</th><th>Subject</th><th>Used</th><th>Correct</th><th title="Average of all members, first tries">Group</th><th><span class="sr">Progress</span></th></tr></thead><tbody>${rows.join('')}</tbody></table></div>` : '<p class="muted">No questions loaded.</p>'}
+  <div class="card" id="perf"><h2 id="perf-title">Performance by subject</h2>
+    <div class="perfctl">
+      <div class="seg" role="group" aria-label="Group by"><button type="button" data-pg="subject">Subject</button><button type="button" data-pg="topic">Topic</button></div>
+      <div class="seg" role="group" aria-label="Which score to show"><button type="button" data-ps="recent">Recent</button><button type="button" data-ps="overall">Overall</button><button type="button" data-ps="both">Both</button></div>
+      <div><label for="perf-rec">Recent means</label><select id="perf-rec">${Object.entries(Perf.RECENT).map(([k, v]) => `<option value="${k}">${v}</option>`).join('')}</select></div>
+      <div><label for="perf-sort">Sort by</label><select id="perf-sort"></select></div></div>
+    <p class="muted small" id="perf-note" aria-live="polite"></p>
+    <div id="perf-body"></div>
   </div>
   `;
   document.getElementById('cover-text').innerHTML = `<h2 class="pagetitle">Dashboard</h2><p>${esc(headline)}</p><a class="btn primary" href="#/create">Create a new test</a>`;
   const exb = document.getElementById('exam-edit'); if (exb) exb.onclick = examDialog;
+  bindPerf();
   if (mascotOn()) Mascot.mount(document.getElementById('scene-slot'), { pose: acc !== null && acc >= 80 ? 'cheer' : 'idle', msg: esc(hello), scale: 6 });
 }
 
