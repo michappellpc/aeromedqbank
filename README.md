@@ -94,7 +94,7 @@ A Calculator button in the tools row of the question screen opens a floating cal
 
 ## Performance on the home page
 
-The dashboard has a "Performance" card. A Subject / Topic toggle picks the grouping, and a Recent / Overall / Both toggle picks which scores show. "Both" adds a Change column. "Recent means" sets the window (last 5 tests, last 10 tests, last 30 days). You can sort by name, recent score, overall score, change, or questions answered. Choices sync with the account. A "Recent correct" tile sits beside the overall tile. Logic is in `js/perf.js` and tested by `tools/test-perf.js`.
+The dashboard has a "Performance" card. A Subject / Topic toggle picks the grouping, and a Recent / Overall / Both toggle picks which scores show. "Both" adds a Change column. "Recent means" sets the window (last 5 tests, last 10 tests, last 30 days). You can sort by name, recent score, overall score, change, or questions answered. Choices sync with the account. The "Score trend" chart above it starts on Overall (the running percent correct across all tests). Buttons switch it to Recent (each test by itself), Both (solid and dashed lines), or Hide, and the choice syncs with the account. A "Recent correct" tile sits beside the overall tile. Logic is in `js/perf.js` and tested by `tools/test-perf.js`.
 
 ## Navigation
 

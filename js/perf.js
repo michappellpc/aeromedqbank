@@ -6,9 +6,15 @@
 })(typeof self !== 'undefined' ? self : this, function () {
   const RECENT = { t5: 'Your last 5 tests', t10: 'Your last 10 tests', d30: 'The last 30 days' };
   const SORTS = { weak: 'Weakest first', strong: 'Strongest first', most: 'Most answered', least: 'Least answered', up: 'Biggest improvement', down: 'Biggest drop', az: 'A to Z' };
-  const DEFAULTS = { group: 'subject', show: 'both', recent: 't5', sort: 'weak' };
+  const DEFAULTS = { group: 'subject', show: 'both', recent: 't5', sort: 'weak', trend: 'overall' };
   const pct = (c, n) => (n ? Math.round(100 * c / n) : null);
-  const clean = d => { const o = { ...DEFAULTS, ...(d || {}) }; if (!['subject', 'topic'].includes(o.group)) o.group = DEFAULTS.group; if (!['recent', 'overall', 'both'].includes(o.show)) o.show = DEFAULTS.show; if (!RECENT[o.recent]) o.recent = DEFAULTS.recent; if (!SORTS[o.sort]) o.sort = DEFAULTS.sort; return o; };
+  const clean = d => { const o = { ...DEFAULTS, ...(d || {}) }; if (!['subject', 'topic'].includes(o.group)) o.group = DEFAULTS.group; if (!['recent', 'overall', 'both'].includes(o.show)) o.show = DEFAULTS.show; if (!RECENT[o.recent]) o.recent = DEFAULTS.recent; if (!SORTS[o.sort]) o.sort = DEFAULTS.sort; if (!['overall', 'recent', 'both', 'off'].includes(o.trend)) o.trend = DEFAULTS.trend; return o; };
+
+  // Chart points, oldest first: each test's own score (recent) and the running score over every test up to and including it (overall)
+  function trend(tests, n = 12) {
+    let c = 0, t = 0;
+    return (tests || []).slice().reverse().map(x => { c += x.correct; t += x.total; return { recent: pct(x.correct, x.total), overall: pct(c, t) }; }).slice(-n);
+  }
 
   // tests: newest first, as the app keeps them
   function recentTests(tests, mode, now = Date.now()) {
@@ -54,5 +60,5 @@
     const cmp = { weak: nul(main, 1), strong: nul(main, -1), most: (a, b) => cnt(b) - cnt(a), least: (a, b) => cnt(a) - cnt(b), up: nul(r => r.change, -1), down: nul(r => r.change, 1), az: () => 0 }[sort] || (() => 0);
     return rows.map((r, i) => [r, i]).sort((a, b) => cmp(a[0], b[0]) || (sort === 'az' ? a[0].label.localeCompare(b[0].label) : 0) || a[1] - b[1]).map(x => x[0]);
   }
-  return { RECENT, SORTS, DEFAULTS, clean, recentTests, aggregate, sortRows };
+  return { RECENT, SORTS, DEFAULTS, clean, trend, recentTests, aggregate, sortRows };
 });
