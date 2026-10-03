@@ -313,10 +313,10 @@ function lineChart(lines, what) {                                           // o
 const TRENDS = { overall: 'Overall', recent: 'Recent', both: 'Both', off: 'Hide' };
 function paintTrend() {
   const el = document.getElementById('trend-card'); if (!el) return;
-  const mode = dashPrefs().trend, tr = Perf.trend(Store.data.tests);
+  const mode = dashPrefs().trend, tr = Perf.trend(Store.data.tests, 12, Perf.residual(Store.data.q, Store.data.tests));
   document.querySelectorAll('[data-pt]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.pt === mode)));
   const lines = mode === 'both' ? [{ name: 'Overall', vals: tr.map(p => p.overall) }, { name: 'Recent', vals: tr.map(p => p.recent) }] : [{ name: mode === 'recent' ? 'Recent' : 'Overall', vals: tr.map(p => p[mode === 'recent' ? 'recent' : 'overall']) }];
-  const note = { overall: 'Your overall score: the running percent correct across all your tests, after each one.', recent: 'Recent: the score on each test by itself.', both: 'Solid line: overall running score. Dashed line: the score on each test by itself.', off: '' }[mode];
+  const note = { overall: 'Your overall score: the running percent correct across every answer you have given, after each test. It ends at the Overall correct number above.', recent: 'Recent: the score on each test by itself.', both: 'Solid line: overall running score. Dashed line: the score on each test by itself.', off: '' }[mode];
   document.getElementById('trend-note').textContent = note;
   document.getElementById('trend-body').innerHTML = mode === 'off' ? '<p class="muted small">Chart hidden. Choose Overall, Recent or Both to show it again.</p>' : lineChart(lines, mode === 'both' ? 'overall and recent scores' : mode === 'recent' ? 'test scores' : 'overall scores');
 }

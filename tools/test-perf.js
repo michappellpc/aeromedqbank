@@ -65,4 +65,19 @@ t('trend default is overall', P.DEFAULTS.trend === 'overall' && P.clean({ trend:
   t('overall is the running score over all tests so far', tr[0].overall === 10 && tr[1].overall === 30 && tr[2].overall === 50);
   t('trend keeps only the last n but the running score still counts earlier tests', (() => { const a = P.trend([{ correct: 9, total: 10 }, { correct: 5, total: 10 }, { correct: 1, total: 10 }], 1); return a.length === 1 && a[0].overall === 50; })());
   t('no tests gives no points', P.trend([]).length === 0 && P.trend().length === 0); })();
+console.log('Overall trend matches the overall number');
+(() => {
+  const A = (c, w, n) => { const qids = [], answers = {}; for (let i = 0; i < n; i++) qids.push('q' + i); for (let i = 0; i < c + w; i++) answers['q' + i] = i < c ? 'A' : 'B'; return { qids, answers, correct: c, total: n }; };
+  const tests = [A(3, 1, 10), A(8, 2, 10)];                        // newest first: 8 of 10 answered, and an earlier test ended after 4 answers (3 right)
+  t('a test ended early counts only the questions it answered', P.trend([A(3, 1, 10)])[0].overall === 75 && P.trend([A(3, 1, 10)])[0].recent === 30);
+  const qstat = { a: { correct: 20, wrong: 5 }, b: { correct: 5, wrong: 5 } };    // 25 right, 10 wrong in all
+  const res = P.residual(qstat, tests);
+  t('answers outside finished tests are found', res.correct === 25 - 11 && res.total === (25 - 11) + (10 - 3));
+  const tr = P.trend(tests, 12, res), last = tr[tr.length - 1];
+  t('the overall line ends exactly at the overall correct number', last.overall === Math.round(100 * 25 / 35));
+  t('and the recent line still scores each test on its own', tr[0].recent === 80 && tr[1].recent === 30);
+  t('with nothing outside the tests there is no baseline', P.residual({ a: { correct: 11, wrong: 3 } }, tests).total === 0);
+  t('a record that holds more than the tests never goes negative', P.residual({ a: { correct: 1, wrong: 0 } }, tests).total === 0);
+  t('redoing questions does not change the match', (() => { const q2 = { a: { correct: 40, wrong: 20 } }, r = P.residual(q2, tests), x = P.trend(tests, 12, r); return x[x.length - 1].overall === Math.round(100 * 40 / 60); })());
+})();
 console.log(`\n${pass} passed, ${fail} failed`); process.exit(fail ? 1 : 0);
