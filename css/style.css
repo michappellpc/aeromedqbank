@@ -574,3 +574,4 @@ mark.hl{background:#ffe27a;color:#1c1c1c;border-radius:2px;padding:0 1px;cursor:
 .seg{display:inline-flex;border:1px solid var(--line);border-radius:var(--r);overflow:hidden}.seg button{border:0;border-radius:0;min-height:38px;padding:6px 14px;background:var(--card)}
 .seg button+button{border-left:1px solid var(--line)}.seg button[aria-pressed=true]{background:var(--btn);border-color:var(--btn);color:#fff}
 .perfctl select{width:auto}.chg{white-space:nowrap;font-weight:600}.chg.up{color:var(--good)}.chg.down{color:var(--bad)}.chg.flat{color:var(--muted)}
+.otd{list-style:none;margin:6px 0 0;padding:0}.otd li{padding:8px 0;border-top:1px solid var(--line)}.otd li:first-child{border-top:0}.otd b{margin-right:6px}
