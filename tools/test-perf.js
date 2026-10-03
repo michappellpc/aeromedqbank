@@ -80,4 +80,17 @@ console.log('Overall trend matches the overall number');
   t('a record that holds more than the tests never goes negative', P.residual({ a: { correct: 1, wrong: 0 } }, tests).total === 0);
   t('redoing questions does not change the match', (() => { const q2 = { a: { correct: 40, wrong: 20 } }, r = P.residual(q2, tests), x = P.trend(tests, 12, r); return x[x.length - 1].overall === Math.round(100 * 40 / 60); })());
 })();
+console.log('Everyone line');
+(() => {
+  const tests = [{ qids: ['c', 'd'], answers: { c: 'A' }, correct: 1, total: 2 }, { qids: ['a', 'b'], answers: { a: 'A', b: 'A' }, correct: 2, total: 2 }];   // newest first
+  const peer = { a: { pct: 80, users: 20 }, b: { pct: 60, users: 20 }, c: { pct: 40, users: 20 }, d: { pct: 10, users: 20 } };
+  const g = P.trendGroup(tests, peer);
+  t('each test averages everyone on its answered questions', g.length === 2 && g[0].recent === 70 && g[1].recent === 40);
+  t('a question left unanswered is not counted', g[1].recent === 40);
+  t('the running average covers every test so far', g[0].overall === 70 && g[1].overall === Math.round((80 + 60 + 40) / 3));
+  t('a test with no averages shows no data and the running value carries on', (() => { const x = P.trendGroup([{ qids: ['z'], answers: { z: 'A' }, correct: 0, total: 1 }, tests[1]], peer); return x[1].recent === null && x[1].overall === 70; })());
+  t('no averages at all gives nulls, and an empty peer list works', P.trendGroup(tests, {}).every(x => x.recent === null && x.overall === null) && P.trendGroup([], peer).length === 0 && P.trendGroup(tests).length === 2);
+  t('only the last n points are returned', P.trendGroup(tests, peer, 1).length === 1);
+  t('compare is on by default and can be turned off', P.DEFAULTS.compare === true && P.clean({ compare: false }).compare === false && P.clean({ compare: 'x' }).compare === true);
+})();
 console.log(`\n${pass} passed, ${fail} failed`); process.exit(fail ? 1 : 0);
