@@ -19,7 +19,7 @@ const Inbox = (() => {
     $app.innerHTML = `${Admin.tabs('inbox')}<div class="card"><div class="row spread"><div><h2 style="margin:0">Inbox</h2><p class="muted" style="margin:4px 0 0">${n} new &middot; ${rows.length} in total</p></div>
         <div class="row"><div><label for="ib-show" class="sr">Show</label><select id="ib-show" style="width:auto"><option value="new">New only</option><option value="open">New and read</option><option value="resolved">Resolved</option><option value="all">Everything</option></select></div>
           <div><label for="ib-kind" class="sr">Type</label><select id="ib-kind" style="width:auto"><option value="">Support and feedback</option><option value="support">Support only</option><option value="feedback">Question feedback only</option></select></div>
-          <button id="ib-claude" type="button" title="Copy the messages you are looking at, with their questions, to paste into Claude">Copy for Claude</button>${n ? '<button id="ib-all">Mark all read</button>' : ''}</div></div>${admin ? '' : '<p class="muted small">As a reviewer you see the messages but not who sent them.</p>'}</div>
+          <button id="ib-claude" type="button" aria-label="Copy these messages to paste into a chat" title="Copy the messages you are looking at, with their questions, to paste into a chat">Copy</button>${n ? '<button id="ib-all">Mark all read</button>' : ''}</div></div>${admin ? '' : '<p class="muted small">As a reviewer you see the messages but not who sent them.</p>'}</div>
       <div id="ib-list"></div>`;
     document.getElementById('ib-show').value = view.show; document.getElementById('ib-kind').value = view.kind;
     document.getElementById('ib-claude').onclick = async () => {

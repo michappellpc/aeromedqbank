@@ -51,7 +51,7 @@ const AdminLessons = (() => {
     const subjects = subjectsFor([]);
     $app.innerHTML = `${tabs('lessons')}
       <div class="card"><div class="row spread"><div><h2 style="margin:0">Lessons</h2><p class="muted" style="margin:4px 0 0">${n.live} live for members &middot; ${n.draft} draft (hidden) &middot; ${n.arch} archived</p></div>
-        <div class="row"><a class="btn primary" href="#/admin/lessons/new">Add a lesson</a><a class="btn" href="#/admin/lessons/import">Import from a chat</a><button id="claude" type="button" title="Copy the lessons you are looking at, to paste into Claude">Copy for Claude</button><button id="backup">Download backup</button></div></div></div>
+        <div class="row"><a class="btn primary" href="#/admin/lessons/new">Add a lesson</a><a class="btn" href="#/admin/lessons/import">Import from a chat</a><button id="claude" type="button" aria-label="Copy these lessons to paste into a chat" title="Copy the lessons you are looking at, to paste into a chat">Copy</button><button id="backup">Download backup</button></div></div></div>
       <div class="card"><form id="flt" class="filters" onsubmit="return false" aria-label="Filter lessons">
         <div><label for="fq">Search</label><input id="fq" type="search" value="${esc(view.q)}" placeholder="title or id"></div>
         <div><label for="fs">Subject</label><select id="fs"><option value="">All</option>${subjects.map(s => `<option${s === view.subject ? ' selected' : ''}>${esc(s)}</option>`).join('')}</select></div>

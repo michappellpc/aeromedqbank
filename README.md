@@ -43,9 +43,9 @@ The question screen has a **Hide ram** button (and **Show ram** to bring it back
 
 The Overview page's **Hardest questions** list shows only questions under 70% correct (with at least 3 answers, archived ones left out), hardest first, and links to Difficulty for first-try numbers.
 
-## Copy for Claude (Questions, Lessons, Flashcards, Inbox)
+## Copy (Questions, Lessons, Flashcards, Inbox)
 
-Each admin list has a **Copy for Claude** button. It builds one message from exactly what the list is showing, so your filters decide what goes (or just the rows you ticked), and lets you pick what Claude should do and add a note about how you like things done:
+Each admin list has a **Copy** button. It builds one message from exactly what the list is showing, so your filters decide what goes (or just the rows you ticked), and lets you pick what Claude should do and add a note about how you like things done:
 
 - **Questions:** check and fix errors, make harder, make easier, improve explanations, or only your note. It can include each question's measured performance (first-try percent, separation, the wrong choice picked most).
 - **Lessons:** check and fix errors, make clearer and shorter, add detail and pearls. **Flashcards:** check and fix, make shorter and clearer.
