@@ -565,3 +565,33 @@ mark.hl{background:#ffe27a;color:#1c1c1c;border-radius:2px;padding:0 1px;cursor:
 .seg button+button{border-left:1px solid var(--line)}.seg button[aria-pressed=true]{background:var(--btn);border-color:var(--btn);color:#fff}
 .perfctl select{width:auto}.chg{white-space:nowrap;font-weight:600}.chg.up{color:var(--good)}.chg.down{color:var(--bad)}.chg.flat{color:var(--muted)}
 .otd{list-style:none;margin:6px 0 0;padding:0}.otd li{padding:8px 0;border-top:1px solid var(--line)}.otd li:first-child{border-top:0}.otd b{margin-right:6px}
+
+/* ---- Professional polish: calm surfaces, clear hierarchy, readable questions ---- */
+:root{--shadow:0 1px 2px rgba(15,34,54,.05),0 6px 18px rgba(15,34,54,.05)}
+body{-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+.card{border-radius:12px;box-shadow:var(--shadow)}
+@media(prefers-color-scheme:dark){:root:not([data-theme=light]){--shadow:0 1px 2px rgba(0,0,0,.35),0 6px 18px rgba(0,0,0,.25)}}
+:root[data-theme=dark]{--shadow:0 1px 2px rgba(0,0,0,.35),0 6px 18px rgba(0,0,0,.25)}
+h1,h2,h3{letter-spacing:-.015em;line-height:1.25}
+h2{font-size:1.2rem}h3{font-size:1.05rem}
+button,.btn{border-radius:8px;font-weight:500;transition:background-color .15s,border-color .15s,box-shadow .15s}
+button:not(:disabled):not(.primary):not(.danger):not(.linkish):hover,.btn:not(.primary):hover{border-color:var(--accent);box-shadow:0 1px 4px rgba(15,34,54,.12)}
+button.primary:not(:disabled):hover,.btn.primary:hover{filter:brightness(1.1)}
+/* the question is the product: larger, calmer type and roomier choices */
+.stem{font-size:1.15rem;line-height:1.65}
+.opt{padding:13px 16px;border-radius:10px;font-size:1.03rem;transition:border-color .15s,background-color .15s}
+.opt .k{font-weight:700}
+.expl{font-size:1.02rem;line-height:1.65}
+table th{font-size:.75rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600}
+tbody tr:hover{background:color-mix(in srgb,var(--sel) 55%,transparent)}
+th,td{padding:9px 10px}
+/* navy and teal: the hero and its button follow the palette */
+:root[data-palette=navy] .cover-shade{background:linear-gradient(90deg,rgba(8,20,34,.82) 0,rgba(8,20,34,.4) 55%,rgba(8,20,34,0) 100%)}
+:root[data-palette=navy] .cover .btn.primary{background:#14a3a6;border-color:#14a3a6;color:#04222a}
+:root[data-palette=navy] .cover .btn.primary:hover{background:#1fbcc0;border-color:#1fbcc0;filter:none}
+/* sign in */
+.signin{margin:44px auto}.signin-brand{justify-content:center;margin-bottom:6px}.signin h2{text-align:center;margin-bottom:4px}
+.signin #si-foot .linkish,.signin .linkish{padding:0;display:inline}
+.signin .row{margin-top:14px}
+.heatmap td.none span{opacity:1}
+.trend .lastv{paint-order:stroke;stroke:var(--card);stroke-width:4px;stroke-linejoin:round}

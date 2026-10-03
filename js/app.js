@@ -71,9 +71,12 @@ function labelScrolls() { $app.querySelectorAll('.scroll').forEach(b => { const 
 function pageTitle(t) { const h = document.getElementById('page-title'); if (h) h.textContent = t; document.title = t + ' | AeroMedQBank'; }
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 
+// Navy and teal is the default for everyone. Olive and gold is used only when the member picked it in Settings (paletteChosen), so earlier saved values do not keep it.
+const palette = () => (Store.data.settings.palette === 'olive' && Store.data.settings.paletteChosen ? 'olive' : 'navy');
 function applyTheme() {
-  const pal = Store.data.settings.palette;
+  const pal = palette();
   if (pal === 'navy') document.documentElement.setAttribute('data-palette', 'navy'); else document.documentElement.removeAttribute('data-palette');
+  const tc = document.querySelector('meta[name=theme-color]'); if (tc) tc.setAttribute('content', pal === 'navy' ? '#0f2236' : '#2b3319');
   const t = Store.data.settings.theme;
   if (t === 'auto') document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme', t);
 }
@@ -745,7 +748,7 @@ function settings() {
   $app.innerHTML = `<div class="card"><h2>Settings</h2>
     <p><label for="theme">Light or dark</label> <select id="theme" style="width:auto">${['auto', 'light', 'dark'].map(v => `<option ${v === th ? 'selected' : ''}>${v}</option>`).join('')}</select></p>
     <p>Exam date: <b>${Store.data.settings.exam && validDate(Store.data.settings.exam.date) ? esc(new Date(Store.data.settings.exam.date + 'T12:00:00').toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })) : 'not set'}</b> <button id="exam-set" type="button">${Store.data.settings.exam && validDate(Store.data.settings.exam.date) ? 'Change' : 'Set'}</button></p>
-    <p><label for="palette">Color theme</label> <select id="palette" style="width:auto"><option value="olive"${Store.data.settings.palette !== 'navy' ? ' selected' : ''}>Olive and gold</option><option value="navy"${Store.data.settings.palette === 'navy' ? ' selected' : ''}>Navy and teal</option></select></p>
+    <p><label for="palette">Color theme</label> <select id="palette" style="width:auto"><option value="navy"${palette() === 'navy' ? ' selected' : ''}>Navy and teal</option><option value="olive"${palette() === 'olive' ? ' selected' : ''}>Olive and gold</option></select></p>
     ${!Cloud.enabled || Admin.isEditor() ? `<label class="chk"><input type="checkbox" id="drafts" ${showDrafts() ? 'checked' : ''}> Include draft questions that a physician has not yet reviewed</label>` : ''}
     <label class="chk"><input type="checkbox" id="mascot" ${mascotOn() ? 'checked' : ''}> Show the mascot and encouragement</label></div>
     ${Cloud.enabled ? `<div class="card"><h3>Account</h3>
@@ -778,7 +781,7 @@ function settings() {
   };
   document.getElementById('mascot').onchange = e => { Store.data.settings.mascot = e.target.checked; Store.save(); };
   document.getElementById('exam-set').onclick = examDialog;
-  document.getElementById('palette').onchange = e => { Store.data.settings.palette = e.target.value === 'navy' ? 'navy' : 'olive'; Store.touchSettings(); applyTheme(); };
+  document.getElementById('palette').onchange = e => { Store.data.settings.palette = e.target.value === 'olive' ? 'olive' : 'navy'; Store.data.settings.paletteChosen = true; Store.touchSettings(); applyTheme(); };
   document.getElementById('theme').onchange = e => { Store.data.settings.theme = e.target.value; Store.touchSettings(); applyTheme(); };
   if (!Cloud.enabled) {
     document.getElementById('exp').onclick = () => {
