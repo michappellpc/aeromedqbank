@@ -691,3 +691,9 @@ section.rep-sec:not(.card){padding:0 2px}
 @media print{.objshow{break-inside:avoid}}
 .picks{display:flex;flex-wrap:wrap;gap:4px 12px;margin-top:4px}.picks .pk.right{color:var(--good);font-weight:600}.fpick{align-self:end}
 .prountil[hidden]{display:none}.prountil .presets{gap:6px;margin-top:6px}.prountil .presets button{padding:4px 10px;min-height:0;font-size:.85rem}
+
+.calctrigb{margin-left:auto;margin-right:6px;padding:2px 10px;min-height:30px;font-weight:600}.calctrigb[aria-pressed=true]{background:var(--sel);border-color:var(--accent)}
+.calcang{margin-right:8px;padding:2px 10px;min-height:30px;font-weight:600}
+.calc:not(.trig) .calckeys .tg{display:none}
+.calc{max-height:calc(100vh - 110px);overflow:auto}
+@media(max-width:600px){.calc{max-height:calc(100vh - 150px)}}
