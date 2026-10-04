@@ -176,7 +176,7 @@ Program names are visible to anyone on the sign-up page, so name them genericall
 
 **Add, edit, review or remove questions:** **Admin > Questions** (see docs/QUESTION-GUIDE.md). Give physician reviewers the `reviewer` role so they can review without seeing member data. Use **Download backup** now and then.
 
-**See how the group is doing:** **Admin** shows members, how many questions each has answered, and the hardest questions. **Download CSV** exports the member list.
+**See how the group is doing:** **Admin** shows members, how many questions each has answered, and recent activity (questions answered and percent correct over the last day, week, month and more). **Download CSV** exports the member list.
 
 **Make a question or person "free" vs "pro":** every question has a `tier` and every person a `plan`. A `pro` plan sees everything, a `free` plan only sees `free` questions. Right now everyone you add is `pro`, so tiers do nothing until you decide to charge.
 

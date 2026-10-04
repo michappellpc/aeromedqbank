@@ -3,7 +3,7 @@
 // Loaded before app.js; it uses app.js's helpers (esc, ask, toast, pageTitle, bank, profile, $app) when it runs.
 const Admin = (() => {
   let cache = null;                       // { list, stats: Map(id -> {attempts, pct}) }
-  const view = { q: '', board: '', subject: '', status: '', show: 'active', tier: '', check: '', diff: '', sort: '', flag: '', data: '', min: '', max: '', page: 0, sel: new Set(), open: new Set() };
+  const view = { q: '', board: '', subject: '', status: '', show: 'active', tier: '', check: '', diff: '', sort: '', picks: (() => { try { return localStorage.getItem('qbank.picks') === '1'; } catch { return false; } })(), flag: '', data: '', min: '', max: '', page: 0, sel: new Set(), open: new Set() };
   const PAGE = 50;
   const role = () => (profile && profile.role) || '';
   const isEditor = () => role() === 'admin' || role() === 'reviewer';
@@ -70,13 +70,12 @@ const Admin = (() => {
         <div><label for="fsh">Show</label><select id="fsh"><option value="active">Active</option><option value="archived">Archived</option><option value="all">Both</option></select></div>
         <div><label for="ft">Tier</label><select id="ft"><option value="">All</option><option value="free">Free</option><option value="pro">Pro</option></select></div>
         <div><label for="fd">Difficulty</label><select id="fd"><option value="">All</option><option value="1">Easy</option><option value="2">Medium</option><option value="3">Hard</option></select></div>
-        <div><label for="fo">Sort by</label><select id="fo"><option value="">ID</option><option value="hard">Label: hardest first</option><option value="easy">Label: easiest first</option>${AdminItems.SORTS.map(([v, t]) => `<option value="${v}">${t}</option>`).join('')}</select></div>
+        <div><label for="fo">Sort by</label><select id="fo"><option value="">ID</option><option value="hard">Label: hardest first</option><option value="easy">Label: easiest first</option><option value="pc-low">% correct: lowest first</option><option value="pc-high">% correct: highest first</option><option value="n-most">Answered by the most people</option><option value="n-least">Answered by the fewest people</option>${AdminItems.SORTS.map(([v, t]) => `<option value="${v}">${t}</option>`).join('')}</select></div>
         <div><label for="fl">Checks</label><select id="fl"><option value="">All questions</option><option value="long">Correct answer much longer</option></select></div>
         <div><label for="ffl">Flag</label><select id="ffl"><option value="">Any</option><option value="any">Has any flag</option>${AdminItems.FLAGS.map(f => `<option value="${f}">${esc(ItemStats.FLAG_TEXT[f][0])}</option>`).join('')}</select></div>
         <div><label for="fdt">Data</label><select id="fdt"><option value="">All</option><option value="judged">Enough answers</option><option value="few">Too few answers</option></select></div>
-        <div><label for="fmin">% correct from</label><input id="fmin" type="number" min="0" max="100" value="${esc(view.min)}"></div><div><label for="fmax">to</label><input id="fmax" type="number" min="0" max="100" value="${esc(view.max)}"></div></form></div>
-      <div id="bulk"></div><div class="card" id="qres"></div>
-      <div class="card row spread" id="qbottom"><div class="row"><button id="copysel" type="button" disabled>Copy selected (0)</button><span class="muted small" id="copyhint">Tick questions in the table, then copy just those to paste into a chat.</span></div></div>`;
+        <div><label for="fmin">% correct from</label><input id="fmin" type="number" min="0" max="100" value="${esc(view.min)}"></div><div><label for="fmax">to</label><input id="fmax" type="number" min="0" max="100" value="${esc(view.max)}"></div><div class="fpick"><label class="chk"><input type="checkbox" id="fpk"${view.picks ? ' checked' : ''}> Show what members picked under each question</label></div></form></div>
+      <div id="bulk"></div><div class="card" id="qres"></div>`;
     const set = (id, v) => { document.getElementById(id).value = v; };
     const fillSubjects = () => { const s = document.getElementById('fs'); s.innerHTML = '<option value="">All</option>' + subjectsFor(view.board ? [view.board] : []).map(x => `<option${x === view.subject ? ' selected' : ''}>${esc(x)}</option>`).join(''); };
     fillSubjects(); set('ffl', view.flag); set('fdt', view.data); set('fst', view.status); set('fsh', view.show); set('ft', view.tier); set('fl', view.check || ''); set('fd', view.diff); set('fo', view.sort);
@@ -91,6 +90,7 @@ const Admin = (() => {
     on('fo', 'change', e => { view.sort = e.target.value; view.page = 0; paint(); });
     on('fl', 'change', e => { view.check = e.target.value; view.page = 0; paint(); });
     on('ffl', 'change', e => { view.flag = e.target.value; view.page = 0; paint(); }); on('fdt', 'change', e => { view.data = e.target.value; view.page = 0; paint(); });
+    on('fpk', 'change', e => { view.picks = e.target.checked; try { localStorage.setItem('qbank.picks', view.picks ? '1' : '0'); } catch {} paint(); });
     on('fmin', 'input', e => { view.min = e.target.value; view.page = 0; paint(); }); on('fmax', 'input', e => { view.max = e.target.value; view.page = 0; paint(); });
     document.getElementById('secsum').addEventListener('toggle', e => { try { localStorage.setItem('qbank.secsum', e.target.open ? 'open' : 'closed'); } catch {} });
     paintSections();
@@ -101,11 +101,6 @@ const Admin = (() => {
     on('backup', 'click', () => backup(c.list));
     on('claude', 'click', () => Handoff.open({ kind: 'questions', items: lastRows, selected: [], importHash: '#/admin/questions/import', describe: describeView(),
       stats: AdminItems.ready() ? q => ItemStats.statLine(AdminItems.get(q.id)) : null, lessons: bank.lessons || [], currentLesson: lessonLinkFor }));
-    on('copysel', 'click', () => {
-      const chosen = cache.list.filter(q => view.sel.has(q.id)); if (!chosen.length) return;
-      Handoff.open({ kind: 'questions', items: chosen, selected: [], importHash: '#/admin/questions/import', describe: `${chosen.length} selected question${chosen.length === 1 ? '' : 's'}`,
-        stats: AdminItems.ready() ? q => ItemStats.statLine(AdminItems.get(q.id)) : null, lessons: bank.lessons || [], currentLesson: lessonLinkFor });
-    });
     paint();
   }
 
@@ -137,15 +132,21 @@ const Admin = (() => {
       (!w || q.id.includes(w) || (q.topic || '').toLowerCase().includes(w) || q.stem.toLowerCase().includes(w)));
   };
 
+  // What members chose on their first try, one line: "A 12% · B 3% · C 70% (correct) · D 15% · 40 first tries"
+  const picksLine = q => {
+    const i = AdminItems.get(q.id); if (!AdminItems.ready()) return '<div class="muted small">Picks need the latest schema.</div>';
+    if (!i || !i.n) return '<div class="muted small">No answers yet.</div>';
+    return `<div class="small picks" aria-label="What members picked on their first try">${i.options.map(o => `<span class="pk${o.correct ? ' right' : ''}"><b>${esc(o.id)}</b> ${o.share}%${o.correct ? ' <span class="sr">(correct)</span>' : ''}<span class="muted"> (${o.n})</span></span>`).join('')}<span class="muted"> ${i.n} first tries</span></div>`;
+  };
   function paint() {
-    const dir = view.sort === 'hard' ? -1 : view.sort === 'easy' ? 1 : 0, rows = filtered().sort((a, b) => { const m = AdminItems.sorter(view.sort); if (m) return m(AdminItems.get(a.id) || { attention: 0, flags: [] }, AdminItems.get(b.id) || { attention: 0, flags: [] }) || a.id.localeCompare(b.id); return dir ? dir * ((a.difficulty || 2) - (b.difficulty || 2)) || a.id.localeCompare(b.id) : 0; }), pages = Math.max(1, Math.ceil(rows.length / PAGE)); view.page = Math.min(view.page, pages - 1);
+    const dir = view.sort === 'hard' ? -1 : view.sort === 'easy' ? 1 : 0, st = id => cache.stats.get(id) || { attempts: 0, pct: null }, STAT = { 'pc-low': (a, b) => (st(a.id).attempts ? st(a.id).pct : 101) - (st(b.id).attempts ? st(b.id).pct : 101), 'pc-high': (a, b) => (st(b.id).attempts ? st(b.id).pct : -1) - (st(a.id).attempts ? st(a.id).pct : -1), 'n-most': (a, b) => st(b.id).attempts - st(a.id).attempts, 'n-least': (a, b) => st(a.id).attempts - st(b.id).attempts }, rows = filtered().sort((a, b) => { if (STAT[view.sort]) return STAT[view.sort](a, b) || a.id.localeCompare(b.id); const m = AdminItems.sorter(view.sort); if (m) return m(AdminItems.get(a.id) || { attention: 0, flags: [] }, AdminItems.get(b.id) || { attention: 0, flags: [] }) || a.id.localeCompare(b.id); return dir ? dir * ((a.difficulty || 2) - (b.difficulty || 2)) || a.id.localeCompare(b.id) : 0; }), pages = Math.max(1, Math.ceil(rows.length / PAGE)); view.page = Math.min(view.page, pages - 1);
     lastRows = rows; const extra = AdminItems.ready(), slice = rows.slice(view.page * PAGE, view.page * PAGE + PAGE), all = slice.length && slice.every(q => view.sel.has(q.id));
     const tag = q => q.archived ? '<span class="tag archived">Archived</span>' : q.status === 'reviewed' ? `<span class="tag reviewed">Reviewed</span>${q.reviewedBy ? ` <span class="muted">${esc(q.reviewedBy)}</span>` : ''}` : '<span class="tag draft">Draft</span>';
     document.getElementById('qres').innerHTML = rows.length ? `<div class="scroll" role="region" tabindex="0" aria-label="Questions table"><table class="qtable"><caption class="sr">Questions, ${rows.length} shown</caption><thead><tr>
       <th scope="col"><input type="checkbox" id="selall" aria-label="Select all shown"${all ? ' checked' : ''}></th><th scope="col">ID</th><th scope="col">Subject</th><th scope="col">Status</th><th scope="col">Difficulty</th><th scope="col">Tier</th><th scope="col">Answered</th><th scope="col">Updated</th>${extra ? '<th scope="col"><span class="sr">Details</span></th>' : ''}</tr></thead><tbody>${slice.map(q => {
       const s = cache.stats.get(q.id);
       return `<tr${q.archived ? ' class="dim"' : ''}><td><input type="checkbox" data-sel="${esc(q.id)}" aria-label="Select ${esc(q.id)}"${view.sel.has(q.id) ? ' checked' : ''}></td>
-        <td><a href="#/admin/questions/edit/${esc(q.id)}">${esc(q.id)}</a><div class="muted small">${esc((q.stem || '').slice(0, 70))}${q.stem && q.stem.length > 70 ? '...' : ''}</div></td>
+        <td><a href="#/admin/questions/edit/${esc(q.id)}">${esc(q.id)}</a><div class="muted small">${esc((q.stem || '').slice(0, 70))}${q.stem && q.stem.length > 70 ? '...' : ''}</div>${view.picks ? picksLine(q) : ''}</td>
         <td>${esc(q.subject)}<div class="muted small">${esc(q.topic || '')}</div></td><td>${tag(q)}${QValidate.lengthTell(q) ? ' <span class="tag" title="The correct answer is much longer than the other choices">Long answer</span>' : ''}</td><td>${['', 'Easy', 'Medium', 'Hard'][q.difficulty || 2]}</td><td>${esc(q.tier)}</td>
         <td>${s && s.attempts ? `${s.attempts} &middot; ${Math.round(s.pct)}%` : '-'}</td><td>${day(q.updatedAt)}<div class="muted small">${esc(q.updatedBy)}</div></td>${extra ? `<td><button type="button" data-open="${esc(q.id)}" aria-expanded="${view.open.has(q.id)}" aria-label="${view.open.has(q.id) ? 'Hide' : 'Show'} the numbers for ${esc(q.id)}">${view.open.has(q.id) ? 'Hide' : 'Details'}</button></td>` : ''}</tr>${extra && view.open.has(q.id) ? `<tr class="detailrow"><td></td><td colspan="8">${AdminItems.detail(AdminItems.get(q.id))}</td></tr>` : ''}`;
     }).join('')}</tbody></table></div>
@@ -164,17 +165,21 @@ const Admin = (() => {
 
   function bulkBar() {
     const ids = [...view.sel].filter(id => cache.list.some(q => q.id === id)), box = document.getElementById('bulk');
-    const cs = document.getElementById('copysel'); if (cs) { cs.disabled = !ids.length; cs.textContent = `Copy selected (${ids.length})`; }
     if (!ids.length) { box.innerHTML = ''; return; }
     const chosen = cache.list.filter(q => ids.includes(q.id)), allArch = chosen.every(q => q.archived), anyArch = chosen.some(q => q.archived);
     box.innerHTML = `<div class="card bulkbar" role="region" aria-label="Actions for selected questions"><b>${ids.length} selected</b>
       <button data-b="review">Mark reviewed (publish)</button><button data-b="draft">Mark draft (hide)</button>${allArch ? '<button data-b="restore">Restore</button>' : '<button data-b="archive">Archive</button>'}
-      <button data-b="free">Set tier: free</button><button data-b="pro">Set tier: pro</button>${AdminItems.ready() ? `<button data-b="relabel" title="Change each label to the difficulty members actually find">Set label from data</button>` : ''}${AdminItems.ready() ? '<button data-b="csv">CSV of selected</button>' : ''}${allArch ? '<button data-b="delete" class="danger">Delete permanently</button>' : ''}<button data-b="clear" class="linkish">Clear</button></div>`;
+      <button data-b="free">Set tier: free</button><button data-b="pro">Set tier: pro</button>${AdminItems.ready() ? `<button data-b="relabel" title="Change each label to the difficulty members actually find">Set label from data</button>` : ''}${AdminItems.ready() ? '<button data-b="csv">CSV of selected</button>' : ''}<button data-b="copy" title="Copy the selected questions to paste into a chat">Copy selected</button>${allArch ? '<button data-b="delete" class="danger">Delete permanently</button>' : ''}<button data-b="clear" class="linkish">Clear</button></div>`;
     box.querySelectorAll('[data-b]').forEach(b => b.onclick = () => bulk(b.dataset.b, ids, anyArch));
   }
 
   async function bulk(kind, ids) {
     if (kind === 'clear') { view.sel.clear(); return paint(); }
+    if (kind === 'copy') {
+      const chosen = cache.list.filter(q => ids.includes(q.id)); if (!chosen.length) return;
+      return Handoff.open({ kind: 'questions', items: chosen, selected: [], importHash: '#/admin/questions/import', describe: `${chosen.length} selected question${chosen.length === 1 ? '' : 's'}`,
+        stats: AdminItems.ready() ? q => ItemStats.statLine(AdminItems.get(q.id)) : null, lessons: bank.lessons || [], currentLesson: lessonLinkFor });
+    }
     if (['relabel', 'csv'].includes(kind)) { try { if (await AdminItems.act(kind, ids)) { view.sel.clear(); refresh(); AdminItems.reset(); list(); } } catch (e) { toast(e.offline ? 'No connection. Nothing was changed.' : 'That did not work: ' + e.message); } return; }
     const n = ids.length, s = n === 1 ? 'question' : 'questions';
     try {

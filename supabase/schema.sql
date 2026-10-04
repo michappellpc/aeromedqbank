@@ -624,6 +624,23 @@ begin
     group by q.id order by q.id;
 end $$;
 
+-- How much the group has answered lately, for the admin Overview: one row per window of hours, counting every try by active members.
+-- hours = 0 means all time. questions is how many different questions were answered, members how many different people answered.
+drop function if exists public.admin_recent_activity(int[]);
+create function public.admin_recent_activity(windows int[] default array[24, 48, 72, 168, 336, 720, 2160, 0])
+  returns table (hours int, attempts bigint, correct bigint, questions bigint, members bigint)
+  language plpgsql stable security definer set search_path = public as
+$$
+begin
+  if not public.is_admin() then raise exception 'admins only'; end if;
+  return query
+    select w.h, count(a.id), count(a.id) filter (where a.ok), count(distinct a.question_id), count(distinct a.user_id)
+    from unnest(windows) as w(h)
+    left join (select t.id, t.ok, t.question_id, t.user_id, t.at from public.attempts t join public.profiles p on p.id = t.user_id and p.active) a
+      on w.h = 0 or a.at >= now() - make_interval(hours => w.h)
+    group by w.h order by case when w.h = 0 then 2147483647 else w.h end;
+end $$;
+
 -- Item analysis for the admin Difficulty tab. One row per question. Each member's FIRST try is what counts for difficulty (repeat tries are
 -- recall, not difficulty). disc is how well the question separates strong from weak members: the share of the top 27% (by first-try accuracy on
 -- everything, members with at least 20 answers) who got it right minus the share of the bottom 27%; null until at least 5 members sit in each
@@ -1148,6 +1165,7 @@ revoke execute on all functions in schema public from public, anon;
 grant execute on function public.is_active(), public.is_admin(), public.can_edit(), public.has_plan(text) to authenticated;
 grant execute on function public.my_progress(), public.touch_seen(), public.reset_my_progress() to authenticated;
 grant execute on function public.admin_member_summary(), public.admin_question_stats(), public.admin_item_analysis(boolean, boolean) to authenticated;
+grant execute on function public.admin_recent_activity(int[]) to authenticated;
 grant execute on function public.signup_open() to anon, authenticated;
 grant execute on function public.feedback_inbox(), public.feedback_unread_count() to authenticated;
 grant execute on function public.feedback_set(bigint, text, text) to authenticated;

@@ -626,4 +626,19 @@ has "an empty code is refused"                                  "questions_objec
 has "more than twelve are refused"                              "questions_objectives_ok" "$(as admin "update questions set objectives = array(select 'aem:K1.' || g from generate_series(1,13) g) where id = 'q-free';" 2>&1)"
 eq  "twelve are fine"                                           "12" "$(as admin "update questions set objectives = array(select 'aem:K1.' || g from generate_series(1,12) g) where id = 'q-free' returning cardinality(objectives);" | head -1)"
 eq  "tags can be cleared"                                       "{}" "$(as admin "update questions set objectives = '{}' where id = 'q-free' returning objectives; commit;" | head -1)"
+echo; echo "Recent activity"
+root "insert into attempts (user_id, question_id, ok, client_id, at) values ('${U[a]}', 'q-free', false, 'old1', now() - interval '5 days'), ('${U[a]}', 'q-pro', true, 'old2', now() - interval '40 days');" >/dev/null
+act() { as admin "select attempts||'|'||correct||'|'||questions||'|'||members from admin_recent_activity('{$1}') where hours = $1;"; }
+want() { root "select count(*)||'|'||count(*) filter (where t.ok)||'|'||count(distinct t.question_id)||'|'||count(distinct t.user_id) from attempts t join profiles p on p.id = t.user_id and p.active where $1;"; }
+eq  "the last 24 hours match a direct count"          "$(want "t.at >= now() - interval '24 hours'")" "$(act 24)"
+eq  "the last 48 hours leave out a try from five days ago" "$(want "t.at >= now() - interval '48 hours'")" "$(act 48)"
+eq  "one week takes in the five-day-old try"            "$(want "t.at >= now() - interval '168 hours'")" "$(act 168)"
+eq  "one week is bigger than 48 hours"                  "t" "$(as admin "select (select attempts from admin_recent_activity('{48,168}') where hours = 168) > (select attempts from admin_recent_activity('{48,168}') where hours = 48);")"
+eq  "all time (0) counts every active member's try"     "$(want "true")" "$(act 0)"
+eq  "a window with nothing in it reads zero"            "0|0|0|0" "$(as admin "select attempts||'|'||correct||'|'||questions||'|'||members from admin_recent_activity('{1}') where hours = 1 and false union all select '0|0|0|0';" | head -1)"
+eq  "the default call returns a row per window, all time last" "24,48,72,168,336,720,2160,0" "$(as admin "select string_agg(hours::text, ',') from (select hours from admin_recent_activity()) z;")"
+has "a member cannot read it"                           "admins only" "$(as a "select * from admin_recent_activity();")"
+has "a reviewer cannot read it"                         "admins only" "$(as rev "select * from admin_recent_activity();")"
+has "signed-out visitors cannot read it"                "permission denied" "$(as anon "select * from admin_recent_activity();")"
+root "delete from attempts where client_id in ('old1','old2');" >/dev/null
 echo; echo "$PASS passed, $FAIL failed"; [[ $FAIL -eq 0 ]]
