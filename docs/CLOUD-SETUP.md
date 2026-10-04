@@ -170,7 +170,7 @@ Program names are visible to anyone on the sign-up page, so name them genericall
 
 ## Everyday tasks
 
-**Add, change or remove a person:** use **Admin > Approved emails** in the app. **Add member** creates the account (step 4A), **Edit** changes role, plan, program and note, and sets **Pro until** (quick buttons for +3 months, +6 months, +1 year or no end date; pro works through that last day, then the person is treated as free with their progress kept; run the latest `supabase/schema.sql` once to add this), **Reset password** makes a temporary password, **Remove** locks them out but keeps their history, and **Delete account** (inside Edit) erases the account and all of their data for good.
+**Add, change or remove a person:** use **Admin > Approved emails** in the app. **Add member** creates the account (step 4A), **Edit** changes role, plan, program and note, and sets **Full name** and **Pro until** (quick buttons for +3 months, +6 months, +1 year or no end date; pro works through that last day, then the person is treated as free with their progress kept; run the latest `supabase/schema.sql` once to add this), **Reset password** makes a temporary password, **Remove** locks them out but keeps their history, and **Delete account** (inside Edit) erases the account and all of their data for good.
 
 **A resident forgot their password:** they use **Forgot password** on the sign-in screen (needs email set up), or you set a new one for them under Authentication > Users. Everyone can change their own password in **Settings**.
 

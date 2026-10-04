@@ -159,6 +159,9 @@ alter table public.profiles add column if not exists program_id text references 
 -- When pro access ends (the last day it works). Null = no end date. After it, the person is treated as free without anyone changing anything.
 alter table public.allowed_emails add column if not exists pro_until date;
 alter table public.profiles add column if not exists pro_until date;
+-- A full name an admin gives someone (before or after they sign up). It becomes their display name; they can still change it themselves in Settings, and an
+-- admin's later edit of something else on the list does not overwrite that: the name only flows across when the admin changes it.
+alter table public.allowed_emails add column if not exists full_name text check (full_name is null or char_length(full_name) between 1 and 60);
 alter table public.profiles add column if not exists program_status text check (program_status in ('pending', 'approved'));
 alter table public.questions add column if not exists archived boolean not null default false;
 alter table public.questions add column if not exists updated_by text;
@@ -327,15 +330,15 @@ begin
   listed := found;                                             -- FOUND is reset by every SELECT, so keep this one
   select id into pid from public.programs where id = want and active;
   if listed and invited then
-    insert into public.profiles (id, email, active, role, plan, pro_until, program_id, program_status)
-      values (new.id, lower(new.email), true, a.role, a.plan, case when a.plan = 'pro' then a.pro_until end, a.program_id, case when a.program_id is null then null else 'approved' end);
+    insert into public.profiles (id, email, display_name, active, role, plan, pro_until, program_id, program_status)
+      values (new.id, lower(new.email), a.full_name, true, a.role, a.plan, case when a.plan = 'pro' then a.pro_until end, a.program_id, case when a.program_id is null then null else 'approved' end);
   elsif public.signup_open() and not invited then
     if not listed then insert into public.allowed_emails (email, role, plan, note) values (lower(new.email), 'member', 'free', 'self sign-up'); end if;
     insert into public.profiles (id, email, active, role, plan, program_id, program_status)
       values (new.id, lower(new.email), true, 'member', 'free', pid, case when pid is null then null else 'pending' end);
   else
-    insert into public.profiles (id, email, active, role, plan, pro_until, program_id, program_status)
-      values (new.id, lower(new.email), a.email is not null, coalesce(a.role, 'member'), coalesce(a.plan, 'free'), case when a.plan = 'pro' then a.pro_until end, a.program_id, case when a.program_id is null then null else 'approved' end);
+    insert into public.profiles (id, email, display_name, active, role, plan, pro_until, program_id, program_status)
+      values (new.id, lower(new.email), a.full_name, a.email is not null, coalesce(a.role, 'member'), coalesce(a.plan, 'free'), case when a.plan = 'pro' then a.pro_until end, a.program_id, case when a.program_id is null then null else 'approved' end);
   end if;
   return new;
 end $$;
@@ -355,6 +358,7 @@ begin
   -- Faculty mirror the program on the list. A resident the admin puts in a program is approved at once; a row with no program
   -- leaves a resident's own request alone.
   update public.profiles set active = true, role = new.role, plan = new.plan, pro_until = case when new.plan = 'pro' then new.pro_until else null end,
+    display_name = case when tg_op = 'UPDATE' and new.full_name is distinct from old.full_name or tg_op = 'INSERT' and new.full_name is not null then new.full_name else display_name end,
     program_id = case when new.role = 'faculty' or new.program_id is not null then new.program_id else program_id end,
     program_status = case when new.role = 'faculty' or new.program_id is not null then (case when new.program_id is null then null else 'approved' end) else program_status end
   where lower(email) = new.email;
