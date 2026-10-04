@@ -4,7 +4,7 @@
 const AdminCards = (() => {
   const { tabs, askText, note } = Admin;
   let cache = null;
-  const view = { q: '', subject: '', status: '', show: 'active', sel: new Set(), page: 0 };
+  const view = { q: '', subject: '', status: '', tag: '', show: 'active', sel: new Set(), page: 0 };
   const PAGE = 50;
   const refresh = () => { cache = null; };
   const slug = s => String(s || '').toLowerCase().replace(/&/g, ' ').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'card';
@@ -29,7 +29,7 @@ const AdminCards = (() => {
   // ------------------------------------------------------------------ list
   const filtered = () => {
     const w = view.q.trim().toLowerCase();
-    return cache.list.filter(c => (view.show === 'all' || (view.show === 'archived') === c.archived) && (!view.subject || c.subject === view.subject) && (!view.status || c.status === view.status)
+    return cache.list.filter(c => (view.show === 'all' || (view.show === 'archived') === c.archived) && (!view.subject || c.subject === view.subject) && (!view.status || c.status === view.status) && (!view.tag || (view.tag === 'none') === !((c.objectives || []).length))
       && (!w || c.id.includes(w) || c.front.toLowerCase().includes(w) || c.back.toLowerCase().includes(w) || (c.topic || '').toLowerCase().includes(w)));
   };
   const tag = c => c.archived ? '<span class="tag archived">Archived</span>' : c.status === 'reviewed' ? `<span class="tag reviewed">Live</span>${c.reviewedBy ? ` <span class="muted">${esc(c.reviewedBy)}</span>` : ''}` : '<span class="tag draft">Draft (hidden)</span>';
@@ -47,13 +47,14 @@ const AdminCards = (() => {
         <div><label for="fq">Search</label><input id="fq" type="search" value="${esc(view.q)}" placeholder="id, topic, or words on the card"></div>
         <div><label for="fs">Subject</label><select id="fs"><option value="">All</option>${subjects.map(s => `<option${s === view.subject ? ' selected' : ''}>${esc(s)}</option>`).join('')}</select></div>
         <div><label for="fst">Status</label><select id="fst"><option value="">All</option><option value="draft">Draft</option><option value="reviewed">Reviewed</option></select></div>
-        <div><label for="fsh">Show</label><select id="fsh"><option value="active">Active</option><option value="archived">Archived</option><option value="all">Both</option></select></div></form></div>
+        <div><label for="fot">Outline tags</label><select id="fot"><option value="">All</option><option value="none">Not tagged yet (${cache.list.filter(x => !x.archived && !(x.objectives || []).length).length})</option><option value="some">Tagged</option></select></div><div><label for="fsh">Show</label><select id="fsh"><option value="active">Active</option><option value="archived">Archived</option><option value="all">Both</option></select></div></form></div>
       <div id="bulk"></div><div class="card" id="cres"></div>`;
     const el = id => document.getElementById(id);
-    el('fst').value = view.status; el('fsh').value = view.show;
+    el('fst').value = view.status; el('fsh').value = view.show; el('fot').value = view.tag;
     el('fq').oninput = e => { view.q = e.target.value; view.page = 0; paint(); };
     el('fs').onchange = e => { view.subject = e.target.value; view.page = 0; paint(); };
     el('fst').onchange = e => { view.status = e.target.value; view.page = 0; paint(); };
+    el('fot').onchange = e => { view.tag = e.target.value; view.page = 0; paint(); };
     el('fsh').onchange = e => { view.show = e.target.value; view.page = 0; paint(); };
     el('claude').onclick = () => Handoff.open({ kind: 'cards', items: lastRows, selected: [...view.sel], importHash: '#/admin/cards/import',
       describe: (() => { const p = []; if (view.q) p.push(`search "${view.q}"`); if (view.subject) p.push(view.subject); if (view.status) p.push(view.status === 'reviewed' ? 'live' : 'draft'); if (view.show !== 'active') p.push(view.show === 'all' ? 'including archived' : 'archived'); return p.length ? 'filters: ' + p.join(', ') : 'no filters'; })() });

@@ -4,7 +4,7 @@
 const AdminLessons = (() => {
   const { tabs, askText, note } = Admin;
   let cache = null;
-  const view = { q: '', subject: '', status: '', show: 'active', sel: new Set() };
+  const view = { q: '', subject: '', status: '', tag: '', show: 'active', sel: new Set() };
   const refresh = () => { cache = null; Admin.changed = true; };
   const slug = s => String(s || '').toLowerCase().replace(/&/g, ' ').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 48) || 'lesson';
   const day = t => (t ? new Date(t).toLocaleDateString() : '-');
@@ -39,7 +39,7 @@ const AdminLessons = (() => {
   // ------------------------------------------------------------------ list
   const filtered = () => {
     const w = view.q.trim().toLowerCase();
-    return cache.list.filter(l => (view.show === 'all' || (view.show === 'archived') === l.archived) && (!view.subject || l.subject === view.subject) && (!view.status || l.status === view.status)
+    return cache.list.filter(l => (view.show === 'all' || (view.show === 'archived') === l.archived) && (!view.subject || l.subject === view.subject) && (!view.status || l.status === view.status) && (!view.tag || (view.tag === 'none') === !((l.objectives || []).length))
       && (!w || l.id.includes(w) || l.title.toLowerCase().includes(w)));
   };
   const tag = l => l.archived ? '<span class="tag archived">Archived</span>' : l.status === 'reviewed' ? `<span class="tag reviewed">Live</span>${l.reviewedBy ? ` <span class="muted">${esc(l.reviewedBy)}</span>` : ''}` : '<span class="tag draft">Draft (hidden)</span>';
@@ -56,12 +56,12 @@ const AdminLessons = (() => {
         <div><label for="fq">Search</label><input id="fq" type="search" value="${esc(view.q)}" placeholder="title or id"></div>
         <div><label for="fs">Subject</label><select id="fs"><option value="">All</option>${subjects.map(s => `<option${s === view.subject ? ' selected' : ''}>${esc(s)}</option>`).join('')}</select></div>
         <div><label for="fst">Status</label><select id="fst"><option value="">All</option><option value="draft">Draft</option><option value="reviewed">Live</option></select></div>
-        <div><label for="fsh">Show</label><select id="fsh"><option value="active">Active</option><option value="archived">Archived</option><option value="all">Both</option></select></div></form></div>
+        <div><label for="fot">Outline tags</label><select id="fot"><option value="">All</option><option value="none">Not tagged yet (${cache.list.filter(x => !x.archived && !(x.objectives || []).length).length})</option><option value="some">Tagged</option></select></div><div><label for="fsh">Show</label><select id="fsh"><option value="active">Active</option><option value="archived">Archived</option><option value="all">Both</option></select></div></form></div>
       <div id="bulk"></div><div class="card" id="lres"></div>`;
-    document.getElementById('fst').value = view.status; document.getElementById('fsh').value = view.show;
+    document.getElementById('fst').value = view.status; document.getElementById('fsh').value = view.show; document.getElementById('fot').value = view.tag;
     const on = (id, ev, fn) => document.getElementById(id).addEventListener(ev, fn);
     on('fq', 'input', e => { view.q = e.target.value; paint(); }); on('fs', 'change', e => { view.subject = e.target.value; paint(); });
-    on('fst', 'change', e => { view.status = e.target.value; paint(); }); on('fsh', 'change', e => { view.show = e.target.value; paint(); });
+    on('fst', 'change', e => { view.status = e.target.value; paint(); }); on('fot', 'change', e => { view.tag = e.target.value; paint(); }); on('fsh', 'change', e => { view.show = e.target.value; paint(); });
     on('backup', 'click', () => backup(c.list));
     on('claude', 'click', () => Handoff.open({ kind: 'lessons', items: lastRows, selected: [...view.sel], importHash: '#/admin/lessons/import',
       describe: (() => { const p = []; if (view.q) p.push(`search "${view.q}"`); if (view.subject) p.push(view.subject); if (view.status) p.push(view.status === 'reviewed' ? 'live' : 'draft'); if (view.show !== 'active') p.push(view.show === 'all' ? 'including archived' : 'archived'); return p.length ? 'filters: ' + p.join(', ') : 'no filters'; })() }));
