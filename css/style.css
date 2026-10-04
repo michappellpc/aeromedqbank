@@ -638,7 +638,12 @@ section.rep-sec:not(.card){padding:0 2px}
 @media print{
   /* Nothing here depends on "background graphics": bars are SVG, badges and tiles use borders, and colors are forced on anyway. */
   .report,.report *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
-  body:has(.report){background:#fff}
+  /* Paper is always light: the dark theme and the navy palette never reach the printed page, whatever the screen is set to. */
+  html:has(.report),body:has(.report){background:#fff!important}
+  .report{--bg:#fff;--card:#fff;--fg:#111;--muted:#4a5868;--line:#c5ced8;--sel:#f3f6f9;--link:#1f4f7a;--hdr:#0f2236;--gold:#0c7578;--good:#2a7f62;--bad:#b3372c;--warn:#a87516}
+  .report .kpi,.report .weakitem,.report .card,.report .rep-table,.report .rep-table tbody tr{background:#fff!important;color:#111}
+  .report .rep-table tbody tr:nth-child(even){background:#f3f6f9!important}
+  .report .muted,.report .rep-note,.report .kpi-l,.report .kpi-s,.report .legend,.report .rep-meta,.report .rep-kicker,.report .rep-foot{color:#4a5868!important}
   .report{page:insights;max-width:none;margin:0;color:#111;font-size:10.5pt;line-height:1.45}
   main:has(.report){padding:0;max-width:none}
   .crumb,.rep-controls,.rep-preview{display:none!important}
