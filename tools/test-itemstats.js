@@ -58,4 +58,13 @@ t('the easier request differs', /EASIER/.test(S.rewritePrompt(sel, 'easier')) &&
 const csv = S.csv(items);
 t('the CSV has a header and a row per question', csv.split('\r\n').length === 8 && /^﻿id,subject,topic,label,first_try_percent/.test(csv.split('\r\n')[0]));
 t('the CSV names flags in words', /Too easy/.test(csv) && !/fewdata/.test(csv));
+console.log('Evidence, with no cut-off');
+const ev = (n, c, label = 2) => S.evidence(n, c, label);
+t('no answers gives no evidence', ev(0, 0) === null);
+t('a few answers are pulled toward the label, so one lucky streak does not move a question', ev(3, 3, 3).est < 55 && ev(3, 3, 3).level === 'almost none' && ev(3, 3, 3).call === 'consistent with its label');
+t('plenty of answers move the estimate to what members did', ev(60, 25, 1).est >= 45 && ev(60, 25, 1).est <= 52 && ev(60, 25, 1).clear && ev(60, 25, 1).side === 'harder');
+t('a clear gap is "clearly", an edge case is only "leaning"', ev(30, 28).call === 'clearly easier than its label' && ev(60, 50).call === 'leaning easier than its label');
+t('a smaller sample makes the same percentage less certain (a wider range)', (a => a.hi - a.lo)(ev(10, 8)) > (a => a.hi - a.lo)(ev(80, 64)));
+t('the level of evidence grows with the number answering', ['almost none', 'little', 'some', 'fair', 'good'].join() === [3, 7, 15, 30, 80].map(n => ev(n, Math.round(n * 0.7)).level).join());
+t('every question with any first try has a line, and it carries the evidence', (() => { const a = S.analyze({ question_id: 'q', first_n: 8, first_correct: 7, attempts: 9, users: 8, picks: { A: 7, B: 1 } }, { id: 'q', difficulty: 2, answer: 'A', options: [{ id: 'A', text: 'x' }, { id: 'B', text: 'y' }] }); const l = S.statLine(a); return !a.enough && /evidence: little \(8 first tries\), best estimate \d+%, likely \d+% to \d+%/.test(l); })());
 console.log(`\n${pass} passed, ${fail} failed`); process.exit(fail ? 1 : 0);

@@ -18,6 +18,19 @@
   const WEIGHT = { miskey: 4, negdisc: 4, tooeasy: 2, toohard: 2, mislabeled: 2, lowdisc: 1, deadopt: 1, longans: 0, fewdata: 0 };
 
   // row: one line of admin_item_analysis(); q: the question; opts: { minN, bands, lengthTell }
+  // How much to trust a question's numbers, with no cut-off: the estimate is pulled toward the middle of its label's range when few members have answered
+  // (K pretend answers), and a 90% range shows what the data allows. call says where it sits against the label: inside it, leaning outside, or clearly outside.
+  const PRIOR_K = 10;
+  function evidence(n, c, label, bands = BANDS) {
+    if (!n) return null;
+    const [blo, bhi] = bands[label], mid = (blo + bhi) / 2, est = Math.round(100 * (c + PRIOR_K * mid / 100) / (n + PRIOR_K));
+    const z = 1.645, ph = c / n, den = 1 + z * z / n, ctr = (ph + z * z / (2 * n)) / den, hw = z * Math.sqrt(ph * (1 - ph) / n + z * z / (4 * n * n)) / den;
+    const lo = Math.max(0, Math.round(100 * (ctr - hw))), hi = Math.min(100, Math.round(100 * (ctr + hw)));
+    const level = n < 5 ? 'almost none' : n < 10 ? 'little' : n < 20 ? 'some' : n < 40 ? 'fair' : 'good';
+    const side = est > bhi ? 'easier' : est < blo ? 'harder' : null;
+    const call = !side ? 'consistent with its label' : ((side === 'easier' ? lo > bhi : hi < blo) ? `clearly ${side} than its label` : `leaning ${side} than its label`);
+    return { est, lo, hi, level, call, side, clear: !!side && call.startsWith('clearly') };
+  }
   function analyze(row, q, opts = {}) {
     const minN = opts.minN ?? MIN_N, bands = opts.bands || BANDS;
     const n = Number(row.first_n || 0), c = Number(row.first_correct || 0), enough = n >= minN, p = n ? Math.round(100 * c / n) : null;
@@ -37,7 +50,8 @@
     const dead = n >= 40 && options.length >= 3 ? wrong.filter(o => o.share < 5).map(o => o.id) : [];
     if (dead.length) flags.push('deadopt');
     if (opts.lengthTell && q && opts.lengthTell(q)) flags.push('longans');
-    return { id: row.question_id, q, subject: q && q.subject, topic: (q && q.topic) || '', label, status: q && q.status, archived: !!(q && q.archived),
+    const ev = evidence(n, c, label, bands);
+    return { id: row.question_id, q, ev, subject: q && q.subject, topic: (q && q.topic) || '', label, status: q && q.status, archived: !!(q && q.archived),
       attempts: Number(row.attempts || 0), users: Number(row.users || 0), n, correct: c, pct: p, enough, band, suggested: enough ? band : null,
       gap: enough ? (p > hi ? p - hi : p < lo ? p - lo : 0) : null, disc, options, topWrong: wrong[0] && wrong[0].share > 0 ? wrong[0] : null, dead,
       flags, attention: flags.reduce((a, f) => a + (WEIGHT[f] || 0), 0), lastAt: row.last_at || null, revisedAt: row.revised_at || null };
@@ -72,7 +86,7 @@
   }
 
   // One line about how a question has been performing (null when there is nothing to say yet)
-  const statLine = i => (!i || i.pct === null ? null : `${i.id}: ${i.pct}% correct on the first try (${i.n} members); labeled ${LABELS[i.label]}${i.disc === null ? '' : '; separates strong from weak members at ' + i.disc.toFixed(2)}${i.topWrong ? `; wrong choice picked most: ${i.topWrong.id} (${i.topWrong.share}%)` : ''}${i.dead.length ? `; almost never picked: ${i.dead.join(', ')}` : ''}${i.flags.includes('longans') ? '; the correct answer is much longer than the others' : ''}`);
+  const statLine = i => (!i || i.pct === null ? null : `${i.id}: ${i.pct}% correct on the first try (${i.n} members); labeled ${LABELS[i.label]}${i.ev ? `; evidence: ${i.ev.level} (${i.n} first ${i.n === 1 ? 'try' : 'tries'}), best estimate ${i.ev.est}%, likely ${i.ev.lo}% to ${i.ev.hi}%, ${i.ev.call}` : ''}${i.disc === null ? '' : '; separates strong from weak members at ' + i.disc.toFixed(2)}${i.topWrong ? `; wrong choice picked most: ${i.topWrong.id} (${i.topWrong.share}%)` : ''}${i.dead.length ? `; almost never picked: ${i.dead.join(', ')}` : ''}${i.flags.includes('longans') ? '; the correct answer is much longer than the others' : ''}`);
   // A message to paste into a chat with an AI so it rewrites the chosen questions. direction: 'harder' | 'easier'. Returns text.
   function rewritePrompt(items, direction, opts = {}) {
     const target = opts.target, fields = opts.fields || ['id', 'status', 'boards', 'subject', 'topic', 'difficulty', 'stem', 'options', 'answer', 'explanation', 'optionNotes', 'references', 'tier'];
@@ -93,5 +107,5 @@
     const rows = items.map(i => [i.id, i.subject, i.topic, LABELS[i.label], i.pct === null ? '' : i.pct, i.n, i.attempts, i.disc === null ? '' : i.disc, i.topWrong ? i.topWrong.id : '', i.topWrong ? i.topWrong.share : '', i.suggested ? LABELS[i.suggested] : '', i.flags.filter(f => f !== 'fewdata').map(f => FLAG_TEXT[f][0]).join('; '), i.revisedAt ? String(i.revisedAt).slice(0, 10) : '']);
     return '﻿' + [head, ...rows].map(r => r.map(csvCell).join(',')).join('\r\n');
   }
-  return { LABELS, BANDS, MIN_N, FLAG_TEXT, bandOf, analyze, summarize, shiftPlan, rewritePrompt, statLine, csv };
+  return { LABELS, BANDS, MIN_N, PRIOR_K, evidence, FLAG_TEXT, bandOf, analyze, summarize, shiftPlan, rewritePrompt, statLine, csv };
 });
