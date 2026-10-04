@@ -101,7 +101,7 @@ In a lesson, the tools row at the top has a Highlight button (works on whatever 
 
 ## Calculator
 
-A Calculator button in the tools row of the question screen opens a floating calculator that stays open from question to question. It handles + - x / ^ and brackets, percent, factorial, square root, log, ln, e^x, pi, e, 1/x and a memory of the last answer, and keeps the last five results. Type a sum and press Enter, or use the keypad. Drag it by its title bar on a computer; on a phone it opens as a sheet above the bottom bar. Escape or the X closes it. The maths is a small parser, not `eval`, with tests in `tools/test-calc.js`. No database change.
+A Calculator button in the tools row of the question screen opens a floating calculator that stays open from question to question. It handles + - x / ^ and brackets, percent, factorial, square root, log, ln, e^x, pi, e, 1/x and a memory of the last answer. The **Trig** button in its title bar shows sin, cos, tan, their inverses (sin⁻¹, cos⁻¹, tan⁻¹), sec, csc, cot and abs; you can also type them (`sin(30)`, `arcsin(0.5)`, `1/cos(60)`). The **Deg / Rad** button next to it switches angles between degrees (the default) and radians; both choices are remembered. Results are tidied so sin(180) is 0 and cos(60) is 0.5, and a place where a function does not exist (tan 90) says so, and keeps the last five results. Type a sum and press Enter, or use the keypad. Drag it by its title bar on a computer; on a phone it opens as a sheet above the bottom bar. Escape or the X closes it. The maths is a small parser, not `eval`, with tests in `tools/test-calc.js`. No database change.
 
 ## This day in history
 
