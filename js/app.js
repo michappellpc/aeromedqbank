@@ -8,6 +8,29 @@ let tick = null, ready = false, profile = null, refocus = null;
 // ---------- helpers ----------
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const pct = (a, b) => b ? Math.round(100 * a / b) : 0;
+// Pro access can have an end date (pro_until is the last day it works). After it the person counts as free, with nothing for anyone to change.
+const todayISO = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+const dayText = iso => (iso ? new Date(iso + 'T00:00:00').toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) : '');
+function proState(plan, until) {
+  if (plan !== 'pro') return { on: false, text: 'Free' };
+  if (!until) return { on: true, text: 'Pro, no end date' };
+  if (until < todayISO()) return { on: false, expired: true, text: `Pro ended ${dayText(until)}` };
+  const left = Math.round((new Date(until + 'T00:00:00') - new Date(todayISO() + 'T00:00:00')) / 86400000);
+  return { on: true, soon: left <= 30, text: `Pro until ${dayText(until)}`, left };
+}
+const proTag = (plan, until) => { const s = proState(plan, until); return `${esc(s.text)}${s.soon ? ` <span class="tag draft">${s.left === 0 ? 'ends today' : 'ends in ' + s.left + ' day' + (s.left === 1 ? '' : 's')}</span>` : ''}${s.expired ? ' <span class="tag archived">expired</span>' : ''}`; };
+// "Pro until" date box with quick buttons that move the date forward from today (or from the current end date if it is still ahead)
+const proUntilField = (id, value) => `<div class="prountil"><label for="${id}">Pro until (optional)</label><input id="${id}" type="date" value="${esc(value || '')}">
+  <div class="row presets" role="group" aria-label="Quick choices for the pro end date"><button type="button" data-pre="3">+3 months</button><button type="button" data-pre="6">+6 months</button><button type="button" data-pre="12">+1 year</button><button type="button" data-pre="0">No end date</button></div></div>`;
+function wireProUntil(root, id) {
+  const inp = root.querySelector('#' + id);
+  root.querySelectorAll('[data-pre]').forEach(b => b.onclick = () => {
+    const n = +b.dataset.pre; if (!n) { inp.value = ''; return; }
+    const base = inp.value && inp.value >= todayISO() ? new Date(inp.value + 'T00:00:00') : new Date(todayISO() + 'T00:00:00');
+    const day = base.getDate(); base.setMonth(base.getMonth() + n); if (base.getDate() < day) base.setDate(0);          // Jan 31 + 1 month ends on the last day of February
+    inp.value = `${base.getFullYear()}-${String(base.getMonth() + 1).padStart(2, '0')}-${String(base.getDate()).padStart(2, '0')}`;
+  });
+}
 const fmt = s => { s = Math.max(0, Math.round(s)); const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60); return (h ? h + ':' + String(m).padStart(2, '0') : m) + ':' + String(s % 60).padStart(2, '0'); };
 const shuffle = a => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.random() * (i + 1) | 0; [a[i], a[j]] = [a[j], a[i]]; } return a; };
 const boardName = id => (bank.boards.find(b => b.id === id) || {}).name || id;
@@ -766,7 +789,7 @@ function settings() {
     ${!Cloud.enabled || Admin.isEditor() ? `<label class="chk"><input type="checkbox" id="drafts" ${showDrafts() ? 'checked' : ''}> Include draft questions that a physician has not yet reviewed</label>` : ''}
     <label class="chk"><input type="checkbox" id="mascot" ${mascotOn() ? 'checked' : ''}> Show the mascot and encouragement</label></div>
     ${Cloud.enabled ? `<div class="card"><h3>Account</h3>
-      <p>Signed in as <b>${esc(Cloud.session.email)}</b>${profile ? ` <span class="tag">${esc(profile.role === 'admin' ? 'Admin' : profile.role === 'reviewer' ? 'Reviewer' : profile.plan === 'pro' ? 'Member' : 'Free')}</span>` : ''}</p>
+      <p>Signed in as <b>${esc(Cloud.session.email)}</b>${profile ? ` <span class="tag">${esc(profile.role === 'admin' ? 'Admin' : profile.role === 'reviewer' ? 'Reviewer' : proState(profile.plan, profile.pro_until).on ? (profile.pro_until ? 'Member until ' + dayText(profile.pro_until) : 'Member') : 'Free')}</span>` : ''}</p>
       <p class="muted" id="syncline"></p>
       <div class="row"><button id="syncnow">Sync now</button><button id="signout">Sign out</button></div></div>
     <div class="card"><h3>Your name</h3>
@@ -985,6 +1008,8 @@ async function adminPage() {
   try {
     const [mem, qs, allowed, signupOn, peerMin] = await Promise.all([Cloud.rpc('admin_member_summary'), Cloud.rpc('admin_question_stats'), Cloud.rest('allowed_emails?select=*&order=email.asc'), Cloud.signupOpen(), Cloud.peerMin().catch(() => 10)]);
     const programs = await Cloud.adminPrograms().catch(() => []);
+    const progName = id => ((programs.find(p => p.id === id) || {}).name || id || '');
+    const progCell = (id, status) => (id ? `${esc(progName(id))}${status === 'pending' ? ' <span class="tag draft">pending</span>' : ''}` : '<span class="muted">-</span>');
     const act = mem.filter(m => m.active), tot = act.reduce((x, m) => x + m.attempts, 0), cor = act.reduce((x, m) => x + m.correct, 0);
     const recent = await Cloud.rpc('admin_recent_activity').catch(() => null);
     const me = Cloud.session.email.toLowerCase();
@@ -994,8 +1019,8 @@ async function adminPage() {
       <div class="card" id="recent"><div class="row spread"><h2 style="margin:0">Recent activity</h2><div><label for="rwin" class="sr">Time period</label><select id="rwin">${RECENT_WINDOWS.map(([h, t]) => `<option value="${h}">${t}</option>`).join('')}</select></div></div>
         <div class="grid" id="rstats" aria-live="polite" style="margin-top:10px"></div><p class="muted small" id="rnote"></p></div>
       <div class="card"><div class="row spread"><h2 style="margin:0">Members</h2><button id="csv">Download CSV</button></div>
-        <div class="scroll" role="region" tabindex="0" aria-label="Data table"><table><caption class="sr">Members and their activity</caption><thead><tr><th scope="col">Email</th><th scope="col">Access</th><th scope="col">Answered</th><th scope="col">Correct</th><th scope="col">Last active</th></tr></thead><tbody>${mem.map(m =>
-        `<tr><td>${esc(m.email)}${m.display_name ? `<div class="muted small">${esc(m.display_name)}</div>` : ''}</td><td>${m.active ? esc(m.role === 'admin' ? 'Admin' : m.role === 'reviewer' ? 'Reviewer' : m.role === 'faculty' ? 'Faculty' : m.plan) : 'Not approved'}</td><td>${m.attempts}</td><td>${m.attempts ? pct(m.correct, m.attempts) + '%' : '-'}</td><td>${m.last_active ? new Date(m.last_active).toLocaleDateString() : '-'}</td></tr>`).join('')}</tbody></table></div></div>
+        <div class="scroll" role="region" tabindex="0" aria-label="Data table"><table><caption class="sr">Members and their activity</caption><thead><tr><th scope="col">Email</th><th scope="col">Access</th><th scope="col">Program</th><th scope="col">Answered</th><th scope="col">Correct</th><th scope="col">Last active</th></tr></thead><tbody>${mem.map(m =>
+        `<tr><td>${esc(m.email)}${m.display_name ? `<div class="muted small">${esc(m.display_name)}</div>` : ''}</td><td>${m.active ? (['admin', 'reviewer', 'faculty'].includes(m.role) ? esc(m.role === 'admin' ? 'Admin' : m.role === 'reviewer' ? 'Reviewer' : 'Faculty') : proTag(m.plan, m.pro_until)) : 'Not approved'}</td><td>${progCell(m.program_id, m.program_status)}</td><td>${m.attempts}</td><td>${m.attempts ? pct(m.correct, m.attempts) + '%' : '-'}</td><td>${m.last_active ? new Date(m.last_active).toLocaleDateString() : '-'}</td></tr>`).join('')}</tbody></table></div></div>
       <div id="prog-admin"></div>
       <div class="card"><h2>Group averages</h2>
         <form id="peerf" class="row" style="align-items:flex-end"><div><label for="pm">Show a group average once this many members have answered a question (1 shows every figure, even from one member)</label><input id="pm" type="number" min="1" max="1000" value="${peerMin}"></div><button class="primary" type="submit">Save</button></form>
@@ -1005,16 +1030,17 @@ async function adminPage() {
         <p class="muted">Anyone who signs up gets a <b>free</b> member account at once and appears in the list below, so you can upgrade or remove them. Free accounts only see questions set to <b>Free members too</b>; questions set to Pro members stay private. Turn this off to make the site invitation-only.</p></div>
       <div class="card"><h2>Approved emails</h2>
         <p class="muted">Only these emails can use the app. <b>Reviewers</b> can edit and review questions but cannot see members. <b>Add member</b> approves the email and creates their account with a temporary password for you to send them privately; they choose their own password the first time they sign in. Removing an email locks that person out at once.</p>
-        <div class="scroll" role="region" tabindex="0" aria-label="Data table"><table><caption class="sr">Approved emails</caption><thead><tr><th scope="col">Email</th><th scope="col">Role</th><th scope="col">Plan</th><th scope="col">Note</th><th scope="col"><span class="sr">Actions</span></th></tr></thead><tbody id="al">${allowed.map(r =>
-        `<tr><td>${esc(r.email)}</td><td>${esc(r.role)}</td><td>${esc(r.plan)}</td><td>${esc(r.note || '')}</td>
+        <div class="scroll" role="region" tabindex="0" aria-label="Data table"><table><caption class="sr">Approved emails</caption><thead><tr><th scope="col">Email</th><th scope="col">Role</th><th scope="col">Plan</th><th scope="col">Program</th><th scope="col">Note</th><th scope="col"><span class="sr">Actions</span></th></tr></thead><tbody id="al">${allowed.map(r =>
+        `<tr><td>${esc(r.email)}</td><td>${esc(r.role)}</td><td>${proTag(r.plan, r.pro_until)}</td><td>${progCell(r.program_id)}</td><td>${esc(r.note || '')}</td>
         <td>${r.email === me ? '<span class="muted">you</span>' : `<button data-edit="${esc(r.email)}" aria-label="Edit ${esc(r.email)}">Edit</button> <button data-reset="${esc(r.email)}" aria-label="Reset password for ${esc(r.email)}">Reset password</button> <button data-rm="${esc(r.email)}" aria-label="Remove ${esc(r.email)}">Remove</button>`}</td></tr>`).join('')}</tbody></table></div>
         <form id="addem" class="row" style="margin-top:12px;align-items:flex-end"><div><label for="ae-email">Email</label><input id="ae-email" type="email" required autocomplete="off"></div>
           <div><label for="ae-role">Role</label><select id="ae-role"><option>member</option><option>reviewer</option><option>faculty</option><option>admin</option></select></div>
           ${programs.length ? `<div><label for="ae-prog">Program</label><select id="ae-prog"><option value="">None</option>${Program.options(programs, '')}</select></div>` : ''}
           <div><label for="ae-plan">Plan</label><select id="ae-plan"><option>pro</option><option>free</option></select></div>
+          ${proUntilField('ae-until', '')}
           <div><label for="ae-note">Note</label><input id="ae-note" type="text" maxlength="80" autocomplete="off"></div><button class="primary" type="submit">Add member</button></form>
         <p class="notice" id="ae-msg" hidden role="alert"></p></div>`;
-    labelScrolls();
+    labelScrolls(); wireProUntil(document.getElementById('addem'), 'ae-until');
     (() => {
       const sel = document.getElementById('rwin'), box = document.getElementById('rstats'), note = document.getElementById('rnote');
       let saved = 24; try { saved = +(localStorage.getItem('qbank.recentwin') || 24); } catch {}
@@ -1032,7 +1058,7 @@ async function adminPage() {
     const say = t => { const m = document.getElementById('ae-msg'); m.textContent = t; m.hidden = !t; };
     const upsert = row => Cloud.rest('allowed_emails?on_conflict=email', { method: 'POST', headers: { Prefer: 'resolution=merge-duplicates,return=minimal' }, body: [row] });
     document.getElementById('csv').onclick = () => {
-      const rows = [['email', 'role', 'plan', 'approved', 'answered', 'correct', 'percent_correct', 'last_active'], ...mem.map(m => [m.email, m.role, m.plan, m.active ? 'yes' : 'no', m.attempts, m.correct, m.attempts ? pct(m.correct, m.attempts) : '', m.last_active || ''])];
+      const rows = [['email', 'role', 'plan', 'pro_until', 'program', 'approved', 'answered', 'correct', 'percent_correct', 'last_active'], ...mem.map(m => [m.email, m.role, m.plan, m.pro_until || '', progName(m.program_id), m.active ? 'yes' : 'no', m.attempts, m.correct, m.attempts ? pct(m.correct, m.attempts) : '', m.last_active || ''])];
       const link = document.createElement('a'); link.href = URL.createObjectURL(new Blob(['\uFEFF' + rows.map(r => r.map(csvCell).join(',')).join('\r\n')], { type: 'text/csv' }));
       link.download = 'ramqbank-members-' + new Date().toISOString().slice(0, 10) + '.csv'; link.click();
     };
@@ -1041,12 +1067,17 @@ async function adminPage() {
       const email = document.getElementById('ae-email').value.trim().toLowerCase(), role = document.getElementById('ae-role').value;
       if (email === me && role !== 'admin') return say('You cannot take away your own admin access.');
       const plan = document.getElementById('ae-plan').value, note = document.getElementById('ae-note').value.trim() || null, program_id = (document.getElementById('ae-prog') || {}).value || null;
+      const until = plan === 'pro' ? (document.getElementById('ae-until').value || null) : null;
       if (role === 'faculty' && !program_id) return say('Faculty need a program. Add one under Residency programs first, then choose it here.');
       try {
-        try { const r = await Cloud.manageMember('create', { email, role, plan, note, program_id }); await showCredentials(r); adminPage(); return; }
+        try {
+          const r = await Cloud.manageMember('create', { email, role, plan, note, program_id });
+          if (until) { try { await upsert({ email, role, plan, note, ...(program_id ? { program_id } : {}), pro_until: until }); } catch (y) { toast('The account was created, but the pro end date could not be saved: ' + (y.message || 'try Edit')); } }
+          await showCredentials(r); adminPage(); return;
+        }
         catch (x) {
           if (!x.notDeployed) throw x;
-          await upsert(program_id ? { email, role, plan, note, program_id } : { email, role, plan, note }); adminPage();          // account tools not deployed: fall back to approving only
+          await upsert({ email, role, plan, note, ...(program_id ? { program_id } : {}), ...(until ? { pro_until: until } : {}) }); adminPage();          // account tools not deployed: fall back to approving only
           toast(`Approved ${email}. Creating the account itself still needs Supabase (see the setup guide, step 4).`);
         }
       } catch (x) { say(x.offline ? 'No connection.' : 'Could not add: ' + x.message); }
@@ -1101,6 +1132,7 @@ function editMember(r, say, programs = []) {
     <form id="ed"><label for="ed-role">Role</label><select id="ed-role">${['member', 'reviewer', 'faculty', 'admin'].map(v => `<option${v === r.role ? ' selected' : ''}>${v}</option>`).join('')}</select>
       ${programs.length ? `<label for="ed-prog">Program</label><select id="ed-prog"><option value="">None</option>${Program.options(programs, r.program_id || '')}</select>` : ''}
       <label for="ed-plan">Plan</label><select id="ed-plan">${['pro', 'free'].map(v => `<option${v === r.plan ? ' selected' : ''}>${v}</option>`).join('')}</select>
+      ${proUntilField('ed-until', r.plan === 'pro' ? r.pro_until : '')}<p class="hint" id="ed-prostate">${proTag(r.plan, r.pro_until)}. Pro stops working after the end date and the person is treated as free; their progress is kept.</p>
       <label for="ed-note">Note</label><input id="ed-note" type="text" maxlength="80" value="${esc(r.note || '')}" autocomplete="off">
       <p class="hint">Email addresses cannot be changed. To move someone to a new address, add the new one and remove the old one.</p>
       <div class="row" style="margin-top:12px"><button class="primary" type="submit" id="ed-save">Save</button><button type="button" id="ed-cancel">Cancel</button><span style="flex:1"></span><button type="button" class="danger" id="ed-del">Delete account</button></div></form></div>`;
@@ -1108,10 +1140,13 @@ function editMember(r, say, programs = []) {
   const close = () => d.remove();
   d.querySelector('#ed-cancel').onclick = close;
   d.addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
-  d.querySelector('#ed-role').focus();
+  d.querySelector('#ed-role').focus(); wireProUntil(d, 'ed-until');
+  d.querySelector('#ed-plan').onchange = e => { d.querySelector('.prountil').hidden = e.target.value !== 'pro'; }; d.querySelector('.prountil').hidden = r.plan !== 'pro';
   d.querySelector('#ed').onsubmit = async e => {
     e.preventDefault();
     const row = { email: r.email, role: d.querySelector('#ed-role').value, plan: d.querySelector('#ed-plan').value, note: d.querySelector('#ed-note').value.trim() || null };
+    const until = row.plan === 'pro' ? (d.querySelector('#ed-until').value || null) : null;
+    if (until || r.pro_until) row.pro_until = until;                 // only sent when set or being cleared, so an older database is not troubled
     if (d.querySelector('#ed-prog')) row.program_id = d.querySelector('#ed-prog').value || null;
     if (row.role === 'faculty' && !row.program_id) { close(); return say('Faculty need a program. Edit again and choose one.'); }
     try { await Cloud.rest('allowed_emails?on_conflict=email', { method: 'POST', headers: { Prefer: 'resolution=merge-duplicates,return=minimal' }, body: [row] }); close(); toast('Saved.'); adminPage(); }

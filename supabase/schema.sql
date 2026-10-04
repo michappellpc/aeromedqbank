@@ -156,6 +156,9 @@ alter table public.profiles drop constraint if exists profiles_role_check;
 alter table public.profiles add constraint profiles_role_check check (role in ('member', 'reviewer', 'faculty', 'admin'));
 alter table public.allowed_emails add column if not exists program_id text references public.programs (id) on delete set null;
 alter table public.profiles add column if not exists program_id text references public.programs (id) on delete set null;
+-- When pro access ends (the last day it works). Null = no end date. After it, the person is treated as free without anyone changing anything.
+alter table public.allowed_emails add column if not exists pro_until date;
+alter table public.profiles add column if not exists pro_until date;
 alter table public.profiles add column if not exists program_status text check (program_status in ('pending', 'approved'));
 alter table public.questions add column if not exists archived boolean not null default false;
 alter table public.questions add column if not exists updated_by text;
@@ -285,7 +288,7 @@ $$ select exists (select 1 from public.profiles where id = auth.uid() and active
 create or replace function public.has_plan(t text) returns boolean
   language sql stable security definer set search_path = public as
 $$ select exists (select 1 from public.profiles p where p.id = auth.uid() and p.active
-                  and (t = 'free' or p.plan = 'pro' or p.role in ('admin', 'reviewer'))) $$;
+                  and (t = 'free' or (p.plan = 'pro' and (p.pro_until is null or p.pro_until >= current_date)) or p.role in ('admin', 'reviewer'))) $$;
 
 -- ------------------------------------------- keep profiles in step with the allow list
 -- Sign-up switch. When on, anyone can create their own account on the sign-in page and gets a FREE member account at once
@@ -324,15 +327,15 @@ begin
   listed := found;                                             -- FOUND is reset by every SELECT, so keep this one
   select id into pid from public.programs where id = want and active;
   if listed and invited then
-    insert into public.profiles (id, email, active, role, plan, program_id, program_status)
-      values (new.id, lower(new.email), true, a.role, a.plan, a.program_id, case when a.program_id is null then null else 'approved' end);
+    insert into public.profiles (id, email, active, role, plan, pro_until, program_id, program_status)
+      values (new.id, lower(new.email), true, a.role, a.plan, case when a.plan = 'pro' then a.pro_until end, a.program_id, case when a.program_id is null then null else 'approved' end);
   elsif public.signup_open() and not invited then
     if not listed then insert into public.allowed_emails (email, role, plan, note) values (lower(new.email), 'member', 'free', 'self sign-up'); end if;
     insert into public.profiles (id, email, active, role, plan, program_id, program_status)
       values (new.id, lower(new.email), true, 'member', 'free', pid, case when pid is null then null else 'pending' end);
   else
-    insert into public.profiles (id, email, active, role, plan, program_id, program_status)
-      values (new.id, lower(new.email), a.email is not null, coalesce(a.role, 'member'), coalesce(a.plan, 'free'), a.program_id, case when a.program_id is null then null else 'approved' end);
+    insert into public.profiles (id, email, active, role, plan, pro_until, program_id, program_status)
+      values (new.id, lower(new.email), a.email is not null, coalesce(a.role, 'member'), coalesce(a.plan, 'free'), case when a.plan = 'pro' then a.pro_until end, a.program_id, case when a.program_id is null then null else 'approved' end);
   end if;
   return new;
 end $$;
@@ -346,12 +349,12 @@ create or replace function public.sync_allowed() returns trigger
 $$
 begin
   if tg_op = 'DELETE' then
-    update public.profiles set active = false, role = 'member', plan = 'free' where lower(email) = old.email;
+    update public.profiles set active = false, role = 'member', plan = 'free', pro_until = null where lower(email) = old.email;
     return old;
   end if;
   -- Faculty mirror the program on the list. A resident the admin puts in a program is approved at once; a row with no program
   -- leaves a resident's own request alone.
-  update public.profiles set active = true, role = new.role, plan = new.plan,
+  update public.profiles set active = true, role = new.role, plan = new.plan, pro_until = case when new.plan = 'pro' then new.pro_until else null end,
     program_id = case when new.role = 'faculty' or new.program_id is not null then new.program_id else program_id end,
     program_status = case when new.role = 'faculty' or new.program_id is not null then (case when new.program_id is null then null else 'approved' end) else program_status end
   where lower(email) = new.email;
@@ -598,14 +601,14 @@ end $$;
 drop function if exists public.admin_member_summary();
 create function public.admin_member_summary()
   returns table (user_id uuid, email text, display_name text, role text, plan text, active boolean,
-                 attempts bigint, correct bigint, last_active timestamptz, program_id text, program_status text)
+                 attempts bigint, correct bigint, last_active timestamptz, program_id text, program_status text, pro_until date)
   language plpgsql stable security definer set search_path = public as
 $$
 begin
   if not public.is_admin() then raise exception 'admins only'; end if;
   return query
     select p.id, p.email, p.display_name, p.role, p.plan, p.active,
-           count(a.id), count(a.id) filter (where a.ok), greatest(max(a.at), p.last_seen), p.program_id, p.program_status
+           count(a.id), count(a.id) filter (where a.ok), greatest(max(a.at), p.last_seen), p.program_id, p.program_status, p.pro_until
     from public.profiles p left join public.attempts a on a.user_id = p.id
     group by p.id order by p.email;
 end $$;
