@@ -621,14 +621,13 @@ section.rep-sec:not(.card){padding:0 2px}
 .kpi b{display:block;font-size:2rem;line-height:1.1;letter-spacing:-.02em;margin:4px 0 2px;font-variant-numeric:tabular-nums}
 .kpi-l{font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600}.kpi-s{font-size:.82rem;color:var(--muted)}
 .legend{display:flex;flex-wrap:wrap;gap:6px 18px;margin:0 0 10px;font-size:.82rem;color:var(--muted)}.legend span{display:inline-flex;align-items:center;gap:6px}
-.sw{display:inline-block;width:18px;height:8px;border-radius:2px}.sw.prog{background:var(--link)}.sw.all{background:var(--muted);opacity:.55}.sw.tgt{width:2px;height:14px;background:var(--fg);border-radius:0}
+.sw{display:inline-block;width:18px;height:0;border-top:8px solid var(--link);border-radius:2px}.sw.all{border-top-color:var(--muted)}.sw.tgt{width:0;height:14px;border-top:0;border-left:2px solid var(--fg);border-radius:0}
 .weaklist{list-style:none;margin:0;padding:0;display:grid;gap:12px}
 .weakitem{display:grid;grid-template-columns:34px minmax(0,1fr);gap:12px;padding:14px 16px;border:1px solid var(--line);border-left:5px solid var(--bad);border-radius:10px;background:var(--card)}
-.rank{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:50%;background:var(--hdr);color:#fff;font-weight:700;font-size:.9rem;font-variant-numeric:tabular-nums}.rank.sm{width:26px;height:26px;font-size:.8rem}
+.rank{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:50%;border:2px solid var(--hdr);color:var(--hdr);font-weight:700;font-size:.9rem;font-variant-numeric:tabular-nums}.rank.sm{width:26px;height:26px;font-size:.8rem}
 .wname{font-size:1.02rem}.wsum{margin:6px 0}
 .weakbars{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px 18px;margin:8px 0}
-.pbar{position:relative;height:10px;margin-top:4px;background:var(--line);border-radius:5px;overflow:visible}.pbar i{display:block;height:100%;border-radius:5px;background:var(--link)}.pbar.all i{background:var(--muted);opacity:.55}
-.pbar .tgt{position:absolute;top:-3px;bottom:-3px;width:2px;margin-left:-1px;background:var(--fg);opacity:.75}
+.pbar{position:relative;height:0;margin-top:4px;border-top:10px solid var(--line)}.pbar .fil{position:absolute;left:0;top:-10px;height:0;border-top:10px solid var(--link)}.pbar.all .fil{border-top-color:var(--muted);opacity:.6}.pbar .tgt{position:absolute;top:-13px;height:16px;margin-left:-1px;border-left:2px solid var(--fg);opacity:.8}
 .startlist{list-style:none;margin:0;padding:0;display:grid;gap:10px}.startlist li{display:flex;gap:12px;align-items:flex-start}
 .rep-table th{font-size:.72rem;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);font-weight:600;border-bottom:2px solid var(--line)}.rep-table td{vertical-align:top}.rep-table tbody tr:nth-child(even){background:color-mix(in srgb,var(--sel) 45%,transparent)}
 .rep-foot{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:8px;padding-top:10px;border-top:1px solid var(--line);font-size:.78rem;color:var(--muted)}
@@ -637,24 +636,27 @@ section.rep-sec:not(.card){padding:0 2px}
   @bottom-left{content:"AeroMedQBank  |  Program insights  |  Confidential";font:8.5pt system-ui,sans-serif;color:#555}
   @bottom-right{content:"Page " counter(page) " of " counter(pages);font:8.5pt system-ui,sans-serif;color:#555}}
 @media print{
-  .report{page:insights;max-width:none;margin:0}
-  body:has(.report){background:#fff;color:#111;font-size:10.5pt;line-height:1.45;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-  body:has(.report) main{padding:0;max-width:none}
-  body:has(.report) .crumb,body:has(.report) .rep-controls,body:has(.report) .notice{display:none!important}
-  .report .card{background:#fff;border:1px solid #cfd6de;box-shadow:none;border-radius:6px;padding:12px 14px;margin-bottom:12px}
+  /* Nothing here depends on "background graphics": bars are SVG, badges and tiles use borders, and colors are forced on anyway. */
+  .report,.report *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  body:has(.report){background:#fff}
+  .report{page:insights;max-width:none;margin:0;color:#111;font-size:10.5pt;line-height:1.45}
+  main:has(.report){padding:0;max-width:none}
+  .crumb,.rep-controls,.rep-preview{display:none!important}
+  .report .card{background:#fff;border:1px solid #c5ced8;box-shadow:none;border-radius:6px;padding:12px 14px;margin-bottom:12px}
   .report a{color:#111;text-decoration:none;font-weight:600}
-  .rep-head{border-bottom-width:3px;padding-bottom:12px}.rep-title{font-size:24pt}.rep-brand .wordmark{color:#111}
+  .rep-head{padding-bottom:12px}.rep-title{font-size:24pt}.rep-brand .wordmark{color:#111}
   .rep-sec,.weakitem,.kpi,.startlist li,.rep-table tr,.reclist li{break-inside:avoid;page-break-inside:avoid}
+  #ins-weak.rep-sec{break-inside:auto;page-break-inside:auto}
   .rep-h,.rep-note{break-after:avoid;page-break-after:avoid}
-  .kpi{border:1px solid #cfd6de;border-top:3px solid var(--hdr)}.kpi b{font-size:22pt}
-  .weakitem{border:1px solid #cfd6de;border-left:5px solid #b3372c;padding:10px 12px}
-  .rank{background:var(--hdr)!important;color:#fff!important}
-  .pbar{background:#dde3ea!important}.pbar i{background:var(--link)!important}.pbar.all i{background:#8795a6!important;opacity:1}.pbar .tgt{background:#111}
-  .sw.prog{background:var(--link)!important}.sw.all{background:#8795a6!important;opacity:1}
-  .rep-table tbody tr:nth-child(even){background:#f3f6f9!important}
-  svg.trend{max-height:2.4in}
-  .rep-foot{margin-top:14px}
+  .kpi{border:1px solid #c5ced8;border-top:4px solid #0f2236}.kpi b{font-size:22pt}
+  .weakitem{border:1px solid #c5ced8;border-left:5px solid #b3372c;padding:10px 12px}
+  .rank{border-color:#0f2236;color:#0f2236}
+  .pbar{border-top-color:#dde3ea}.pbar .fil{border-top-color:#1f4f7a}.pbar.all .fil{border-top-color:#8795a6;opacity:1}.pbar .tgt{border-left-color:#111;opacity:1}
+  .sw{border-top-color:#1f4f7a}.sw.all{border-top-color:#8795a6}.sw.tgt{border-left-color:#111}
+  .rep-table th{border-bottom:2px solid #8795a6}.rep-table td{border-bottom:1px solid #dde3ea}
+  svg.trend{max-height:2.4in}.trend polyline{stroke:#1f4f7a}
+  .rep-foot{margin-top:14px;border-top:1px solid #c5ced8}
+  .tag.gap{background:#fff;color:#111;border:1px solid #111}
 }
 .rep-brand .wordmark{color:var(--fg)}.rep-brand .wordmark b{color:var(--link)}
 @media print{.rep-brand .wordmark{color:#111}.rep-brand .wordmark b{color:#0c7578}}
-@media print{#ins-weak.rep-sec{break-inside:auto;page-break-inside:auto}}
