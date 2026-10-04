@@ -8,7 +8,7 @@ const AdminLessons = (() => {
   const refresh = () => { cache = null; Admin.changed = true; };
   const slug = s => String(s || '').toLowerCase().replace(/&/g, ' ').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 48) || 'lesson';
   const day = t => (t ? new Date(t).toLocaleDateString() : '-');
-  const ctxFor = extra => ({ boards: bank.boards, subjects: bank.subjects, ...extra });
+  const ctxFor = extra => ({ boards: bank.boards, subjects: bank.subjects, knownObjective: r => !!Objectives.describe(r), ...extra });
   const subjectsFor = boards => [...new Set((boards.length ? boards : Object.keys(bank.subjects)).flatMap(b => bank.subjects[b] || []))];
 
   const TEMPLATES = {
@@ -100,7 +100,7 @@ const AdminLessons = (() => {
     } catch (e) { toast(e.offline ? 'No connection. Nothing was changed.' : 'That did not work: ' + e.message); }
   }
   function backup(all) {
-    const out = all.map(l => { const o = {}; LValidate.FIELDS.forEach(k => { if (l[k] !== undefined && l[k] !== '' && !(Array.isArray(l[k]) && !l[k].length && k === 'references')) o[k] = l[k]; }); if (!l.archived) delete o.archived; return o; });
+    const out = all.map(l => { const o = {}; LValidate.FIELDS.forEach(k => { if (l[k] !== undefined && l[k] !== '' && !(Array.isArray(l[k]) && !l[k].length && (k === 'references' || k === 'objectives'))) o[k] = l[k]; }); if (!l.archived) delete o.archived; return o; });
     const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(out, null, 2) + '\n'], { type: 'application/json' }));
     a.download = 'aeromedqbank-lessons-' + new Date().toISOString().slice(0, 10) + '.json'; a.click(); toast(`Downloaded ${out.length} lessons.`);
   }
@@ -129,6 +129,7 @@ const AdminLessons = (() => {
         <fieldset><legend>Board</legend><div class="row">${boardBoxes}</div></fieldset>
         <div class="fgrid"><div><label for="f-subject">Subject</label><select id="f-subject"></select></div><div><label for="f-summary">One-line summary (shown in the list)</label><input id="f-summary" type="text" maxlength="400" value="${esc(l0.summary || '')}" autocomplete="off"></div></div>
         <label for="f-refs">References (one per line)</label><textarea id="f-refs" rows="3">${esc((l0.references || []).join('\n'))}</textarea>
+        <fieldset><legend>Board outline items (optional)</legend><p class="hint">The ABPM outline items this lesson covers. Members see them with the summary, and Program insights uses them instead of guessing. Changing them never sends a live lesson back to Draft.</p><div id="f-obj"></div></fieldset>
         <div class="row" style="margin:14px 0 6px;align-items:flex-end"><div><label for="f-add">Add a block</label><select id="f-add" style="width:auto"><option value="">Choose a block to insert...</option>${Object.keys(TEMPLATES).map(k => `<option>${esc(k)}</option>`).join('')}</select></div><button type="button" id="f-fmt">Tidy the JSON</button><div><label for="f-img">Upload a picture as a new block</label><input id="f-img" type="file" accept="image/png,image/jpeg,image/webp,image/gif"></div></div>
         <div class="lessonedit"><div><label for="f-blocks">Content blocks (JSON)</label><textarea id="f-blocks" class="codearea" spellcheck="false">${esc(JSON.stringify(l0.blocks, null, 2))}</textarea>
           <p class="hint">Block types: heading, text, list, callout, table, steps, compare, stats, chart, image. Use the menu above to insert an example, or paste blocks written by Claude (see docs/LESSON-GUIDE.md).</p></div>
@@ -139,6 +140,7 @@ const AdminLessons = (() => {
     const el = i => document.getElementById(i), boardsChecked = () => [...document.querySelectorAll('input[name=board]:checked')].map(e => e.value);
     const fillSubjects = keep => { el('f-subject').innerHTML = '<option value="">Choose a subject</option>' + subjectsFor(boardsChecked()).map(s => `<option${s === keep ? ' selected' : ''}>${esc(s)}</option>`).join(''); };
     fillSubjects(l0.subject);
+    const objPick = ObjPicker.mount(el('f-obj'), { value: l0.objectives || [], boards: boardsChecked, subject: () => el('f-subject').value, topic: () => '', text: () => el('f-title').value + ' ' + el('f-summary').value + ' ' + (parse().blocks || []).map(b => [b.text, b.title, b.heading].filter(x => typeof x === 'string').join(' ')).join(' ') });
     const sugg = () => { if (isNew && !idTouched) el('f-id').value = slug(`${boardsChecked()[0] || 'l'}-${el('f-title').value || el('f-subject').value}`); };
     document.querySelectorAll('input[name=board]').forEach(b => b.onchange = () => { fillSubjects(el('f-subject').value); sugg(); });
     el('f-title').oninput = () => { sugg(); }; el('f-id').oninput = () => { idTouched = true; };
@@ -146,7 +148,7 @@ const AdminLessons = (() => {
 
     const parse = () => { try { const v = JSON.parse(el('f-blocks').value); return Array.isArray(v) ? { blocks: v } : { error: 'The content must be a list of blocks, starting with [' }; } catch (e) { return { error: 'The JSON has a mistake: ' + e.message }; } };
     const read = blocks => ({ id: el('f-id').value.trim(), status: el('f-status').value, tier: el('f-tier').value, boards: boardsChecked(), subject: el('f-subject').value, title: el('f-title').value.trim(), summary: el('f-summary').value.trim(),
-      order: parseInt(el('f-order').value, 10) || 0, blocks, references: el('f-refs').value.split('\n').map(x => x.trim()).filter(Boolean) });
+      order: parseInt(el('f-order').value, 10) || 0, blocks, references: el('f-refs').value.split('\n').map(x => x.trim()).filter(Boolean), ...(objPick.get().length || (l0.objectives || []).length ? { objectives: objPick.get() } : {}) });
     let timer = null;
     const preview = () => {
       const p = parse(), box = el('lprev');

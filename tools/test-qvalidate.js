@@ -87,4 +87,15 @@ t('an unknown lesson is a warning, not an error', (() => { const r = lc({ ...bas
 t('a known lesson raises nothing', !lc({ ...base2, lessonId: 'les-one' }, { lessonIds: new Set(['les-one']) }).some(r => /lessonId/.test(r.msg)));
 t('no lessonId at all is fine', !lc(base2).some(r => /lessonId/.test(r.msg)));
 
+console.log('Board outline tags');
+const oc = (o, extra = {}) => lc({ ...base2, objectives: o }, extra);
+t('objectives is a known field', Q.FIELDS.includes('objectives'));
+t('good tags pass', !oc(['aem:K1.E.1', 'om:K1.10']).some(r => /objectives/.test(r.msg) && r.level === 'error'));
+t('tags are tidied: trimmed, board lower-cased, letter upper-cased, duplicates dropped', JSON.stringify(Q.normalize({ ...base2, objectives: [' AEM:k1.E.1 ', 'aem:K1.E.1', ''] }).clean.objectives) === '["aem:K1.E.1"]');
+t('a malformed tag is an error', oc(['K1.E.1']).some(r => r.level === 'error' && /objectives/.test(r.msg)) && oc(['aem:K1.E.1; drop']).some(r => r.level === 'error'));
+t('more than twelve is an error', oc(Array.from({ length: 13 }, (_, i) => 'aem:K1.' + (i + 1))).some(r => r.level === 'error' && /at most 12/.test(r.msg)));
+t('not a list is an error', oc('aem:K1.1').some(r => r.level === 'error'));
+t('a tag the outline does not have is only a warning', (() => { const r = oc(['aem:K1.E.1'], { knownObjective: () => false }); return r.some(x => x.level === 'warn' && /outline/.test(x.msg)) && !r.some(x => x.level === 'error' && /objectives/.test(x.msg)); })());
+t('a tag for a board the question is not on is a warning', oc(['om:K1.10']).some(r => r.level === 'warn' && /board/.test(r.msg)));
+t('no tags at all is fine', !lc(base2).some(r => /objectives/.test(r.msg)));
 console.log(`\n${pass} passed, ${fail} failed`); process.exit(fail ? 1 : 0);

@@ -9,7 +9,7 @@ const AdminCards = (() => {
   const refresh = () => { cache = null; };
   const slug = s => String(s || '').toLowerCase().replace(/&/g, ' ').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'card';
   const day = t => (t ? new Date(t).toLocaleDateString() : '-');
-  const ctxFor = extra => ({ boards: bank.boards, subjects: bank.subjects, lessonIds: new Set((bank.lessons || []).map(l => l.id)), recordsReviewer: true, ...extra });
+  const ctxFor = extra => ({ boards: bank.boards, subjects: bank.subjects, lessonIds: new Set((bank.lessons || []).map(l => l.id)), recordsReviewer: true, knownObjective: r => !!Objectives.describe(r), ...extra });
   const subjectsFor = boards => [...new Set((boards.length ? boards : Object.keys(bank.subjects)).flatMap(b => bank.subjects[b] || []))];
   const fronts = except => new Map(cache.list.filter(c => c.id !== except).map(c => [CardValidate.norm(c.front), c.id]));
 
@@ -58,7 +58,7 @@ const AdminCards = (() => {
     el('claude').onclick = () => Handoff.open({ kind: 'cards', items: lastRows, selected: [...view.sel], importHash: '#/admin/cards/import',
       describe: (() => { const p = []; if (view.q) p.push(`search "${view.q}"`); if (view.subject) p.push(view.subject); if (view.status) p.push(view.status === 'reviewed' ? 'live' : 'draft'); if (view.show !== 'active') p.push(view.show === 'all' ? 'including archived' : 'archived'); return p.length ? 'filters: ' + p.join(', ') : 'no filters'; })() });
     el('backup').onclick = () => {
-      const out = cache.list.map(x => ({ id: x.id, status: x.status, boards: x.boards, subject: x.subject, topic: x.topic || undefined, front: x.front, back: x.back, lessonId: x.lessonId, references: x.references, archived: x.archived }));
+      const out = cache.list.map(x => ({ id: x.id, status: x.status, boards: x.boards, subject: x.subject, topic: x.topic || undefined, front: x.front, back: x.back, lessonId: x.lessonId, objectives: x.objectives, references: x.references, archived: x.archived }));
       const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(out, null, 1)], { type: 'application/json' }));
       a.download = 'aeromedqbank-flashcards-' + new Date().toISOString().slice(0, 10) + '.json'; a.click(); toast(`Downloaded ${out.length} flashcards.`);
     };
@@ -123,6 +123,7 @@ const AdminCards = (() => {
         <div style="grid-column:1/-1"><label for="f-back">Back (the answer, up to 1500 characters)</label><textarea id="f-back" rows="5" maxlength="1500">${esc(q0.back)}</textarea></div>
         <div><label for="f-lesson">Linked lesson (optional)</label><select id="f-lesson"><option value="">Choose automatically</option>${lessons.map(l => `<option value="${esc(l.id)}"${l.id === q0.lessonId ? ' selected' : ''}>${esc(l.title)}</option>`).join('')}</select></div>
         <div><label for="f-refs">References (one per line)</label><textarea id="f-refs" rows="2">${esc((q0.references || []).join('\n'))}</textarea></div>
+        <div style="grid-column:1/-1"><fieldset><legend>Board outline items (optional)</legend><p class="hint">The ABPM outline items this card covers. Members see them with the back, and Program insights uses them instead of guessing. Changing them never sends a live card back to Draft.</p><div id="f-obj"></div></fieldset></div>
         <div><label for="f-status">Status</label><select id="f-status"><option value="draft"${q0.status !== 'reviewed' ? ' selected' : ''}>Draft (hidden)</option><option value="reviewed"${q0.status === 'reviewed' ? ' selected' : ''}>Reviewed (live)</option></select></div>
       </form>
       <div id="errs" class="errbox" role="alert" hidden></div><div id="warns" class="notice" hidden></div>
@@ -132,8 +133,9 @@ const AdminCards = (() => {
     const boards = () => [...document.querySelectorAll('[name=board]:checked')].map(b => b.value);
     const fillSubjects = () => { const keep = el('f-subject').value || q0.subject; el('f-subject').innerHTML = '<option value="">Choose...</option>' + subjectsFor(boards()).map(s => `<option${s === keep ? ' selected' : ''}>${esc(s)}</option>`).join(''); };
     fillSubjects();
+    const objPick = ObjPicker.mount(el('f-obj'), { value: q0.objectives || [], boards, subject: () => el('f-subject').value, topic: () => el('f-topic').value.trim(), text: () => el('f-front').value + ' ' + el('f-back').value });
     const read = () => CardValidate.normalize({ id: el('f-id').value, status: el('f-status').value, boards: boards(), subject: el('f-subject').value, topic: el('f-topic').value || undefined, front: el('f-front').value, back: el('f-back').value,
-      lessonId: el('f-lesson').value || undefined, references: el('f-refs').value.split('\n').map(x => x.trim()).filter(Boolean), ...(c0 ? { archived: !!c0.archived } : {}) }).clean;
+      lessonId: el('f-lesson').value || undefined, ...(objPick.get().length || (q0.objectives || []).length ? { objectives: objPick.get() } : {}), references: el('f-refs').value.split('\n').map(x => x.trim()).filter(Boolean), ...(c0 ? { archived: !!c0.archived } : {}) }).clean;
     const preview = () => { const x = read(); el('prev').innerHTML = `<h3>Preview, as a member sees it</h3><div class="card flash"><p class="flash-side">${esc(x.front || '(front)')}</p><div class="flash-back">${esc(x.back || '(back)').replace(/\n/g, '<br>')}</div></div>`; };
     preview(); el('cf').addEventListener('input', preview); el('cf').addEventListener('change', e => { if (e.target.name === 'board') fillSubjects(); preview(); });
     if (!id) el('f-subject').addEventListener('change', () => { if (!el('f-id').value) { const n = cache.list.filter(x => x.id.startsWith(slug(el('f-subject').value) + '-card-')).length + 1; el('f-id').value = `${slug(el('f-subject').value)}-card-${String(n).padStart(3, '0')}`; } });

@@ -4,7 +4,7 @@
   if (typeof module === 'object' && module.exports) module.exports = factory(); else root.CardValidate = factory();
 })(typeof self !== 'undefined' ? self : this, function () {
   const STATUS = ['draft', 'reviewed'];
-  const FIELDS = ['id', 'status', 'reviewedBy', 'boards', 'subject', 'topic', 'front', 'back', 'lessonId', 'references', 'archived'];
+  const FIELDS = ['id', 'status', 'reviewedBy', 'boards', 'subject', 'topic', 'front', 'back', 'lessonId', 'objectives', 'references', 'archived'];
   const norm = s => String(s).toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
 
   // normalize(raw) -> { clean, dropped }: keeps only known fields and tidies text
@@ -13,6 +13,7 @@
     Object.keys(raw || {}).forEach(k => { if (FIELDS.includes(k)) clean[k] = raw[k]; else dropped.push(k); });
     ['id', 'subject', 'topic', 'front', 'back', 'lessonId'].forEach(k => { if (typeof clean[k] === 'string') clean[k] = clean[k].trim(); });
     if (!clean.status) clean.status = 'draft';
+    if (Array.isArray(clean.objectives)) { const seen = new Set(); clean.objectives = clean.objectives.map(o => String(o).trim()).map(o => { const m = o.match(/^([A-Za-z]+):\s*([A-Za-z])([0-9][A-Za-z0-9.]*)$/); return m ? m[1].toLowerCase() + ':' + m[2].toUpperCase() + m[3] : o; }).filter(o => o && !seen.has(o) && seen.add(o)); }
     return { clean, dropped };
   }
 
@@ -41,6 +42,10 @@
       else if (back.length > 700) warn('back is long; consider splitting this into two cards');
     }
     if (front && back && norm(front) === norm(back)) err('front and back are the same');
+    if (c.objectives != null) {
+      if (!Array.isArray(c.objectives) || c.objectives.length > 12 || c.objectives.some(o => typeof o !== 'string' || !/^(aem|om|pm):[TK][0-9]+(\.[A-Za-z0-9]+)*$/.test(o))) err('objectives must be a list of at most 12 board outline items such as "aem:K1.E.1"');
+      else { c.objectives.forEach(o => { if (ctx.knownObjective && !ctx.knownObjective(o)) warn(`objective "${o}" is not an item in the board outline`); else if (Array.isArray(c.boards) && c.boards.length && !c.boards.includes(o.split(':')[0])) warn(`objective "${o}" is from a board this card is not listed for`); }); }
+    }
     if (c.lessonId != null && (typeof c.lessonId !== 'string' || !/^[a-z0-9][a-z0-9-]*$/.test(c.lessonId))) err('lessonId must be a lesson id');
     else if (c.lessonId && ctx.lessonIds && !ctx.lessonIds.has(c.lessonId)) warn(`lessonId "${c.lessonId}" does not match any lesson`);
     if (c.references != null && (!Array.isArray(c.references) || c.references.some(r => typeof r !== 'string'))) err('references must be a list of text');

@@ -203,7 +203,7 @@ const Cloud = (() => {
   const toQuestion = r => ({
     id: r.id, status: r.status, reviewedBy: r.reviewed_by || undefined, boards: r.boards, subject: r.subject, topic: r.topic || '',
     difficulty: r.difficulty || 2, stem: r.stem, image: r.image || undefined, imageAlt: r.image_alt || undefined,
-    options: r.options, answer: r.answer, explanation: r.explanation, optionNotes: r.option_notes || undefined, references: r.refs || [], tier: r.tier, lessonId: r.lesson_id || undefined
+    options: r.options, answer: r.answer, explanation: r.explanation, optionNotes: r.option_notes || undefined, references: r.refs || [], tier: r.tier, lessonId: r.lesson_id || undefined, objectives: r.objectives && r.objectives.length ? r.objectives : undefined
   });
 
   const toEditorQuestion = r => ({ ...toQuestion(r), archived: !!r.archived, updatedAt: r.updated_at, updatedBy: r.updated_by || '' });
@@ -214,20 +214,21 @@ const Cloud = (() => {
       refs: q.references || [], tier: q.tier || 'pro' };
     if (typeof q.archived === 'boolean') row.archived = q.archived;
     if (q.lessonId !== undefined) row.lesson_id = q.lessonId || null;      // only sent when set or cleared, so an older database is not troubled
+    if (q.objectives !== undefined) row.objectives = q.objectives || [];     // same: only sent when set or cleared
     return row;
   };
   let noChosenColumn = false;
   const inList = ids => '(' + ids.map(i => '"' + String(i).replace(/"/g, '') + '"').join(',') + ')';
   // ---- flashcards ----
-  const toCard = r => ({ id: r.id, status: r.status, reviewedBy: r.reviewed_by || undefined, boards: r.boards, subject: r.subject, topic: r.topic || '', front: r.front, back: r.back, lessonId: r.lesson_id || undefined, references: r.refs || [] });
+  const toCard = r => ({ id: r.id, status: r.status, reviewedBy: r.reviewed_by || undefined, boards: r.boards, subject: r.subject, topic: r.topic || '', front: r.front, back: r.back, lessonId: r.lesson_id || undefined, objectives: r.objectives && r.objectives.length ? r.objectives : undefined, references: r.refs || [] });
   const toEditorCard = r => ({ ...toCard(r), archived: !!r.archived, updatedAt: r.updated_at, updatedBy: r.updated_by || '' });
-  const toCardRow = c => { const row = { id: c.id, status: c.status, boards: c.boards, subject: c.subject, topic: c.topic || null, front: c.front, back: c.back, lesson_id: c.lessonId || null, refs: c.references || [] }; if (typeof c.archived === 'boolean') row.archived = c.archived; return row; };
+  const toCardRow = c => { const row = { id: c.id, status: c.status, boards: c.boards, subject: c.subject, topic: c.topic || null, front: c.front, back: c.back, lesson_id: c.lessonId || null, refs: c.references || [] }; if (typeof c.archived === 'boolean') row.archived = c.archived; if (c.objectives !== undefined) row.objectives = c.objectives || []; return row; };
   // ---- lessons ----
   const toLesson = r => ({ id: r.id, status: r.status, reviewedBy: r.reviewed_by || undefined, boards: r.boards, subject: r.subject, title: r.title, summary: r.summary || '',
-    order: r.position, blocks: r.blocks || [], references: r.refs || [], tier: r.tier });
+    order: r.position, blocks: r.blocks || [], references: r.refs || [], tier: r.tier, objectives: r.objectives && r.objectives.length ? r.objectives : undefined });
   const toEditorLesson = r => ({ ...toLesson(r), archived: !!r.archived, updatedAt: r.updated_at, updatedBy: r.updated_by || '' });
   const toLessonRow = l => { const row = { id: l.id, status: l.status, boards: l.boards, subject: l.subject, title: l.title, summary: l.summary || '', position: l.order === undefined ? 100 : l.order,
-    blocks: l.blocks, refs: l.references || [], tier: l.tier || 'pro' }; if (typeof l.archived === 'boolean') row.archived = l.archived; return row; };
+    blocks: l.blocks, refs: l.references || [], tier: l.tier || 'pro' }; if (typeof l.archived === 'boolean') row.archived = l.archived; if (l.objectives !== undefined) row.objectives = l.objectives || []; return row; };
   const noOwnTable = e => e && (e.status === 404 || e.status === 400) && /highlights|my_cards|schema cache|relation/i.test(e.message || '');
   const hlToRow = h => ({ id: h.id, user_id: uid(), kind: h.k, item_id: h.i, field: h.f, start_pos: h.a, end_pos: h.b, text_hl: h.t });
   const hlFromRow = r => ({ id: r.id, k: r.kind, i: r.item_id, f: r.field, a: r.start_pos, b: r.end_pos, t: r.text_hl });

@@ -3,7 +3,9 @@
 //   --data <dir> validates another folder with the same layout (e.g. private).
 //   errors fail the run; warnings only print (with --strict they fail too).
 const fs = require('fs'), path = require('path');
-const QValidate = require('../js/qvalidate.js'), CardValidate = require('../js/cvalidate.js');
+const QValidate = require('../js/qvalidate.js'), CardValidate = require('../js/cvalidate.js'), OutlinesData = require('../js/outlines-data.js');
+const outlineCodes = new Set(); for (const [b, d] of Object.entries(OutlinesData)) for (const i of d.items) outlineCodes.add(b + ':' + i.code);
+const knownObjective = ref => outlineCodes.has(ref);       // a tag that matches no ABPM outline item is a warning
 const argv = process.argv.slice(2), di = argv.indexOf('--data');
 const dir = di >= 0 ? path.resolve(argv[di + 1]) : path.join(__dirname, '..', 'data'), root = path.resolve(dir, '..');
 const strict = process.argv.includes('--strict'), summary = process.argv.includes('--summary');
@@ -34,7 +36,7 @@ for (const f of man.files) {
       } else if (!fs.existsSync(path.join(root, image))) out.push({ level: 'error', msg: `image file not found: ${image}` });
       return out;
     };
-    for (const r of QValidate.check(q, { boards: man.boards, subjects: man.subjects, ids, stems, label: id, imageFiles })) (r.level === 'error' ? err : warn)(id, r.msg);
+    for (const r of QValidate.check(q, { boards: man.boards, subjects: man.subjects, ids, stems, label: id, imageFiles, knownObjective })) (r.level === 'error' ? err : warn)(id, r.msg);
     if (QValidate.lengthTell(q)) lengthTells++;
     allQs.push(q);
     if (Array.isArray(q.options) && q.options.length >= 2 && q.options.length <= 6 && q.options.some(o => o.id === q.answer)) bump(tally.answers, q.answer);
@@ -52,7 +54,7 @@ for (const f of man.cards || []) {
   let list; try { list = JSON.parse(fs.readFileSync(fp, 'utf8')); } catch (e) { err(f, 'invalid JSON: ' + e.message); continue; }
   if (!Array.isArray(list)) { err(f, 'top level must be an array of cards'); continue; }
   for (const c of list) { ncards++; const id = c.id || `${f}#${ncards}`;
-    for (const r of CardValidate.check(c, { boards: man.boards, subjects: man.subjects, ids: cids, fronts: cfronts, label: id, lessonIds })) (r.level === 'error' ? err : warn)(id, r.msg); }
+    for (const r of CardValidate.check(c, { boards: man.boards, subjects: man.subjects, ids: cids, fronts: cfronts, label: id, lessonIds, knownObjective })) (r.level === 'error' ? err : warn)(id, r.msg); }
 }
 if (summary && ncards) tally.cards = ncards;
 const tot = Object.values(tally.answers).reduce((a, b) => a + b, 0);

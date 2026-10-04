@@ -681,3 +681,11 @@ section.rep-sec:not(.card){padding:0 2px}
 .obj{margin:6px 0 2px}.objlist{margin:3px 0 0;gap:3px}.ocode{font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap;color:var(--link)}
 .secobj{margin-top:3px;font-weight:400;line-height:1.35}.rep-table tbody th .secobj{text-transform:none;letter-spacing:0}
 @media print{.ocode{color:#0f2236}.obj{break-inside:avoid;page-break-inside:avoid}.objlist li{break-inside:avoid}.weakitem .obj,.stritem .obj{margin:3px 0 2px}}
+
+/* board outline picker (admin forms) and the tags members see */
+.objpick .objchips{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 8px}.objchip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:999px;padding:3px 4px 3px 10px;font-size:.88rem;background:var(--card)}.objchip.bad{border-color:#b3261e}
+.objchip button{border:0;background:transparent;min-height:0;padding:0 8px;font-size:1.1rem;line-height:1.4;cursor:pointer;color:inherit}
+.objfind{display:flex;flex-wrap:wrap;gap:8px;align-items:center}.objfind input{flex:1 1 260px;min-width:0}
+.objres{display:grid;gap:4px;margin-top:8px}.objrow{display:block;text-align:left;width:100%;font-weight:400;border:1px solid var(--line);border-radius:8px;padding:6px 10px;background:var(--card);color:inherit;cursor:pointer}.objrow:disabled{opacity:.55;cursor:default}
+.objshow{margin-top:10px}
+@media print{.objshow{break-inside:avoid}}

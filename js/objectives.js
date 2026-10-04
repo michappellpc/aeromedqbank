@@ -90,5 +90,39 @@
   // One line of text for an item, with what it sits under: "K1.E.1 Hypobaric exposures" (under "K1.E Pressure effects on human physiology")
   const tidy = s => String(s || '').replace(/[\s:]*(related to|including|focusing on the following|applicable to|as follows)?:?\s*$/i, '').replace(/:$/, '');
   const label = i => ({ code: i.code, text: i.text, under: i.parent ? { code: i.parent.code, text: tidy(i.parent.text) } : null });
-  return { ANCHORS, board, boardOf, forSection, headlines, forTopic, label, tokens, boards: () => Object.keys(DATA || {}) };
+  // ---- explicit tags: "board:code" strings kept on a question, lesson or flashcard ----
+  const REF = /^(aem|om|pm):([TK][0-9]+(?:\.[A-Za-z0-9]+)*)$/;
+  const allIdx = {};
+  function index(id) {
+    if (allIdx[id]) return allIdx[id];
+    const raw = (DATA && DATA[id]) || { items: [] }, by = new Map(); raw.items.forEach(i => by.set(i.code, { ...i, board: id }));
+    return (allIdx[id] = { raw, by });
+  }
+  // The outline item a tag points at (tasks and knowledge items alike), with the item it sits under; null when no such item
+  function describe(ref) {
+    const m = REF.exec(String(ref || '')); if (!m) return null;
+    const i = index(m[1]).by.get(m[2]); if (!i) return null;
+    const p = i.code.split('.'); let up = null; while (p.length > 1 && !up) { p.pop(); up = index(m[1]).by.get(p.join('.')) || null; }
+    return { ref: m[1] + ':' + i.code, board: m[1], code: i.code, kind: i.kind, text: i.text, under: up ? { code: up.code, text: tidy(up.text) } : null };
+  }
+  // Items matching what the editor typed: a code ("K1.E" or "aem:K1.E.1") or words. Best matches first.
+  function search(query, boardIds, n = 10) {
+    const q = String(query || '').trim().toLowerCase(); if (!q) return [];
+    const ids = (boardIds && boardIds.length ? boardIds : Object.keys(DATA || {})).filter(b => DATA && DATA[b]);
+    const codeQ = q.replace(/^(aem|om|pm):/, ''), words = q.split(/\s+/).filter(w => w.length > 1), out = [];
+    ids.forEach(b => index(b).raw.items.forEach(i => {
+      const code = i.code.toLowerCase(), hay = (i.text + ' ' + (i.detail || []).join(' ') + ' ' + (i.domainName || '')).toLowerCase();
+      let s = 0;
+      if (code === codeQ) s = 100; else if (/^[tk][0-9]/.test(codeQ) && (code.startsWith(codeQ + '.') || code.startsWith(codeQ))) s = 50 - code.length / 10;
+      else if (words.length && words.every(w => hay.includes(w))) s = 10 + words.filter(w => i.text.toLowerCase().includes(w)).length * 2 + (i.kind === 'K' ? 1 : 0);
+      if (s) out.push({ s, i, b });
+    }));
+    return out.sort((x, y) => y.s - x.s || x.i.code.localeCompare(y.i.code, undefined, { numeric: true })).slice(0, n).map(x => describe(x.b + ':' + x.i.code));
+  }
+  // Suggested tags for an item from its subject, topic and wording. Only items the words really match; never the whole-section fallback.
+  function suggest(subject, subjects, topic, text, n = 3) {
+    const b = boardOf(subject, subjects); if (!b) return [];
+    return forTopic(b, subject, topic || '', [{ subject, stem: text || '' }], n).filter(r => r.via === 'topic').map(r => b + ':' + r.item.code);
+  }
+  return { ANCHORS, board, boardOf, forSection, headlines, forTopic, label, tokens, REF, describe, search, suggest, boards: () => Object.keys(DATA || {}) };
 });

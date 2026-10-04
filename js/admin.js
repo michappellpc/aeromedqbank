@@ -194,7 +194,7 @@ const Admin = (() => {
 
   // ------------------------------------------------------------------ backup
   function backup(listAll) {
-    const out = listAll.map(q => { const o = {}; QValidate.FIELDS.forEach(k => { if (q[k] !== undefined && q[k] !== '' && !(Array.isArray(q[k]) && !q[k].length && k === 'references')) o[k] = q[k]; }); if (!q.archived) delete o.archived; return o; });
+    const out = listAll.map(q => { const o = {}; QValidate.FIELDS.forEach(k => { if (q[k] !== undefined && q[k] !== '' && !(Array.isArray(q[k]) && !q[k].length && (k === 'references' || k === 'objectives'))) o[k] = q[k]; }); if (!q.archived) delete o.archived; return o; });
     const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(out, null, 2) + '\n'], { type: 'application/json' }));
     a.download = 'ramqbank-questions-' + new Date().toISOString().slice(0, 10) + '.json'; a.click();
     toast(`Downloaded ${out.length} questions. Keep this file somewhere safe.`);
@@ -282,6 +282,7 @@ const Admin = (() => {
           <button type="button" id="addopt"${opts0.length >= 6 ? ' disabled' : ''}>Add a choice</button></fieldset>
         <label for="f-expl">Explanation (why the answer is right, and the teaching point)</label><textarea id="f-expl" rows="5">${esc(q0.explanation)}</textarea>
         <label for="f-refs">References (one per line)</label><textarea id="f-refs" rows="3">${esc((q0.references || []).join('\n'))}</textarea>
+        <fieldset><legend>Board outline items (optional)</legend><p class="hint">The ABPM outline items this question covers. Members see them with the explanation, and Program insights uses them instead of guessing. Changing them never sends a live question back to Draft.</p><div id="f-obj"></div></fieldset>
         <fieldset><legend>Picture (optional)</legend><div id="imgprev" class="imgprev"></div>
           <label for="f-img">Add or replace the picture (PNG, JPEG, WebP or GIF, under 2 MB)</label><input id="f-img" type="file" accept="image/png,image/jpeg,image/webp,image/gif">
           <label for="f-alt">Describe the picture for someone who cannot see it</label><input id="f-alt" type="text" value="${esc(q0.imageAlt || '')}" autocomplete="off"><div style="margin-top:8px"><button type="button" id="rmimg">Remove the picture</button></div></fieldset>
@@ -296,6 +297,7 @@ const Admin = (() => {
       el('f-subject').innerHTML = '<option value="">Choose a subject</option>' + subs.map(s => `<option${s === keep ? ' selected' : ''}>${esc(s)}</option>`).join('');
     };
     fillSubjects(q0.subject);
+    const objPick = ObjPicker.mount(el('f-obj'), { value: q0.objectives || [], boards: () => [...document.querySelectorAll('input[name=board]:checked')].map(e => e.value), subject: () => el('f-subject').value, topic: () => el('f-topic').value.trim(), text: () => el('f-stem').value + ' ' + el('f-expl').value });
     const readOpts = () => [...document.querySelectorAll('.orow')].map(r => { const t = r.querySelectorAll('input[type=text]'); return { text: t[0].value, note: t[1].value }; });
     const readAns = () => +((document.querySelector('input[name=ans]:checked') || { value: 0 }).value);
     const paintOpts = (opts, ans) => { el('optrows').innerHTML = optRows(opts, ans); el('addopt').disabled = opts.length >= 6; bindOpts(); };
@@ -331,7 +333,7 @@ const Admin = (() => {
       const o = readOpts(), a = readAns(), boards = [...document.querySelectorAll('input[name=board]:checked')].map(e => e.value);
       const notes = {}; o.forEach((x, i) => { if (x.note.trim()) notes[LETTERS[i]] = x.note.trim(); });
       const keepImg = !removeImage && (pendingFile || q0.image);
-      return { id: el('f-id').value.trim(), status: el('f-status').value, boards, subject: el('f-subject').value, topic: el('f-topic').value.trim(), difficulty: +el('f-diff').value, tier: el('f-tier').value, ...(el('f-lesson').value || q0.lessonId ? { lessonId: el('f-lesson').value } : {}),
+      return { id: el('f-id').value.trim(), status: el('f-status').value, boards, subject: el('f-subject').value, topic: el('f-topic').value.trim(), difficulty: +el('f-diff').value, tier: el('f-tier').value, ...(el('f-lesson').value || q0.lessonId ? { lessonId: el('f-lesson').value } : {}), ...(objPick.get().length || (q0.objectives || []).length ? { objectives: objPick.get() } : {}),
         stem: el('f-stem').value, options: o.map((x, i) => ({ id: LETTERS[i], text: x.text })), answer: LETTERS[a], explanation: el('f-expl').value, optionNotes: Object.keys(notes).length ? notes : undefined,
         references: el('f-refs').value.split('\n'), image: keepImg ? (pendingFile ? 'private:pending.png' : q0.image) : null, imageAlt: keepImg ? el('f-alt').value.trim() : '' };
     }
@@ -349,7 +351,7 @@ const Admin = (() => {
     el('qf').onsubmit = async e => {
       e.preventDefault(); showErrors([]);
       const raw = read(), { clean } = QValidate.normalize(raw), stems = new Map(c.list.filter(x => x.id !== clean.id).map(x => [QValidate.norm(x.stem), x.id]));
-      const res = QValidate.check(clean, { boards: bank.boards, subjects: bank.subjects, ids: new Set(), stems, label: clean.id, recordsReviewer: true, lessonIds: new Set((bank.lessons || []).map(l => l.id)) });
+      const res = QValidate.check(clean, { boards: bank.boards, subjects: bank.subjects, ids: new Set(), stems, label: clean.id, recordsReviewer: true, lessonIds: new Set((bank.lessons || []).map(l => l.id)), knownObjective: r => !!Objectives.describe(r) });
       const errors = res.filter(r => r.level === 'error').map(r => r.msg), warns = res.filter(r => r.level === 'warn').map(r => r.msg);
       if (!errors.length && clean.stem) { const near = QValidate.nearDuplicate(clean.stem, c.list.filter(x => x.id !== clean.id)); if (near) warns.push(`reads like a reworded copy of ${near.id} (${Math.round(near.score * 100)}% the same wording)`); }
       if (isNew && clean.id && c.list.some(x => x.id === clean.id)) errors.unshift(`the id "${clean.id}" is already used by another question`);
@@ -410,7 +412,7 @@ const Admin = (() => {
         if (!keep) { clean.status = 'draft'; delete clean.reviewedBy; delete clean.archived; } else if (!clean.status) clean.status = 'draft';
         delete clean.reviewedBy;                                  // the database records reviewers itself
         const res = QValidate.check(clean, { boards: bank.boards, subjects: bank.subjects, ids, stems, label: clean.id || `item ${i + 1}`, recordsReviewer: true, lessonIds: new Set((bank.lessons || []).map(l => l.id)),
-          imageFiles: img => (String(img).startsWith('private:') ? [{ level: 'warn', msg: 'has a picture; attach it on the question\'s edit page after saving' }] : []) });
+          knownObjective: r => !!Objectives.describe(r), imageFiles: img => (String(img).startsWith('private:') ? [{ level: 'warn', msg: 'has a picture; attach it on the question\'s edit page after saving' }] : []) });
         const warns = res.filter(r => r.level === 'warn').map(r => r.msg), errs = res.filter(r => r.level === 'error').map(r => r.msg);
         let copyOf = null;
         if (!errs.length && clean.stem) {

@@ -36,5 +36,11 @@ t('the bundled sample lessons all pass', () => {
   const ids = new Set();
   for (const f of man.lessons || []) for (const l of JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'data', f), 'utf8'))) eq(errs(l, { ids }), []);
 });
+t('objectives: good tags pass, tidied, bad ones are errors', () => {
+  eq(errs({ ...base(), objectives: ['aem:K1.E.1'] }), []);
+  eq(LV.normalize({ ...base(), objectives: [' AEM:k1.E.1 ', 'aem:K1.E.1'] }).clean.objectives, ['aem:K1.E.1']);
+  if (!errs({ ...base(), objectives: ['nope'] }).some(m => /objectives/.test(m))) throw new Error('bad tag accepted');
+  if (!LV.FIELDS.includes('objectives')) throw new Error('not a field');
+});
 console.log(`${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

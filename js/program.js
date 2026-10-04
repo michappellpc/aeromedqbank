@@ -118,7 +118,13 @@ const Program = (() => {
       const start = [...tally.values()].sort((a, b) => b.n - a.n || a.lesson.title.localeCompare(b.lesson.title)).slice(0, 5);
       // ABPM content-outline items for a topic or a section (the board's own codes and wording; see objectives.js)
       const cut = (x, n) => { if (x.length <= n) return x; const h = x.slice(0, n - 1), k = h.lastIndexOf(' '); return (k > n * 0.6 ? h.slice(0, k) : h).trimEnd() + '\u2026'; };
-      const objFor = (subject, topic) => { const b = Objectives.boardOf(subject, bank.subjects); return b ? Objectives.forTopic(b, subject, topic, bank.questions || [], 2) : []; };
+      // Tags the editors chose on this topic's questions come first (the two most used); otherwise the words are matched as before
+      const objFor = (subject, topic) => {
+        const b = Objectives.boardOf(subject, bank.subjects); if (!b) return [];
+        const use = new Map(); (bank.questions || []).filter(q => q.subject === subject && (q.topic || '') === (topic || '') && q.objectives).forEach(q => q.objectives.forEach(r => { if (r.startsWith(b + ':')) use.set(r, (use.get(r) || 0) + 1); }));
+        const tagged = [...use].sort((x, y) => y[1] - x[1] || x[0].localeCompare(y[0], undefined, { numeric: true })).map(([r]) => Objectives.board(b).byCode.get(r.slice(b.length + 1))).filter(Boolean).slice(0, 2).map(item => ({ item, via: 'tagged' }));
+        return tagged.length ? tagged : Objectives.forTopic(b, subject, topic, bank.questions || [], 2);
+      };
       const objHtml = rows => (rows.length ? `<div class="small obj"><b>Board outline (ABPM):</b><ul class="reclist objlist">${rows.map(r => { const l = Objectives.label(r.item); return `<li><span class="ocode">${esc(l.code)}</span> ${esc(cut(l.text, 150))}${l.under ? ` <span class="muted">under ${esc(l.under.code)} ${esc(cut(l.under.text, 70))}</span>` : ''}${r.via === 'section' ? ' <span class="muted">(whole section)</span>' : ''}</li>`; }).join('')}</ul></div>` : '');
       const secObj = subject => { const b = Objectives.boardOf(subject, bank.subjects); const hs = b ? Objectives.headlines(b, subject, 3) : []; return hs.length ? `<div class="muted small secobj">${hs.map(i => `<span class="ocode">${esc(i.code)}</span> ${esc(cut(i.text, 55))}`).join(' &middot; ')}</div>` : ''; };
       const wrongText = m => { if (!m.wrong) return '<span class="muted">-</span>'; const q = bank.byId[m.id], o = q && q.options.find(x => x.id === m.wrong); return `<b>${esc(m.wrong)}</b>${o ? ' ' + esc(o.text.length > 70 ? o.text.slice(0, 69) + '…' : o.text) : ''} <span class="muted small">(${m.wrongShare}% of wrong answers)</span>`; };

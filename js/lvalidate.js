@@ -5,7 +5,7 @@
   if (typeof module === 'object' && module.exports) module.exports = factory(); else root.LValidate = factory();
 })(typeof self !== 'undefined' ? self : this, function () {
   const STATUS = ['draft', 'reviewed'], TIERS = ['free', 'pro'];
-  const FIELDS = ['id', 'status', 'reviewedBy', 'boards', 'subject', 'title', 'summary', 'order', 'blocks', 'references', 'tier', 'archived'];
+  const FIELDS = ['id', 'status', 'reviewedBy', 'boards', 'subject', 'title', 'summary', 'order', 'blocks', 'references', 'tier', 'objectives', 'archived'];
   const KINDS = ['pearl', 'key', 'warning', 'tip'];
   const LIMITS = { blocks: 80, text: 4000, cols: 12, rows: 40, cats: 24, series: 4, items: 12, steps: 12 };
   const isStr = v => typeof v === 'string';
@@ -76,6 +76,10 @@
     if (!l.id) err('missing id'); else if (!/^[a-z0-9][a-z0-9-]*$/.test(l.id)) err('id must be lowercase letters, digits and hyphens'); else if (ctx.ids && ctx.ids.has(l.id)) err('duplicate id'); else if (ctx.ids) ctx.ids.add(l.id);
     if (!STATUS.includes(l.status)) err('status must be "draft" or "reviewed"');
     if (l.tier !== undefined && !TIERS.includes(l.tier)) err('tier must be "free" or "pro"');
+    if (l.objectives != null) {
+      if (!Array.isArray(l.objectives) || l.objectives.length > 12 || l.objectives.some(o => typeof o !== 'string' || !/^(aem|om|pm):[TK][0-9]+(\.[A-Za-z0-9]+)*$/.test(o))) err('objectives must be a list of at most 12 board outline items such as "aem:K1.E.1"');
+      else { l.objectives.forEach(o => { if (ctx.knownObjective && !ctx.knownObjective(o)) warn(`objective "${o}" is not an item in the board outline`); else if (Array.isArray(l.boards) && l.boards.length && !l.boards.includes(o.split(':')[0])) warn(`objective "${o}" is from a board this lesson is not listed for`); }); }
+    }
     if (!Array.isArray(l.boards) || !l.boards.length || l.boards.some(b => !boardIds.has(b))) err('invalid boards (use aem, om, pm)');
     else if (!l.subject) err('missing subject');
     else if (!l.boards.some(b => (ctx.subjects[b] || []).includes(l.subject))) err(`subject "${l.subject}" is not listed for board(s) ${l.boards.join(', ')} in the manifest`);
@@ -102,6 +106,7 @@
     if (clean.tier === undefined) clean.tier = 'pro';
     ['id', 'title', 'summary'].forEach(k => { if (isStr(clean[k])) clean[k] = clean[k].trim(); });
     if (Array.isArray(clean.references)) clean.references = clean.references.map(r => String(r).trim()).filter(Boolean);
+    if (Array.isArray(clean.objectives)) { const seen = new Set(); clean.objectives = clean.objectives.map(o => String(o).trim()).map(o => { const m = o.match(/^([A-Za-z]+):\s*([A-Za-z])([0-9][A-Za-z0-9.]*)$/); return m ? m[1].toLowerCase() + ':' + m[2].toUpperCase() + m[3] : o; }).filter(o => o && !seen.has(o) && seen.add(o)); }
     return { clean, dropped };
   }
   return { check, checkBlock, normalize, FIELDS, STATUS, TIERS, KINDS, LIMITS };

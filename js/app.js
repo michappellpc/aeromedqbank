@@ -51,7 +51,7 @@ function explanationHtml(q, sel, verdict) {
     ${notes.length ? `<h2 class="exph">Answer choices</h2><ul class="optnotes">${notes.map(o => `<li class="${o.id === q.answer ? 'right' : ''}"><b>${esc(o.id)}.</b> <span ${HlUI.attrs('q', q.id, 'note-' + o.id)}>${esc(q.optionNotes[o.id])}</span></li>`).join('')}</ul>` : ''}
     ${relatedLesson(q)}
     <p class="mkrow"><button type="button" data-mkcard="${esc(q.id)}" title="Turn this question into a flashcard of your own">&#9998; Make flashcard</button></p>
-    ${q.references && q.references.length ? `<p class="muted small refs">References: ${q.references.map(esc).join('; ')}</p>` : ''}</div>`;
+    ${q.references && q.references.length ? `<p class="muted small refs">References: ${q.references.map(esc).join('; ')}</p>` : ''}${ObjPicker.show(q.objectives)}</div>`;
 }
 const csvCell = v => { let s = String(v ?? ''); if (/^[=+\-@\t\r]/.test(s)) s = "'" + s; return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
 const privImg = q => (q.image && q.image.startsWith('private:') ? q.image.slice(8) : null);

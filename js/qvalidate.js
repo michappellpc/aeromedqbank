@@ -6,7 +6,7 @@
 })(typeof self !== 'undefined' ? self : this, function () {
   const STATUS = ['draft', 'reviewed'], TIERS = ['free', 'pro'];
   // The only fields a question may have; anything else is dropped on save.
-  const FIELDS = ['id', 'status', 'reviewedBy', 'boards', 'subject', 'topic', 'difficulty', 'stem', 'image', 'imageAlt', 'options', 'answer', 'explanation', 'optionNotes', 'references', 'tier', 'lessonId', 'archived'];
+  const FIELDS = ['id', 'status', 'reviewedBy', 'boards', 'subject', 'topic', 'difficulty', 'stem', 'image', 'imageAlt', 'options', 'answer', 'explanation', 'optionNotes', 'references', 'tier', 'lessonId', 'objectives', 'archived'];
   const norm = s => String(s).toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
 
   // The "length tell": the correct answer is the longest choice and clearly longer than the rest, which gives it away.
@@ -40,6 +40,7 @@
   //   ctx.ids      Set              ids already seen in this run (updated here)
   //   ctx.stems    Map              normalized stem -> id of the question that has it (updated here)
   //   ctx.lessonIds Set (optional)  the ids of the lessons that exist, to warn about a lessonId that matches none
+  //   ctx.knownObjective(ref) -> bool  optional: is this "board:code" an item in the board outlines (warns when not)
   //   ctx.label    string           what to call this question in messages (defaults to its id)
   //   ctx.recordsReviewer bool          the database records who reviewed, so a missing reviewedBy is fine (editor screens)
   //   ctx.imageFiles(image) -> [{level,msg}]   optional: file checks the caller can do (Node: does the file exist?)
@@ -57,6 +58,10 @@
     if (q.archived != null && typeof q.archived !== 'boolean') err('archived must be true or false');
     if (q.lessonId != null && q.lessonId !== '' && (typeof q.lessonId !== 'string' || !/^[a-z0-9][a-z0-9-]*$/.test(q.lessonId))) err('lessonId must be a lesson id');
     else if (q.lessonId && ctx.lessonIds && !ctx.lessonIds.has(q.lessonId)) warn(`lessonId "${q.lessonId}" does not match any lesson`);
+    if (q.objectives != null) {
+      if (!Array.isArray(q.objectives) || q.objectives.length > 12 || q.objectives.some(o => typeof o !== 'string' || !/^(aem|om|pm):[TK][0-9]+(\.[A-Za-z0-9]+)*$/.test(o))) err('objectives must be a list of at most 12 board outline items such as "aem:K1.E.1"');
+      else { q.objectives.forEach(o => { if (ctx.knownObjective && !ctx.knownObjective(o)) warn(`objective "${o}" is not an item in the board outline`); else if (Array.isArray(q.boards) && q.boards.length && !q.boards.includes(o.split(':')[0])) warn(`objective "${o}" is from a board this question is not listed for`); }); }
+    }
     if (!q.stem || !String(q.stem).trim()) err('missing stem'); else {
       const k = norm(q.stem), other = ctx.stems.get(k);
       if (other !== undefined && other !== label) err(`stem duplicates ${other}`); else ctx.stems.set(k, label);
@@ -98,6 +103,7 @@
     for (const k of ['id', 'topic', 'stem', 'explanation', 'imageAlt', 'reviewedBy', 'lessonId']) if (typeof clean[k] === 'string') clean[k] = clean[k].trim();
     if (Array.isArray(clean.options)) clean.options = clean.options.map(o => ({ id: o && o.id, text: typeof (o && o.text) === 'string' ? o.text.trim() : o && o.text }));
     if (Array.isArray(clean.references)) clean.references = clean.references.map(r => String(r).trim()).filter(Boolean);
+    if (Array.isArray(clean.objectives)) { const seen = new Set(); clean.objectives = clean.objectives.map(o => String(o).trim()).map(o => { const m = o.match(/^([A-Za-z]+):\s*([A-Za-z])([0-9][A-Za-z0-9.]*)$/); return m ? m[1].toLowerCase() + ':' + m[2].toUpperCase() + m[3] : o; }).filter(o => o && !seen.has(o) && seen.add(o)); }
     return { clean, dropped };
   }
 
