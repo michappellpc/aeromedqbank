@@ -21,6 +21,8 @@ jobs:
         run: node tools/test-hl.js
       - name: Program insights tests
         run: node tools/test-insights.js
+      - name: Board outline objectives tests
+        run: node tools/test-objectives.js
       - name: Item analysis tests
         run: node tools/test-itemstats.js
       - name: Copy tests
