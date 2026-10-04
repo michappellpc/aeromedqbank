@@ -632,8 +632,10 @@ section.rep-sec:not(.card){padding:0 2px}
 .rep-table th{font-size:.72rem;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);font-weight:600;border-bottom:2px solid var(--line)}.rep-table td{vertical-align:top}.rep-table tbody tr:nth-child(even){background:color-mix(in srgb,var(--sel) 45%,transparent)}
 .rep-foot{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:8px;padding-top:10px;border-top:1px solid var(--line);font-size:.78rem;color:var(--muted)}
 @media(max-width:700px){.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.rep-title{font-size:1.5rem}.weakitem{grid-template-columns:30px minmax(0,1fr);padding:12px}.rep-kicker{margin-left:0;width:100%}}
-@page insights{size:letter;margin:.6in .65in .75in;
-  @bottom-left{content:"AeroMedQBank  |  Program insights  |  Confidential";font:8.5pt system-ui,sans-serif;color:#555}
+@page insights{size:letter;margin:.7in .65in .75in;
+  @top-left{content:"AeroMedQBank";font:600 8.5pt system-ui,sans-serif;color:#0f2236}
+  @top-right{content:"Program insights report";font:8.5pt system-ui,sans-serif;color:#555}
+  @bottom-left{content:"Confidential: group totals only";font:8.5pt system-ui,sans-serif;color:#555}
   @bottom-right{content:"Page " counter(page) " of " counter(pages);font:8.5pt system-ui,sans-serif;color:#555}}
 @media print{
   /* Nothing here depends on "background graphics": bars are SVG, badges and tiles use borders, and colors are forced on anyway. */
@@ -644,22 +646,27 @@ section.rep-sec:not(.card){padding:0 2px}
   .report .kpi,.report .weakitem,.report .card,.report .rep-table,.report .rep-table tbody tr{background:#fff!important;color:#111}
   .report .rep-table tbody tr:nth-child(even){background:#f3f6f9!important}
   .report .muted,.report .rep-note,.report .kpi-l,.report .kpi-s,.report .legend,.report .rep-meta,.report .rep-kicker,.report .rep-foot{color:#4a5868!important}
-  .report{page:insights;max-width:none;margin:0;color:#111;font-size:10.5pt;line-height:1.45}
+  .report{page:insights;max-width:none;margin:0;color:#111;font-size:10pt;line-height:1.4}
   main:has(.report){padding:0;max-width:none}
   .crumb,.rep-controls,.rep-preview{display:none!important}
-  .report .card{background:#fff;border:1px solid #c5ced8;box-shadow:none;border-radius:6px;padding:12px 14px;margin-bottom:12px}
+  .report .card{background:#fff;border:0;border-top:1px solid #c5ced8;box-shadow:none;border-radius:0;padding:10px 0 0;margin-bottom:14px}
   .report a{color:#111;text-decoration:none;font-weight:600}
-  .rep-head{padding-bottom:12px}.rep-title{font-size:24pt}.rep-brand .wordmark{color:#111}
+  .rep-head{padding:0 0 8px;margin-bottom:12px}.rep-title{font-size:21pt;margin:8px 0 3px}.rep-brand .wordmark{color:#111}.rep-brand .logo{width:28px;height:28px}
   .rep-sec,.weakitem,.kpi,.startlist li,.rep-table tr,.reclist li{break-inside:avoid;page-break-inside:avoid}
   #ins-weak.rep-sec{break-inside:auto;page-break-inside:auto}
   .rep-h,.rep-note{break-after:avoid;page-break-after:avoid}
-  .kpi{border:1px solid #c5ced8;border-top:4px solid #0f2236}.kpi b{font-size:22pt}
-  .weakitem{border:1px solid #c5ced8;border-left:5px solid #b3372c;padding:10px 12px}
+  .kpi{border:1px solid #c5ced8;border-top:4px solid #0f2236;padding:7px 10px}.kpi b{font-size:19pt;margin:2px 0 0}.kpi-l{font-size:7pt}.kpi-s{font-size:8.5pt}
+  .weaklist{display:block}
+  .weakitem{border:1px solid #c5ced8;border-left:5px solid #b3372c;padding:7px 10px;margin-bottom:7px;gap:10px}
+  .weakitem .wsum{margin:3px 0}.weakitem .weakbars{margin:4px 0}.weakitem .reclist{margin-top:2px;gap:1px}.weakitem .small{font-size:9pt}
+  .rep-h{border-bottom:1px solid #c5ced8;padding-bottom:4px;margin-bottom:8px}
+  .rep-lead{font-size:11pt;line-height:1.5;margin-bottom:10px}
+  .rep-foot{break-inside:avoid;page-break-inside:avoid}
   .rank{border-color:#0f2236;color:#0f2236}
   .pbar{border-top-color:#dde3ea}.pbar .fil{border-top-color:#1f4f7a}.pbar.all .fil{border-top-color:#8795a6;opacity:1}.pbar .tgt{border-left-color:#111;opacity:1}
   .sw{border-top-color:#1f4f7a}.sw.all{border-top-color:#8795a6}.sw.tgt{border-left-color:#111}
   .rep-table th{border-bottom:2px solid #8795a6}.rep-table td{border-bottom:1px solid #dde3ea}
-  svg.trend{max-height:2.4in}.trend polyline{stroke:#1f4f7a}
+  .chartwrap{break-inside:avoid;page-break-inside:avoid}svg.trend{max-height:none;height:150px;width:100%}.trend polyline{stroke:#1f4f7a}
   .rep-foot{margin-top:14px;border-top:1px solid #c5ced8}
   .tag.gap{background:#fff;color:#111;border:1px solid #111}
 }
