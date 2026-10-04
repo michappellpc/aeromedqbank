@@ -41,6 +41,8 @@ The home screen has an **Exam countdown** card: the member adds their exam date 
 ## Quieting the ram during tests
 The ram does not appear on the question screen. It stays on the dashboard and results, and turning the mascot off in Settings removes it everywhere.
 
+Under **Admin > Overview**, the Members and Approved emails tables show each person's plan with its end date (*Pro until Oct 4, 2027*, *Pro, no end date*, or *Pro ended ...* with an *expired* tag, and *ends in N days* when it is within 30), plus the program they belong to, by name. **Edit** (or **Add member**) has a *Pro until* date with +3 months, +6 months, +1 year and *No end date* buttons. The database enforces it: after the last day pro questions and lessons stop working for that person without anyone changing anything, and their progress is kept. Run the latest `supabase/schema.sql` once to add the column. The CSV includes `pro_until` and `program`.
+
 The Overview page's **Recent activity** card shows how many questions members answered and the percent correct over a period you choose (last 24 hours, 48 hours, 3 days, week, 2 weeks, 30 days, 90 days or all time), plus how many members answered and how many different questions. It counts every try by active members. It needs the latest `supabase/schema.sql`.
 
 ## Choosing a lesson for a question
