@@ -3,7 +3,7 @@
 // Loaded before app.js; it uses app.js's helpers (esc, ask, toast, pageTitle, bank, profile, $app) when it runs.
 const Admin = (() => {
   let cache = null;                       // { list, stats: Map(id -> {attempts, pct}) }
-  const view = { q: '', board: '', subject: '', status: '', show: 'active', tier: '', check: '', diff: '', sort: '', picks: (() => { try { return localStorage.getItem('qbank.picks') === '1'; } catch { return false; } })(), flag: '', data: '', min: '', max: '', page: 0, sel: new Set(), open: new Set() };
+  const view = { q: '', board: '', subject: '', status: '', show: 'active', tier: '', check: '', diff: '', sort: '', tag: '', picks: (() => { try { return localStorage.getItem('qbank.picks') === '1'; } catch { return false; } })(), flag: '', data: '', min: '', max: '', page: 0, sel: new Set(), open: new Set() };
   const PAGE = 50;
   const role = () => (profile && profile.role) || '';
   const isEditor = () => role() === 'admin' || role() === 'reviewer';
@@ -69,7 +69,7 @@ const Admin = (() => {
         <div><label for="fst">Status</label><select id="fst"><option value="">All</option><option value="draft">Draft</option><option value="reviewed">Reviewed</option></select></div>
         <div><label for="fsh">Show</label><select id="fsh"><option value="active">Active</option><option value="archived">Archived</option><option value="all">Both</option></select></div>
         <div><label for="ft">Tier</label><select id="ft"><option value="">All</option><option value="free">Free</option><option value="pro">Pro</option></select></div>
-        <div><label for="fd">Difficulty</label><select id="fd"><option value="">All</option><option value="1">Easy</option><option value="2">Medium</option><option value="3">Hard</option></select></div>
+        <div><label for="fot">Outline tags</label><select id="fot"><option value="">All</option><option value="none">Not tagged yet (${cache.list.filter(x => !x.archived && !(x.objectives || []).length).length})</option><option value="some">Tagged</option></select></div><div><label for="fd">Difficulty</label><select id="fd"><option value="">All</option><option value="1">Easy</option><option value="2">Medium</option><option value="3">Hard</option></select></div>
         <div><label for="fo">Sort by</label><select id="fo"><option value="">ID</option><option value="hard">Label: hardest first</option><option value="easy">Label: easiest first</option><option value="pc-low">% correct: lowest first</option><option value="pc-high">% correct: highest first</option><option value="n-most">Answered by the most people</option><option value="n-least">Answered by the fewest people</option>${AdminItems.SORTS.map(([v, t]) => `<option value="${v}">${t}</option>`).join('')}</select></div>
         <div><label for="fl">Checks</label><select id="fl"><option value="">All questions</option><option value="long">Correct answer much longer</option></select></div>
         <div><label for="ffl">Flag</label><select id="ffl"><option value="">Any</option><option value="any">Has any flag</option>${AdminItems.FLAGS.map(f => `<option value="${f}">${esc(ItemStats.FLAG_TEXT[f][0])}</option>`).join('')}</select></div>
@@ -78,7 +78,7 @@ const Admin = (() => {
       <div id="bulk"></div><div class="card" id="qres"></div>`;
     const set = (id, v) => { document.getElementById(id).value = v; };
     const fillSubjects = () => { const s = document.getElementById('fs'); s.innerHTML = '<option value="">All</option>' + subjectsFor(view.board ? [view.board] : []).map(x => `<option${x === view.subject ? ' selected' : ''}>${esc(x)}</option>`).join(''); };
-    fillSubjects(); set('ffl', view.flag); set('fdt', view.data); set('fst', view.status); set('fsh', view.show); set('ft', view.tier); set('fl', view.check || ''); set('fd', view.diff); set('fo', view.sort);
+    fillSubjects(); set('ffl', view.flag); set('fdt', view.data); set('fst', view.status); set('fsh', view.show); set('ft', view.tier); set('fl', view.check || ''); set('fd', view.diff); set('fo', view.sort); set('fot', view.tag);
     const on = (id, ev, fn) => document.getElementById(id).addEventListener(ev, fn);
     on('fq', 'input', e => { view.q = e.target.value; view.page = 0; paint(); });
     on('fb', 'change', e => { view.board = e.target.value; view.subject = ''; view.page = 0; fillSubjects(); paint(); });
@@ -87,6 +87,7 @@ const Admin = (() => {
     on('fsh', 'change', e => { view.show = e.target.value; view.page = 0; paint(); });
     on('ft', 'change', e => { view.tier = e.target.value; view.page = 0; paint(); });
     on('fd', 'change', e => { view.diff = e.target.value; view.page = 0; paint(); });
+    on('fot', 'change', e => { view.tag = e.target.value; view.page = 0; paint(); });
     on('fo', 'change', e => { view.sort = e.target.value; view.page = 0; paint(); });
     on('fl', 'change', e => { view.check = e.target.value; view.page = 0; paint(); });
     on('ffl', 'change', e => { view.flag = e.target.value; view.page = 0; paint(); }); on('fdt', 'change', e => { view.data = e.target.value; view.page = 0; paint(); });
@@ -108,7 +109,7 @@ const Admin = (() => {
   const describeView = () => {
     const bn = id => (bank.boards.find(b => b.id === id) || {}).name || id, p = [];
     if (view.q) p.push(`search "${view.q}"`); if (view.board) p.push(bn(view.board)); if (view.subject) p.push(view.subject); if (view.diff) p.push(['', 'Easy', 'Medium', 'Hard'][view.diff]);
-    if (view.status) p.push(view.status === 'reviewed' ? 'live' : view.status); if (view.show !== 'active') p.push(view.show === 'all' ? 'including archived' : 'archived'); if (view.tier) p.push(view.tier + ' tier');
+    if (view.status) p.push(view.status === 'reviewed' ? 'live' : view.status); if (view.show !== 'active') p.push(view.show === 'all' ? 'including archived' : 'archived'); if (view.tier) p.push(view.tier + ' tier'); if (view.tag) p.push(view.tag === 'none' ? 'no outline tags yet' : 'has outline tags');
     if (view.flag) p.push(view.flag === 'any' ? 'has a flag' : 'flag: ' + ItemStats.FLAG_TEXT[view.flag][0]); if (view.data) p.push(view.data === 'judged' ? 'enough answers' : 'too few answers'); if (view.min !== '' || view.max !== '') p.push(`${view.min || 0}% to ${view.max || 100}% correct`);
     return p.length ? 'filters: ' + p.join(', ') : 'no filters';
   };
@@ -128,7 +129,7 @@ const Admin = (() => {
     const w = view.q.trim().toLowerCase();
     return cache.list.filter(q =>
       (view.show === 'all' || (view.show === 'archived') === q.archived) && (!view.board || q.boards.includes(view.board)) && (!view.subject || q.subject === view.subject) &&
-      (!view.status || q.status === view.status) && (!view.tier || q.tier === view.tier) && (view.check !== 'long' || QValidate.lengthTell(q)) && (!view.diff || (q.difficulty || 2) === +view.diff) && measured(q) &&
+      (!view.status || q.status === view.status) && (!view.tier || q.tier === view.tier) && (view.check !== 'long' || QValidate.lengthTell(q)) && (!view.diff || (q.difficulty || 2) === +view.diff) && (!view.tag || (view.tag === 'none') === !((q.objectives || []).length)) && measured(q) &&
       (!w || q.id.includes(w) || (q.topic || '').toLowerCase().includes(w) || q.stem.toLowerCase().includes(w)));
   };
 
