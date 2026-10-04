@@ -35,6 +35,8 @@ const Store = (() => {
     delMine(id) { if (d.mine) delete d.mine[id]; if (d.cards) delete d.cards['my:' + id]; save(); fire('mine', id); },
     addTest(rec) { d.tests.unshift(rec); save(); fire('test', rec); },
     touchSettings() { save(); fire('settings'); },
+    // The quiz in progress (or paused) travels with the account so signing out, or using another device, does not lose it. activeAt says which copy is newest.
+    touchActive() { d.activeAt = Date.now(); save(); fire('settings'); },
     exportJSON: () => JSON.stringify(d, null, 2),
     importJSON(t) { const o = JSON.parse(t); if (!o || typeof o !== 'object' || !o.q || !Array.isArray(o.tests)) throw new Error('Not a QBank export'); d = { ...blank(), ...o }; save(); },
     reset() { const keep = { hl: d.hl, mine: d.mine, cards: Object.fromEntries(Object.entries(d.cards || {}).filter(([k]) => k.startsWith('my:'))) }; d = { ...blank(), ...keep }; save(); fire('reset'); }   // progress goes; highlights and your own cards stay
