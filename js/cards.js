@@ -94,7 +94,7 @@ const Cards = (() => {
           <div class="bar" aria-hidden="true"><i style="width:${Math.round(100 * idx / queue.length)}%"></i></div>
           <p class="flash-side"><span class="sr">${pr.reverse ? 'Answer' : 'Front'}: </span>${pr.reverse ? esc(c.back).replace(/\n/g, '<br>') : esc(c.front)}</p>
           ${shown ? `<div class="flash-back" id="flash-back" tabindex="-1"><span class="sr">${pr.reverse ? 'Prompt' : 'Back'}: </span>${pr.reverse ? esc(c.front) : esc(c.back).replace(/\n/g, '<br>')}
-            ${c.references && c.references.length ? `<p class="muted small">${c.references.map(esc).join('; ')}</p>` : ''}
+            ${c.references && c.references.length ? `<p class="muted small">${c.references.map(esc).join('; ')}</p>` : ''}${ObjPicker.show(c.objectives)}
             ${lesson ? `<p class="small"><a href="#/lesson/${encodeURIComponent(lesson.id)}" target="_blank" rel="noopener">Study the lesson: ${esc(lesson.title)}<span class="sr"> (opens in a new tab)</span></a></p>` : ''}</div>
             <div class="rate" role="group" aria-label="How well did you know it?">${RATINGS.map(([r, l]) => `<button class="rate-${r}" data-rate="${r}"><b>${l}</b>${pr.intervals ? `<span class="small">${CardSched.preview(st, r, t)}</span>` : ''}<span class="sr"> (key ${r})</span></button>`).join('')}</div>`
             : `<div class="row" style="margin-top:14px"><button class="primary" id="reveal">Show answer <span class="sr">(Space)</span></button></div>`}
@@ -146,7 +146,7 @@ const Cards = (() => {
         const open = v.all || v.open.has(c.id), lesson = open ? lessonFor(c) : null;
         return `<article class="card browsecard"><div class="row spread"><span class="muted small">${esc(c.subject)}${c.topic ? ' &middot; ' + esc(c.topic) : ''}</span><span class="tag">${esc(status(c))}</span></div>
           <p class="flash-side" style="margin:8px 0">${esc(c.front)}</p>
-          <div id="bk-${esc(c.id)}"${open ? '' : ' hidden'} class="flash-back">${esc(c.back).replace(/\n/g, '<br>')}${c.references && c.references.length ? `<p class="muted small">${c.references.map(esc).join('; ')}</p>` : ''}
+          <div id="bk-${esc(c.id)}"${open ? '' : ' hidden'} class="flash-back">${esc(c.back).replace(/\n/g, '<br>')}${c.references && c.references.length ? `<p class="muted small">${c.references.map(esc).join('; ')}</p>` : ''}${ObjPicker.show(c.objectives)}
             ${lesson ? `<p class="small"><a href="#/lesson/${encodeURIComponent(lesson.id)}" target="_blank" rel="noopener">Study the lesson: ${esc(lesson.title)}<span class="sr"> (opens in a new tab)</span></a></p>` : ''}</div>
           ${v.all ? '' : `<div class="row" style="margin-top:8px"><button data-flip="${esc(c.id)}" aria-expanded="${open}" aria-controls="bk-${esc(c.id)}">${open ? 'Hide answer' : 'Show answer'}<span class="sr"> for ${esc(c.front.slice(0, 40))}</span></button></div>`}</article>`; }).join('')}
         ${rows.length > v.shown ? `<div class="row" style="justify-content:center"><button id="bmore">Show ${Math.min(STEP, rows.length - v.shown)} more</button></div>` : ''}`

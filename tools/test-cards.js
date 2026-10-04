@@ -69,4 +69,5 @@ t('zero new cards means none in the session', S.queue(many, {}, D0, { newPerDay:
 console.log('Days between dates');
 t('counts whole days', S.daysBetween('2026-10-01', '2026-10-01') === 0 && S.daysBetween('2026-10-01', '2026-11-15') === 45 && S.daysBetween('2026-10-05', '2026-10-01') === -4);
 t('crosses year ends and leap days', S.daysBetween('2026-12-31', '2027-01-01') === 1 && S.daysBetween('2028-02-28', '2028-03-01') === 2 && S.daysBetween('2026-01-01', '2027-01-01') === 365);
+t('objectives on a card: good ones pass, a bad one is an error, an unknown one only warns', errs(run({ ...good(), objectives: ['aem:K1.E.1'] })).length === 0 && errs(run({ ...good(), objectives: ['K1.E.1'] })).length === 1 && warns(run({ ...good(), objectives: ['aem:K1.E.1'] }, { knownObjective: () => false })).some(m => /outline/.test(m)) && V.FIELDS.includes('objectives'));
 console.log(`\n${pass} passed, ${fail} failed`); process.exit(fail ? 1 : 0);

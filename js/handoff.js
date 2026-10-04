@@ -18,17 +18,20 @@
       ['explain', 'Improve the explanations', 'Improve the explanation and the optionNotes of each question: make them accurate and concise, say why the right answer is right and why each wrong choice is wrong, and add a clinical pearl where it helps. Do not change the question or the answer.'],
       ['facts', 'Verify and update facts (laws, policies, guidelines)', 'Verify and update the facts in each item. Policies, laws, regulations and guidelines change often, so check every claim that could be out of date (laws and regulations such as OSHA, ADA and FMLA, DoD and service instructions, FAA and ICAO standards, clinical guidelines and screening recommendations, drug doses and thresholds, statistics) against the most recent authoritative source you can find. Update anything that has changed, and update the "references" with the source and its year. Do not guess: if you cannot verify a claim, leave it unchanged and tell me which claims I should check myself.'],
       ['lessons', 'Check each question links to the best lesson', 'Check whether each question links to the best lesson for the concept it tests. You get the list of lessons I have and the lesson each question shows now. Where a different lesson is clearly better, or none is shown and one fits, set "lessonId" on that question to that lesson\'s id. Leave "lessonId" out where the current lesson is already the best, so that better lessons I add later can take over by themselves. Do not change anything else about a question.'],
+      ['outline', 'Tag with the board outline items it covers', 'Decide which items of the ABPM content outline each item covers and set "objectives" on it to a list of those items as "board:code" strings, for example "aem:K1.E.1". You get the outline below; use only codes from it, choose the most specific item that fits (at most 4 per item), and leave "objectives" out where nothing on the outline fits. Do not change anything else about the item.'],
       ['custom', 'Only do what my note says', 'Do what my note below says.']],
     lessons: [
       ['review', 'Check and fix errors', 'Check each lesson for factual errors, unclear wording, typos and inconsistent numbers. Fix what is wrong and leave the rest alone.'],
       ['clearer', 'Make clearer and shorter', 'Rewrite each lesson to be clearer and shorter: plain wording, one idea per paragraph, and tables or steps where they help. Keep every important fact.'],
       ['facts', 'Verify and update facts (laws, policies, guidelines)', 'Verify and update the facts in each item. Policies, laws, regulations and guidelines change often, so check every claim that could be out of date (laws and regulations such as OSHA, ADA and FMLA, DoD and service instructions, FAA and ICAO standards, clinical guidelines and screening recommendations, drug doses and thresholds, statistics) against the most recent authoritative source you can find. Update anything that has changed, and update the "references" with the source and its year. Do not guess: if you cannot verify a claim, leave it unchanged and tell me which claims I should check myself.'],
       ['deeper', 'Add detail and pearls', 'Add useful detail to each lesson: clinical pearls, key points, and test-taking tips as callouts, and a table or step flow where it helps. Keep it accurate and concise.'],
+      ['outline', 'Tag with the board outline items it covers', 'Decide which items of the ABPM content outline each item covers and set "objectives" on it to a list of those items as "board:code" strings, for example "aem:K1.E.1". You get the outline below; use only codes from it, choose the most specific item that fits (at most 4 per item), and leave "objectives" out where nothing on the outline fits. Do not change anything else about the item.'],
       ['custom', 'Only do what my note says', 'Do what my note below says.']],
     cards: [
       ['review', 'Check and fix errors', 'Check each card for factual errors, ambiguity and typos. Each card should test one fact. Fix what is wrong and leave the rest alone.'],
       ['facts', 'Verify and update facts (laws, policies, guidelines)', 'Verify and update the facts in each item. Policies, laws, regulations and guidelines change often, so check every claim that could be out of date (laws and regulations such as OSHA, ADA and FMLA, DoD and service instructions, FAA and ICAO standards, clinical guidelines and screening recommendations, drug doses and thresholds, statistics) against the most recent authoritative source you can find. Update anything that has changed, and update the "references" with the source and its year. Do not guess: if you cannot verify a claim, leave it unchanged and tell me which claims I should check myself.'],
       ['tighter', 'Make shorter and clearer', 'Rewrite each card to be shorter and clearer, testing exactly one fact, with a prompt on the front and a short answer on the back.'],
+      ['outline', 'Tag with the board outline items it covers', 'Decide which items of the ABPM content outline each item covers and set "objectives" on it to a list of those items as "board:code" strings, for example "aem:K1.E.1". You get the outline below; use only codes from it, choose the most specific item that fits (at most 4 per item), and leave "objectives" out where nothing on the outline fits. Do not change anything else about the item.'],
       ['custom', 'Only do what my note says', 'Do what my note below says.']],
     feedback: [
       ['fix', 'Fix the questions members flagged', 'For each message about a question, decide whether the member is right. Where a question needs a change, return a corrected version of that question. Do not change questions where the member is mistaken.'],
@@ -38,9 +41,9 @@
   };
   const HEAD = 'I run a private board-prep question bank for aerospace, occupational and preventive medicine residents.';
   const pick = (o, keys) => { const r = {}; keys.forEach(k => { if (o[k] !== undefined && o[k] !== '' && !(Array.isArray(o[k]) && !o[k].length)) r[k] = o[k]; }); return r; };
-  const QF = ['id', 'boards', 'subject', 'topic', 'difficulty', 'stem', 'image', 'imageAlt', 'options', 'answer', 'explanation', 'optionNotes', 'references', 'tier', 'lessonId'];
-  const LF = ['id', 'boards', 'subject', 'title', 'summary', 'order', 'blocks', 'references', 'tier'];
-  const CF = ['id', 'boards', 'subject', 'topic', 'front', 'back', 'lessonId', 'references'];
+  const QF = ['id', 'boards', 'subject', 'topic', 'difficulty', 'stem', 'image', 'imageAlt', 'options', 'answer', 'explanation', 'optionNotes', 'references', 'tier', 'lessonId', 'objectives'];
+  const LF = ['id', 'boards', 'subject', 'title', 'summary', 'order', 'blocks', 'references', 'tier', 'objectives'];
+  const CF = ['id', 'boards', 'subject', 'topic', 'front', 'back', 'lessonId', 'objectives', 'references'];
   const draft = o => ({ ...o, status: 'draft' });
   const task = (kind, key) => (TASKS[kind].find(t => t[0] === key) || TASKS[kind][0]);
   const json = v => JSON.stringify(v, null, 2);
@@ -76,8 +79,10 @@
     if (kind === 'cards') lines.push('- Each card has one prompt in "front" (up to 600 characters) and a short answer in "back" (up to 1500). Keep one fact per card.');
     if (opts.task === 'facts') lines.push('- Keep the "references" list accurate: add or update the source and year for anything you changed.', '- After the JSON, list for every item you changed: what changed, the source, and how confident you are. Also list any claims you could not verify.');
     else if (opts.task === 'lessons' && kind === 'questions') lines.push('- "lessonId" must be exactly one of the ids in the lesson list below. Include it only where a different lesson is clearly better, or where none is shown and one fits.', '- After the JSON, list the questions for which no lesson fits well, each with the title of a new lesson that would fit.');
+    else if (opts.task === 'outline') lines.push('- "objectives" must only contain codes from the outline list below, written as "board:code" exactly as listed (for example "aem:K1.E.1"). Keep any that are already right.', '- After the JSON, list the items where nothing on the outline fits.');
     else lines.push('- After the JSON, add a short list of what you changed and why.');
     if (opts.task === 'lessons' && kind === 'questions' && opts.catalog) lines.push('', 'THE LESSONS I HAVE (id | subject | title | summary):', ...opts.catalog.map(l => `- ${l.id} | ${l.subject} | ${l.title}${l.summary ? ' | ' + String(l.summary).replace(/\s+/g, ' ').slice(0, 140) : ''}`), '', 'THE LESSON EACH QUESTION SHOWS NOW:', ...items.map(i => { const c = opts.current && opts.current[i.id]; return `- ${i.id}: ${c ? `${c.id} (${c.title}), ${c.pinned ? 'chosen by hand' : 'picked automatically'}` : 'none'}`; }));
+    if (opts.task === 'outline' && opts.outline) lines.push('', 'THE BOARD OUTLINE (board:code | what it says):', ...opts.outline.map(o => `- ${o.ref} | ${o.text}`));
     if (opts.stats && Object.keys(opts.stats).length) lines.push('', 'HOW THEY HAVE BEEN PERFORMING (percent of members right on their first try, and how well the question separates strong from weak members):', ...items.map(i => opts.stats[i.id]).filter(Boolean).map(l => '- ' + l));
     lines.push('', kind === 'questions' ? 'THE QUESTIONS:' : kind === 'lessons' ? 'THE LESSONS:' : 'THE FLASHCARDS:', json(items.map(i => draft(pick(i, fields)))));
     return lines.join('\n');
@@ -114,9 +119,10 @@
       const idx = parts.length > 1 ? +ps.value : 0, chosen = parts[idx] || [];
       const stats = o.stats && E('hf-stats') && E('hf-stats').checked ? Object.fromEntries(chosen.map(i => [i.id, o.stats(i)]).filter(x => x[1])) : null;
       const tk = E('hf-task').value, today = new Date(); const ymd = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+      const outline = tk === 'outline' && root.Objectives ? [...new Set(chosen.flatMap(i => i.boards || []))].flatMap(b => root.Objectives.board(b).items.map(i => ({ ref: b + ':' + i.code, text: (i.parent ? i.parent.code + ' ' : '') + i.text.slice(0, 110) }))) : null;
       const catalog = tk === 'lessons' && o.lessons ? o.lessons.map(l => ({ id: l.id, subject: l.subject, title: l.title, summary: l.summary })) : null;
       const shows = tk === 'lessons' && o.currentLesson ? Object.fromEntries(chosen.map(i => { const c = o.currentLesson(i); return [i.id, c ? { id: c.lesson.id, title: c.lesson.title, pinned: c.pinned } : null]; })) : null;
-      const text = build(kind, chosen, { task: tk, note: E('hf-note').value, part: [idx, parts.length], stats, today: ymd, catalog, current: shows });
+      const text = build(kind, chosen, { task: tk, note: E('hf-note').value, part: [idx, parts.length], stats, today: ymd, catalog, outline, current: shows });
       E('hf-prev').value = text; d._text = text;
       E('hf-sum').textContent = `${plural(kind, list.length)}${o.describe ? ' (' + o.describe + ')' : ''}${parts.length > 1 ? `. That is a lot for one message, so it is split into ${parts.length} parts of up to ${CHUNK[kind]}: copy one part at a time.` : '.'}`;
       E('hf-size').textContent = `About ${Math.round(text.length / 5).toLocaleString()} words in this message.`;

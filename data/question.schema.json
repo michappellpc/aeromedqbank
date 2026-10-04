@@ -26,6 +26,7 @@
       "answer": { "enum": ["A", "B", "C", "D", "E", "F"] },
       "explanation": { "type": "string", "description": "Why the answer is right, including the teaching point." },
       "optionNotes": { "type": "object", "description": "One sentence per option id explaining why it is right or wrong.", "additionalProperties": { "type": "string" } },
+      "objectives": { "type": "array", "maxItems": 12, "items": { "type": "string", "pattern": "^(aem|om|pm):[TK][0-9]+(\\.[A-Za-z0-9]+)*$" }, "description": "ABPM outline items covered, as board:code, e.g. aem:K1.E.1." },
       "references": { "type": "array", "items": { "type": "string" }, "description": "Real, checkable sources only." }
     }
   }

@@ -164,6 +164,18 @@ alter table public.questions add column if not exists revised_at timestamptz;
 -- A lesson chosen by hand for this question's "Study this" link. Null = pick the best match automatically. Metadata, not wording: changing it keeps a live question live.
 alter table public.questions add column if not exists lesson_id text references public.lessons (id) on delete set null;
 
+-- Board outline items a question, lesson or flashcard covers, stored as "board:code" (for example aem:K1.E.1). Metadata only: the review guards leave it out on purpose.
+alter table public.questions  add column if not exists objectives text[] not null default '{}';
+alter table public.lessons    add column if not exists objectives text[] not null default '{}';
+alter table public.flashcards add column if not exists objectives text[] not null default '{}';
+do $$ declare t text; begin
+  foreach t in array array['questions','lessons','flashcards'] loop
+    if not exists (select 1 from pg_constraint where conname = t || '_objectives_ok') then
+      execute format('alter table public.%I add constraint %I check (cardinality(objectives) <= 12 and array_position(objectives, '''') is null and array_to_string(objectives, '','') ~ %L)', t, t || '_objectives_ok', '^((aem|om|pm):[TK][0-9]+(\.[A-Za-z0-9]+)*(,|$))*$');
+    end if;
+  end loop;
+end $$;
+
 -- One row each time a question's wording changes: how members had done on the old wording (first try per member), so a rewrite can be judged.
 create table if not exists public.question_revisions (
   id            bigint generated always as identity primary key,
