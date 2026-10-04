@@ -41,7 +41,7 @@ The home screen has an **Exam countdown** card: the member adds their exam date 
 ## Quieting the ram during tests
 The ram does not appear on the question screen. It stays on the dashboard and results, and turning the mascot off in Settings removes it everywhere.
 
-The Overview page's **Hardest questions** list shows only questions under 70% correct (with at least 3 answers, archived ones left out), hardest first, and links to Difficulty for first-try numbers.
+The Overview page's **Recent activity** card shows how many questions members answered and the percent correct over a period you choose (last 24 hours, 48 hours, 3 days, week, 2 weeks, 30 days, 90 days or all time), plus how many members answered and how many different questions. It counts every try by active members. It needs the latest `supabase/schema.sql`.
 
 ## Choosing a lesson for a question
 
@@ -49,9 +49,9 @@ A question's "Study this" link normally picks the best lesson automatically, and
 
 ## Copy (Questions, Lessons, Flashcards, Inbox)
 
-Each admin list has a **Copy** button. It builds one message from exactly what the list is showing, so your filters decide what goes (on Questions, the Copy selected button at the bottom sends just the rows you ticked), and lets you pick what Claude should do and add a note about how you like things done:
+Each admin list has a **Copy** button. It builds one message from exactly what the list is showing, so your filters decide what goes (on Questions, the Copy selected button in the selection bar sends just the rows you ticked), and lets you pick what Claude should do and add a note about how you like things done:
 
-On Questions there are two: **Copy** at the top sends every question the filters show; **Copy selected (N)** at the bottom sends only the questions you ticked.
+On Questions there are two: **Copy** at the top sends every question the filters show; **Copy selected** in the selection bar (it appears when you tick questions, next to publish and CSV) sends only the questions you ticked.
 
 - **Questions:** check and fix errors, make harder, make easier, **match difficulty to its category** (Claude is given each question's first-try percent against its Easy, Medium or Hard range, and rewrites only the ones that sit outside it: harder if too easy for the label, easier if too hard, unchanged if inside the range or too few answers), improve explanations, **verify and update facts** (laws, policies and guidelines change; Claude is given today's date and told not to guess), **check each question links to the best lesson**, or only your note. The lesson check sends the list of your lessons and the lesson each question shows now, and asks Claude to set `lessonId` only where a different lesson is clearly better, so lessons you add later can take over by themselves; it also lists questions that no lesson fits, with a title for a new lesson. It can include each question's measured performance (first-try percent, separation, the wrong choice picked most).
 - **Lessons:** check and fix errors, verify and update facts, make clearer and shorter, add detail and pearls. **Flashcards:** check and fix, verify and update facts, make shorter and clearer.
@@ -66,10 +66,10 @@ The Questions page now holds everything for judging and tuning difficulty (there
 - **Sections by difficulty** (click its title to minimize it; it stays minimized, with a one-line summary beside the title): one row per section, grouped by board, with how many **Easy, Medium and Hard** live questions it has and the **% correct** from members for each (and overall), plus draft counts and a totals row. Cells are colored against the range each label stands for. Click a section or a count to list those questions.
 - **The list** shows ID, subject, status, difficulty label, tier, answered and updated. The measured numbers (first-try percent, separation, wrong choice picked, flags) are no longer columns; a question's **Details** button still shows them, with its rewrite history. The Flag, Data and percent filters and the measured sorts remain.
 - **Filter and sort** by search, board, subject, status, tier, label, flag, enough answers, a percent range, and by measured difficulty, separation, answers or how recently rewritten.
-- **Actions on a selection:** reviewed, draft, archive, tier, set label from data, CSV of the selection, delete, and **Copy selected** at the bottom of the page (see Copy below). The old rewrite-request and Copy IDs buttons are gone: Copy covers them with its tasks.
+- **Actions on a selection:** reviewed, draft, archive, tier, set label from data, CSV of the selection, delete, and **Copy selected** (see Copy below). The old rewrite-request and Copy IDs buttons are gone: Copy covers them with its tasks.
 - **Did the rewrite work?** Each wording change (editor, import or upload tool) records how the old wording had done, shown in a question's Details.
 
-The Overview page's **Hardest questions** list shows only questions under 70% correct (with at least 3 answers, archived ones left out), hardest first. Changing only the difficulty label does not send a live question back to draft. Run the latest `supabase/schema.sql` to switch the measured numbers on; until then the Questions page works as before.
+On Questions, sort by **% correct** (lowest or highest first) or by **how many people answered** (most or fewest), and tick **Show what members picked under each question** to see each choice's share and count on first tries under every row. Changing only the difficulty label does not send a live question back to draft. Run the latest `supabase/schema.sql` to switch the measured numbers on; until then the Questions page works as before.
 
 ## Program insights (faculty)
 

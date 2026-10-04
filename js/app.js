@@ -976,6 +976,8 @@ async function signOut() {
   renderSignIn();
 }
 
+// Time periods for the Overview's recent activity (hours; 0 is all time). The database answers all of them in one call.
+const RECENT_WINDOWS = [[24, 'Last 24 hours'], [48, 'Last 48 hours'], [72, 'Last 3 days'], [168, 'Last week'], [336, 'Last 2 weeks'], [720, 'Last 30 days'], [2160, 'Last 90 days'], [0, 'All time']];
 async function adminPage() {
   pageTitle('Admin');
   if (!profile || profile.role !== 'admin') { $app.innerHTML = '<div class="card"><h2>Admin</h2><p class="muted">This page is for administrators.</p></div>'; return; }
@@ -984,11 +986,13 @@ async function adminPage() {
     const [mem, qs, allowed, signupOn, peerMin] = await Promise.all([Cloud.rpc('admin_member_summary'), Cloud.rpc('admin_question_stats'), Cloud.rest('allowed_emails?select=*&order=email.asc'), Cloud.signupOpen(), Cloud.peerMin().catch(() => 10)]);
     const programs = await Cloud.adminPrograms().catch(() => []);
     const act = mem.filter(m => m.active), tot = act.reduce((x, m) => x + m.attempts, 0), cor = act.reduce((x, m) => x + m.correct, 0);
-    const HARD_BELOW = 70, hard = qs.filter(q => !q.archived && q.attempts >= 3 && q.pct_correct < HARD_BELOW).sort((x, y) => x.pct_correct - y.pct_correct || y.attempts - x.attempts).slice(0, 15);   // only questions that really are hard, not just the lowest few
+    const recent = await Cloud.rpc('admin_recent_activity').catch(() => null);
     const me = Cloud.session.email.toLowerCase();
     $app.innerHTML = `${Admin.tabs('overview')}<div class="grid">
       <div class="card stat"><b>${act.length}</b><span>Active members</span></div><div class="card stat"><b>${tot}</b><span>Questions answered</span></div>
       <div class="card stat"><b>${tot ? pct(cor, tot) + '%' : '-'}</b><span>Group correct</span></div><div class="card stat"><b>${qs.length}</b><span>Questions in bank</span></div></div>
+      <div class="card" id="recent"><div class="row spread"><h2 style="margin:0">Recent activity</h2><div><label for="rwin" class="sr">Time period</label><select id="rwin">${RECENT_WINDOWS.map(([h, t]) => `<option value="${h}">${t}</option>`).join('')}</select></div></div>
+        <div class="grid" id="rstats" aria-live="polite" style="margin-top:10px"></div><p class="muted small" id="rnote"></p></div>
       <div class="card"><div class="row spread"><h2 style="margin:0">Members</h2><button id="csv">Download CSV</button></div>
         <div class="scroll" role="region" tabindex="0" aria-label="Data table"><table><caption class="sr">Members and their activity</caption><thead><tr><th scope="col">Email</th><th scope="col">Access</th><th scope="col">Answered</th><th scope="col">Correct</th><th scope="col">Last active</th></tr></thead><tbody>${mem.map(m =>
         `<tr><td>${esc(m.email)}${m.display_name ? `<div class="muted small">${esc(m.display_name)}</div>` : ''}</td><td>${m.active ? esc(m.role === 'admin' ? 'Admin' : m.role === 'reviewer' ? 'Reviewer' : m.role === 'faculty' ? 'Faculty' : m.plan) : 'Not approved'}</td><td>${m.attempts}</td><td>${m.attempts ? pct(m.correct, m.attempts) + '%' : '-'}</td><td>${m.last_active ? new Date(m.last_active).toLocaleDateString() : '-'}</td></tr>`).join('')}</tbody></table></div></div>
@@ -1009,10 +1013,22 @@ async function adminPage() {
           ${programs.length ? `<div><label for="ae-prog">Program</label><select id="ae-prog"><option value="">None</option>${Program.options(programs, '')}</select></div>` : ''}
           <div><label for="ae-plan">Plan</label><select id="ae-plan"><option>pro</option><option>free</option></select></div>
           <div><label for="ae-note">Note</label><input id="ae-note" type="text" maxlength="80" autocomplete="off"></div><button class="primary" type="submit">Add member</button></form>
-        <p class="notice" id="ae-msg" hidden role="alert"></p></div>
-      <div class="card"><h2>Hardest questions</h2><p class="muted">Questions under ${HARD_BELOW}% correct with at least 3 answers (all tries). For first-try difficulty and what to fix, open <a href="#/admin/questions">Questions</a>.</p>${hard.length ? `<div class="scroll" role="region" tabindex="0" aria-label="Data table"><table><caption class="sr">Questions with the lowest percent correct</caption><thead><tr><th scope="col">Question</th><th scope="col">Subject</th><th scope="col">Answered</th><th scope="col">Correct</th></tr></thead><tbody>${hard.map(q =>
-        `<tr><td>${esc(q.question_id)}</td><td>${esc(q.subject)}</td><td>${q.attempts}</td><td>${Math.round(q.pct_correct)}%</td></tr>`).join('')}</tbody></table></div>` : `<p class="muted">${qs.some(q => q.attempts >= 3) ? `No question is under ${HARD_BELOW}% correct right now.` : 'Shows up once questions have been answered at least 3 times.'}</p>`}</div>`;
+        <p class="notice" id="ae-msg" hidden role="alert"></p></div>`;
     labelScrolls();
+    (() => {
+      const sel = document.getElementById('rwin'), box = document.getElementById('rstats'), note = document.getElementById('rnote');
+      let saved = 24; try { saved = +(localStorage.getItem('qbank.recentwin') || 24); } catch {}
+      sel.value = RECENT_WINDOWS.some(w => w[0] === saved) ? saved : 24;
+      if (!recent) { sel.disabled = true; box.innerHTML = ''; note.textContent = 'Needs the latest supabase/schema.sql (run it once in the SQL Editor).'; return; }
+      const paintRecent = () => {
+        const r = recent.find(x => x.hours === +sel.value) || { attempts: 0, correct: 0, questions: 0, members: 0 };
+        box.innerHTML = `<div class="card stat"><b>${r.attempts}</b><span>Questions answered</span></div><div class="card stat"><b>${r.attempts ? pct(r.correct, r.attempts) + '%' : '-'}</b><span>Correct</span></div>
+          <div class="card stat"><b>${r.members}</b><span>Members answering</span></div><div class="card stat"><b>${r.questions}</b><span>Different questions</span></div>`;
+        note.textContent = 'Counts every try by active members, including repeats.';
+        try { localStorage.setItem('qbank.recentwin', sel.value); } catch {}
+      };
+      sel.onchange = paintRecent; paintRecent();
+    })();
     const say = t => { const m = document.getElementById('ae-msg'); m.textContent = t; m.hidden = !t; };
     const upsert = row => Cloud.rest('allowed_emails?on_conflict=email', { method: 'POST', headers: { Prefer: 'resolution=merge-duplicates,return=minimal' }, body: [row] });
     document.getElementById('csv').onclick = () => {

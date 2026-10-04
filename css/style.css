@@ -689,3 +689,4 @@ section.rep-sec:not(.card){padding:0 2px}
 .objres{display:grid;gap:4px;margin-top:8px}.objrow{display:block;text-align:left;width:100%;font-weight:400;border:1px solid var(--line);border-radius:8px;padding:6px 10px;background:var(--card);color:inherit;cursor:pointer}.objrow:disabled{opacity:.55;cursor:default}
 .objshow{margin-top:10px}
 @media print{.objshow{break-inside:avoid}}
+.picks{display:flex;flex-wrap:wrap;gap:4px 12px;margin-top:4px}.picks .pk.right{color:var(--good);font-weight:600}.fpick{align-self:end}
