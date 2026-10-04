@@ -98,4 +98,7 @@ t('not a list is an error', oc('aem:K1.1').some(r => r.level === 'error'));
 t('a tag the outline does not have is only a warning', (() => { const r = oc(['aem:K1.E.1'], { knownObjective: () => false }); return r.some(x => x.level === 'warn' && /outline/.test(x.msg)) && !r.some(x => x.level === 'error' && /objectives/.test(x.msg)); })());
 t('a tag for a board the question is not on is a warning', oc(['om:K1.10']).some(r => r.level === 'warn' && /board/.test(r.msg)));
 t('no tags at all is fine', !lc(base2).some(r => /objectives/.test(r.msg)));
+t('tags are read leniently: a string, objects, "AEM K1.E.1", trailing text, a bare code on a one-board question', JSON.stringify(Q.normalize({ ...base2, boards: ['aem'], objectives: 'K1.E.1, aem:K1.E.2 - Hypobaric exposures' }).clean.objectives) === '["aem:K1.E.1","aem:K1.E.2"]' && JSON.stringify(Q.normalize({ ...base2, objectives: ['AEM K1.E.1', { ref: 'aem:K2.C' }, 'om-K1.10'] }).clean.objectives) === '["aem:K1.E.1","aem:K2.C","om:K1.10"]');
+t('a bare code is left alone when the item is on several boards (it could mean either)', JSON.stringify(Q.normalize({ ...base2, boards: ['aem', 'om'], objectives: ['K1.10'] }).clean.objectives) === '["K1.10"]');
+t('the error says which values were not understood', oc(['nonsense']).some(r => r.level === 'error' && /not understood: "nonsense"/.test(r.msg)));
 console.log(`\n${pass} passed, ${fail} failed`); process.exit(fail ? 1 : 0);

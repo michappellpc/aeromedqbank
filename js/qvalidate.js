@@ -59,7 +59,7 @@
     if (q.lessonId != null && q.lessonId !== '' && (typeof q.lessonId !== 'string' || !/^[a-z0-9][a-z0-9-]*$/.test(q.lessonId))) err('lessonId must be a lesson id');
     else if (q.lessonId && ctx.lessonIds && !ctx.lessonIds.has(q.lessonId)) warn(`lessonId "${q.lessonId}" does not match any lesson`);
     if (q.objectives != null) {
-      if (!Array.isArray(q.objectives) || q.objectives.length > 12 || q.objectives.some(o => typeof o !== 'string' || !/^(aem|om|pm):[TK][0-9]+(\.[A-Za-z0-9]+)*$/.test(o))) err('objectives must be a list of at most 12 board outline items such as "aem:K1.E.1"');
+      if (!Array.isArray(q.objectives) || q.objectives.length > 12 || q.objectives.some(o => typeof o !== 'string' || !/^(aem|om|pm):[TK][0-9]+(\.[A-Za-z0-9]+)*$/.test(o))) err(`objectives must be a list of at most 12 board outline items such as "aem:K1.E.1"${Array.isArray(q.objectives) ? ' (not understood: ' + q.objectives.filter(o => typeof o !== 'string' || !/^(aem|om|pm):[TK][0-9]+(\\.[A-Za-z0-9]+)*$/.test(o)).slice(0, 3).map(o => JSON.stringify(o)).join(', ') + ')' : ''}`);
       else { q.objectives.forEach(o => { if (ctx.knownObjective && !ctx.knownObjective(o)) warn(`objective "${o}" is not an item in the board outline`); else if (Array.isArray(q.boards) && q.boards.length && !q.boards.includes(o.split(':')[0])) warn(`objective "${o}" is from a board this question is not listed for`); }); }
     }
     if (!q.stem || !String(q.stem).trim()) err('missing stem'); else {
@@ -103,7 +103,20 @@
     for (const k of ['id', 'topic', 'stem', 'explanation', 'imageAlt', 'reviewedBy', 'lessonId']) if (typeof clean[k] === 'string') clean[k] = clean[k].trim();
     if (Array.isArray(clean.options)) clean.options = clean.options.map(o => ({ id: o && o.id, text: typeof (o && o.text) === 'string' ? o.text.trim() : o && o.text }));
     if (Array.isArray(clean.references)) clean.references = clean.references.map(r => String(r).trim()).filter(Boolean);
-    if (Array.isArray(clean.objectives)) { const seen = new Set(); clean.objectives = clean.objectives.map(o => String(o).trim()).map(o => { const m = o.match(/^([A-Za-z]+):\s*([A-Za-z])([0-9][A-Za-z0-9.]*)$/); return m ? m[1].toLowerCase() + ':' + m[2].toUpperCase() + m[3] : o; }).filter(o => o && !seen.has(o) && seen.add(o)); }
+    if (clean.objectives != null) {              // be forgiving about how a list of outline items is written: a string, objects, "AEM K1.E.1", "aem:K1.E.1 - Hypobaric exposures", or a bare K1.E.1 on a one-board item
+      let list = clean.objectives; if (typeof list === 'string') list = list.split(/[,;\n|]+/);
+      if (Array.isArray(list)) {
+        const seen = new Set(), boards = Array.isArray(clean.boards) ? clean.boards : [], out = [];
+        list.forEach(o => {
+          if (o && typeof o === 'object') o = o.ref || o.code || o.id || '';
+          o = String(o == null ? '' : o).trim(); if (!o) return;
+          const m = o.match(/^(?:([A-Za-z]+)\s*[:\-\s]\s*)?([TtKk])([0-9]+(?:\.[A-Za-z0-9]+)*)(?![A-Za-z0-9.])/), b = m && (m[1] ? m[1].toLowerCase() : boards.length === 1 ? boards[0] : '');
+          const ref = m && ['aem', 'om', 'pm'].includes(b) ? b + ':' + m[2].toUpperCase() + m[3] : o;
+          if (!seen.has(ref)) { seen.add(ref); out.push(ref); }
+        });
+        clean.objectives = out;
+      }
+    }
     return { clean, dropped };
   }
 

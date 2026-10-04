@@ -77,7 +77,7 @@
     if (!STATUS.includes(l.status)) err('status must be "draft" or "reviewed"');
     if (l.tier !== undefined && !TIERS.includes(l.tier)) err('tier must be "free" or "pro"');
     if (l.objectives != null) {
-      if (!Array.isArray(l.objectives) || l.objectives.length > 12 || l.objectives.some(o => typeof o !== 'string' || !/^(aem|om|pm):[TK][0-9]+(\.[A-Za-z0-9]+)*$/.test(o))) err('objectives must be a list of at most 12 board outline items such as "aem:K1.E.1"');
+      if (!Array.isArray(l.objectives) || l.objectives.length > 12 || l.objectives.some(o => typeof o !== 'string' || !/^(aem|om|pm):[TK][0-9]+(\.[A-Za-z0-9]+)*$/.test(o))) err(`objectives must be a list of at most 12 board outline items such as "aem:K1.E.1"${Array.isArray(l.objectives) ? ' (not understood: ' + l.objectives.filter(o => typeof o !== 'string' || !/^(aem|om|pm):[TK][0-9]+(\\.[A-Za-z0-9]+)*$/.test(o)).slice(0, 3).map(o => JSON.stringify(o)).join(', ') + ')' : ''}`);
       else { l.objectives.forEach(o => { if (ctx.knownObjective && !ctx.knownObjective(o)) warn(`objective "${o}" is not an item in the board outline`); else if (Array.isArray(l.boards) && l.boards.length && !l.boards.includes(o.split(':')[0])) warn(`objective "${o}" is from a board this lesson is not listed for`); }); }
     }
     if (!Array.isArray(l.boards) || !l.boards.length || l.boards.some(b => !boardIds.has(b))) err('invalid boards (use aem, om, pm)');
@@ -106,7 +106,20 @@
     if (clean.tier === undefined) clean.tier = 'pro';
     ['id', 'title', 'summary'].forEach(k => { if (isStr(clean[k])) clean[k] = clean[k].trim(); });
     if (Array.isArray(clean.references)) clean.references = clean.references.map(r => String(r).trim()).filter(Boolean);
-    if (Array.isArray(clean.objectives)) { const seen = new Set(); clean.objectives = clean.objectives.map(o => String(o).trim()).map(o => { const m = o.match(/^([A-Za-z]+):\s*([A-Za-z])([0-9][A-Za-z0-9.]*)$/); return m ? m[1].toLowerCase() + ':' + m[2].toUpperCase() + m[3] : o; }).filter(o => o && !seen.has(o) && seen.add(o)); }
+    if (clean.objectives != null) {              // be forgiving about how a list of outline items is written: a string, objects, "AEM K1.E.1", "aem:K1.E.1 - Hypobaric exposures", or a bare K1.E.1 on a one-board item
+      let list = clean.objectives; if (typeof list === 'string') list = list.split(/[,;\n|]+/);
+      if (Array.isArray(list)) {
+        const seen = new Set(), boards = Array.isArray(clean.boards) ? clean.boards : [], out = [];
+        list.forEach(o => {
+          if (o && typeof o === 'object') o = o.ref || o.code || o.id || '';
+          o = String(o == null ? '' : o).trim(); if (!o) return;
+          const m = o.match(/^(?:([A-Za-z]+)\s*[:\-\s]\s*)?([TtKk])([0-9]+(?:\.[A-Za-z0-9]+)*)(?![A-Za-z0-9.])/), b = m && (m[1] ? m[1].toLowerCase() : boards.length === 1 ? boards[0] : '');
+          const ref = m && ['aem', 'om', 'pm'].includes(b) ? b + ':' + m[2].toUpperCase() + m[3] : o;
+          if (!seen.has(ref)) { seen.add(ref); out.push(ref); }
+        });
+        clean.objectives = out;
+      }
+    }
     return { clean, dropped };
   }
   return { check, checkBlock, normalize, FIELDS, STATUS, TIERS, KINDS, LIMITS };
