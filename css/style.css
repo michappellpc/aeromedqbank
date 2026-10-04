@@ -653,7 +653,7 @@ section.rep-sec:not(.card){padding:0 2px}
   .report a{color:#111;text-decoration:none;font-weight:600}
   .rep-head{padding:0 0 8px;margin-bottom:12px}.rep-title{font-size:21pt;margin:8px 0 3px}.rep-brand .wordmark{color:#111}.rep-brand .logo{width:28px;height:28px}
   .rep-sec,.weakitem,.stritem,.kpi,.startlist li,.rep-table tr,.reclist li{break-inside:avoid;page-break-inside:avoid}
-  #ins-weak.rep-sec{break-inside:auto;page-break-inside:auto}
+  #ins-weak.rep-sec,#ins-strong.rep-sec{break-inside:auto;page-break-inside:auto}
   .rep-h,.rep-note{break-after:avoid;page-break-after:avoid}
   .kpi{border:1px solid #c5ced8;border-top:4px solid #0f2236;padding:7px 10px}.kpi b{font-size:19pt;margin:2px 0 0}.kpi-l{font-size:7pt}.kpi-s{font-size:8.5pt}
   .weaklist{display:block}
@@ -678,3 +678,6 @@ section.rep-sec:not(.card){padding:0 2px}
 .rep-h2{margin:14px 0 6px;font-size:.95rem;letter-spacing:-.005em}
 @media print{.rep-h2{break-after:avoid;page-break-after:avoid;font-size:11pt}.sectbl tr{break-inside:avoid}}
 .rep-table tbody th{text-transform:none;font-size:inherit;letter-spacing:0;color:var(--fg);font-weight:600;text-align:left;border-bottom:1px solid var(--line)}
+.obj{margin:6px 0 2px}.objlist{margin:3px 0 0;gap:3px}.ocode{font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap;color:var(--link)}
+.secobj{margin-top:3px;font-weight:400;line-height:1.35}.rep-table tbody th .secobj{text-transform:none;letter-spacing:0}
+@media print{.ocode{color:#0f2236}.obj{break-inside:avoid;page-break-inside:avoid}.objlist li{break-inside:avoid}.weakitem .obj,.stritem .obj{margin:3px 0 2px}}
