@@ -59,5 +59,25 @@
   // Weekly rows -> [{ correct, total }] oldest first, ready for a trend chart; weeks with no answers are skipped
   const weeks = rows => (rows || []).map(r => ({ week: r.week_start, correct: Number(r.correct), total: Number(r.attempts), active: Number(r.active_residents) })).filter(w => w.total > 0);
 
-  return { TARGET, weak, lessonsFor, attention, missed, weeks, label, pct };
+  // The other side of the picture: topics where the program is doing best (at or above the target), best first, and every subject ranked best to worst.
+  function strong(rows, opts = {}) {
+    const target = opts.target ?? TARGET;
+    return (rows || []).map(r => {
+      const attempts = Number(r.attempts), correct = Number(r.correct), residents = Number(r.residents), low = Number(r.low_residents);
+      const p = pct(correct, attempts), gA = Number(r.group_attempts || 0), g = gA ? pct(Number(r.group_correct), gA) : null;
+      const conf = Math.min(1, Math.sqrt(attempts / 30)), ahead = g === null ? 0 : Math.max(0, p - g);
+      return { subject: r.subject, topic: r.topic || '', label: label(r), attempts, correct, pct: p, residents, low, group: g, ahead: g === null ? null : p - g, score: (p - target + 0.5 * ahead) * conf };
+    }).filter(w => w.pct >= target).sort((a, b) => b.score - a.score || b.pct - a.pct || a.label.localeCompare(b.label));
+  }
+  function sections(rows) {
+    const by = new Map();
+    (rows || []).forEach(r => {
+      const o = by.get(r.subject) || { subject: r.subject, attempts: 0, correct: 0, gA: 0, gC: 0, topics: 0 };
+      o.attempts += Number(r.attempts); o.correct += Number(r.correct); o.gA += Number(r.group_attempts || 0); o.gC += Number(r.group_correct || 0); o.topics++; by.set(r.subject, o);
+    });
+    return [...by.values()].map(o => ({ subject: o.subject, attempts: o.attempts, pct: pct(o.correct, o.attempts), group: o.gA ? pct(o.gC, o.gA) : null, topics: o.topics }))
+      .sort((a, b) => b.pct - a.pct || b.attempts - a.attempts || a.subject.localeCompare(b.subject));
+  }
+
+  return { TARGET, weak, strong, sections, lessonsFor, attention, missed, weeks, label, pct };
 });

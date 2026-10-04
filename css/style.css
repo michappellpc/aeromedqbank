@@ -623,7 +623,7 @@ section.rep-sec:not(.card){padding:0 2px}
 .legend{display:flex;flex-wrap:wrap;gap:6px 18px;margin:0 0 10px;font-size:.82rem;color:var(--muted)}.legend span{display:inline-flex;align-items:center;gap:6px}
 .sw{display:inline-block;width:18px;height:0;border-top:8px solid var(--link);border-radius:2px}.sw.all{border-top-color:var(--muted)}.sw.tgt{width:0;height:14px;border-top:0;border-left:2px solid var(--fg);border-radius:0}
 .weaklist{list-style:none;margin:0;padding:0;display:grid;gap:12px}
-.weakitem{display:grid;grid-template-columns:34px minmax(0,1fr);gap:12px;padding:14px 16px;border:1px solid var(--line);border-left:5px solid var(--bad);border-radius:10px;background:var(--card)}
+.weakitem,.stritem{display:grid;grid-template-columns:34px minmax(0,1fr);gap:12px;padding:14px 16px;border:1px solid var(--line);border-left:5px solid var(--bad);border-radius:10px;background:var(--card)}
 .rank{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:50%;border:2px solid var(--hdr);color:var(--hdr);font-weight:700;font-size:.9rem;font-variant-numeric:tabular-nums}.rank.sm{width:26px;height:26px;font-size:.8rem}
 .wname{font-size:1.02rem}.wsum{margin:6px 0}
 .weakbars{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px 18px;margin:8px 0}
@@ -631,7 +631,7 @@ section.rep-sec:not(.card){padding:0 2px}
 .startlist{list-style:none;margin:0;padding:0;display:grid;gap:10px}.startlist li{display:flex;gap:12px;align-items:flex-start}
 .rep-table th{font-size:.72rem;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);font-weight:600;border-bottom:2px solid var(--line)}.rep-table td{vertical-align:top}.rep-table tbody tr:nth-child(even){background:color-mix(in srgb,var(--sel) 45%,transparent)}
 .rep-foot{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:8px;padding-top:10px;border-top:1px solid var(--line);font-size:.78rem;color:var(--muted)}
-@media(max-width:700px){.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.rep-title{font-size:1.5rem}.weakitem{grid-template-columns:30px minmax(0,1fr);padding:12px}.rep-kicker{margin-left:0;width:100%}}
+@media(max-width:700px){.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.rep-title{font-size:1.5rem}.weakitem,.stritem{grid-template-columns:30px minmax(0,1fr);padding:12px}.rep-kicker{margin-left:0;width:100%}}
 @page insights{size:letter;margin:.7in .65in .75in;
   @top-left{content:"AeroMedQBank";font:600 8.5pt system-ui,sans-serif;color:#0f2236}
   @top-right{content:"Program insights report";font:8.5pt system-ui,sans-serif;color:#555}
@@ -643,7 +643,7 @@ section.rep-sec:not(.card){padding:0 2px}
   /* Paper is always light: the dark theme and the navy palette never reach the printed page, whatever the screen is set to. */
   html:has(.report),body:has(.report){background:#fff!important}
   .report{--bg:#fff;--card:#fff;--fg:#111;--muted:#4a5868;--line:#c5ced8;--sel:#f3f6f9;--link:#1f4f7a;--hdr:#0f2236;--gold:#0c7578;--good:#2a7f62;--bad:#b3372c;--warn:#a87516}
-  .report .kpi,.report .weakitem,.report .card,.report .rep-table,.report .rep-table tbody tr{background:#fff!important;color:#111}
+  .report .kpi,.report .weakitem,.report .stritem,.report .card,.report .rep-table,.report .rep-table tbody tr{background:#fff!important;color:#111}
   .report .rep-table tbody tr:nth-child(even){background:#f3f6f9!important}
   .report .muted,.report .rep-note,.report .kpi-l,.report .kpi-s,.report .legend,.report .rep-meta,.report .rep-kicker,.report .rep-foot{color:#4a5868!important}
   .report{page:insights;max-width:none;margin:0;color:#111;font-size:10pt;line-height:1.4}
@@ -652,13 +652,13 @@ section.rep-sec:not(.card){padding:0 2px}
   .report .card{background:#fff;border:0;border-top:1px solid #c5ced8;box-shadow:none;border-radius:0;padding:10px 0 0;margin-bottom:14px}
   .report a{color:#111;text-decoration:none;font-weight:600}
   .rep-head{padding:0 0 8px;margin-bottom:12px}.rep-title{font-size:21pt;margin:8px 0 3px}.rep-brand .wordmark{color:#111}.rep-brand .logo{width:28px;height:28px}
-  .rep-sec,.weakitem,.kpi,.startlist li,.rep-table tr,.reclist li{break-inside:avoid;page-break-inside:avoid}
+  .rep-sec,.weakitem,.stritem,.kpi,.startlist li,.rep-table tr,.reclist li{break-inside:avoid;page-break-inside:avoid}
   #ins-weak.rep-sec{break-inside:auto;page-break-inside:auto}
   .rep-h,.rep-note{break-after:avoid;page-break-after:avoid}
   .kpi{border:1px solid #c5ced8;border-top:4px solid #0f2236;padding:7px 10px}.kpi b{font-size:19pt;margin:2px 0 0}.kpi-l{font-size:7pt}.kpi-s{font-size:8.5pt}
   .weaklist{display:block}
-  .weakitem{border:1px solid #c5ced8;border-left:5px solid #b3372c;padding:7px 10px;margin-bottom:7px;gap:10px}
-  .weakitem .wsum{margin:3px 0}.weakitem .weakbars{margin:4px 0}.weakitem .reclist{margin-top:2px;gap:1px}.weakitem .small{font-size:9pt}
+  .weakitem,.stritem{border:1px solid #c5ced8;border-left:5px solid #b3372c;padding:7px 10px;margin-bottom:7px;gap:10px}.stritem{border-left-color:#2a7f62}
+  .weakitem .wsum,.stritem .wsum{margin:3px 0}.weakitem .weakbars,.stritem .weakbars{margin:4px 0}.weakitem .reclist{margin-top:2px;gap:1px}.weakitem .small,.stritem .small{font-size:9pt}
   .rep-h{border-bottom:1px solid #c5ced8;padding-bottom:4px;margin-bottom:8px}
   .rep-lead{font-size:11pt;line-height:1.5;margin-bottom:10px}
   .rep-foot{break-inside:avoid;page-break-inside:avoid}
@@ -672,3 +672,9 @@ section.rep-sec:not(.card){padding:0 2px}
 }
 .rep-brand .wordmark{color:var(--fg)}.rep-brand .wordmark b{color:var(--link)}
 @media print{.rep-brand .wordmark{color:#111}.rep-brand .wordmark b{color:#0c7578}}
+.stritem{border-left:5px solid var(--good)}
+.sectbl td,.sectbl th{padding:7px 10px}.sectbl .pcell{display:grid;grid-template-columns:3.2em minmax(70px,1fr);align-items:center;gap:8px}.sectbl .pbar{margin-top:0}
+@media print{.sectbl .pbar{border-top-color:#dde3ea}}
+.rep-h2{margin:14px 0 6px;font-size:.95rem;letter-spacing:-.005em}
+@media print{.rep-h2{break-after:avoid;page-break-after:avoid;font-size:11pt}.sectbl tr{break-inside:avoid}}
+.rep-table tbody th{text-transform:none;font-size:inherit;letter-spacing:0;color:var(--fg);font-weight:600;text-align:left;border-bottom:1px solid var(--line)}

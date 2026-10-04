@@ -67,4 +67,21 @@ t('the common wrong answer and its share', m[0].wrong === 'C' && m[0].wrongShare
 t('no common wrong answer or group figure is simply empty', m[1].wrong === null && m[1].wrongShare === null && m[1].group === null);
 const wk = I.weeks([{ week_start: '2026-09-14', attempts: 30, correct: 15, active_residents: 4 }, { week_start: '2026-09-21', attempts: 0, correct: 0, active_residents: 0 }, { week_start: '2026-09-28', attempts: 50, correct: 40, active_residents: 5 }]);
 t('weeks with no answers are left out and numbers are real numbers', wk.length === 2 && wk[1].correct === 40 && wk[1].total === 50);
+console.log('Strongest topics and sections');
+const rows = [
+  { subject: 'A', topic: 'T1', attempts: 60, correct: 54, residents: 5, low_residents: 0, group_attempts: 600, group_correct: 450 },    // 90%, 15 ahead of all members
+  { subject: 'A', topic: 'T2', attempts: 40, correct: 30, residents: 5, low_residents: 1, group_attempts: 400, group_correct: 300 },    // 75%, level
+  { subject: 'B', topic: 'T3', attempts: 12, correct: 11, residents: 3, low_residents: 0, group_attempts: 0, group_correct: 0 },        // 92% on few answers, no group figure
+  { subject: 'B', topic: 'T4', attempts: 50, correct: 30, residents: 4, low_residents: 3, group_attempts: 500, group_correct: 350 }];  // 60%, under target
+const st = I.strong(rows);
+t('only topics at or above the target are listed', st.length === 3 && st.every(x => x.pct >= I.TARGET) && !st.some(x => x.topic === 'T4'));
+t('a topic well ahead of all members on plenty of answers comes first', st[0].topic === 'T1' && st[0].ahead === 15);
+t('a high score on few answers ranks below a well-backed one', st.findIndex(x => x.topic === 'T3') > st.findIndex(x => x.topic === 'T1'));
+t('no group figure is simply empty', st.find(x => x.topic === 'T3').group === null && st.find(x => x.topic === 'T3').ahead === null);
+t('nothing at the target gives an empty list', I.strong([rows[3]]).length === 0 && I.strong([]).length === 0 && I.strong().length === 0);
+t('a different target can be given', I.strong(rows, { target: 80 }).map(x => x.topic).join() === 'T1,T3');
+const sec = I.sections(rows);
+t('every subject is ranked best to worst', sec.map(x => x.subject).join() === 'A,B' && sec[0].pct === 84 && sec[1].pct === 66);
+t('a section adds up its topics (answers, group figure, topic count)', sec[0].attempts === 100 && sec[0].group === 75 && sec[0].topics === 2);
+t('sections handle no rows', I.sections([]).length === 0 && I.sections().length === 0);
 console.log(`\n${pass} passed, ${fail} failed`); process.exit(fail ? 1 : 0);
