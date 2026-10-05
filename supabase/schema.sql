@@ -829,7 +829,8 @@ $$;
 
 create or replace function public._program_questions(fp text, days int)
   returns table (question_id text, subject text, topic text, stem text, attempts bigint, correct bigint, residents bigint,
-                 group_attempts bigint, group_correct bigint, top_wrong text, top_wrong_n bigint, wrong_total bigint)
+                 group_attempts bigint, group_correct bigint, top_wrong text, top_wrong_n bigint, wrong_total bigint,
+                 full_stem text, options jsonb, answer text, has_image boolean, top_pick text, top_pick_n bigint, pick_total bigint)
   language sql stable security definer set search_path = public as
 $$
   with mem as (
@@ -844,16 +845,23 @@ $$
     select a.question_id, a.chosen, count(*) as k from a join mem on mem.id = a.user_id where not a.ok and a.chosen is not null group by 1, 2),
   topw as (select distinct on (question_id) question_id, chosen, k from wrong order by question_id, k desc, chosen),
   wt as (select question_id, sum(k) as tot from wrong group by 1),
+  picks as (select a.question_id, a.chosen, count(*) as k from a join mem on mem.id = a.user_id where a.chosen is not null group by 1, 2),
+  topp as (select distinct on (question_id) question_id, chosen, k from picks order by question_id, k desc, chosen),
+  pt as (select question_id, sum(k) as tot from picks group by 1),
   grp as (
     select a.question_id, count(*) as n, count(*) filter (where a.ok) as c
     from a join public.profiles pr on pr.id = a.user_id where pr.active and pr.role <> 'faculty' group by 1)
   select q.id, q.subject, coalesce(nullif(btrim(q.topic), ''), ''), left(q.stem, 220), p.n, p.c, p.r, g.n, g.c,
-         case when t.k >= 2 then t.chosen end, case when t.k >= 2 then t.k end, w.tot::bigint
+         case when t.k >= 2 then t.chosen end, case when t.k >= 2 then t.k end, w.tot::bigint,
+         q.stem, q.options, q.answer, q.image is not null,
+         case when tp.k >= 2 then tp.chosen end, case when tp.k >= 2 then tp.k end, ptot.tot::bigint
   from prog p
   join public.questions q on q.id = p.question_id and not q.archived and q.status = 'reviewed'
   left join grp g on g.question_id = p.question_id
   left join topw t on t.question_id = p.question_id
   left join wt w on w.question_id = p.question_id
+  left join topp tp on tp.question_id = p.question_id
+  left join pt ptot on ptot.question_id = p.question_id
   where public._program_cohort_ok(fp) and p.r >= 3 and p.n >= 5
   order by (p.c::numeric / p.n) asc, p.n desc, q.id
   limit 30
@@ -881,7 +889,8 @@ begin
 end $$;
 create or replace function public.faculty_questions(days int default 0)
   returns table (question_id text, subject text, topic text, stem text, attempts bigint, correct bigint, residents bigint,
-                 group_attempts bigint, group_correct bigint, top_wrong text, top_wrong_n bigint, wrong_total bigint)
+                 group_attempts bigint, group_correct bigint, top_wrong text, top_wrong_n bigint, wrong_total bigint,
+                 full_stem text, options jsonb, answer text, has_image boolean, top_pick text, top_pick_n bigint, pick_total bigint)
   language plpgsql stable security definer set search_path = public as
 $$
 declare fp text := public.faculty_program_id();
@@ -908,7 +917,8 @@ begin
 end $$;
 create or replace function public.preview_questions(pid text, days int default 0)
   returns table (question_id text, subject text, topic text, stem text, attempts bigint, correct bigint, residents bigint,
-                 group_attempts bigint, group_correct bigint, top_wrong text, top_wrong_n bigint, wrong_total bigint)
+                 group_attempts bigint, group_correct bigint, top_wrong text, top_wrong_n bigint, wrong_total bigint,
+                 full_stem text, options jsonb, answer text, has_image boolean, top_pick text, top_pick_n bigint, pick_total bigint)
   language plpgsql stable security definer set search_path = public as
 $$
 begin

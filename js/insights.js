@@ -52,7 +52,10 @@
     return (rows || []).map(r => {
       const n = Number(r.attempts), c = Number(r.correct), gn = Number(r.group_attempts || 0);
       return { id: r.question_id, subject: r.subject, topic: r.topic || '', stem: r.stem, attempts: n, pct: pct(c, n), residents: Number(r.residents), group: gn ? pct(Number(r.group_correct), gn) : null,
-        wrong: r.top_wrong || null, wrongShare: r.top_wrong && Number(r.wrong_total) ? pct(Number(r.top_wrong_n), Number(r.wrong_total)) : null };
+        wrong: r.top_wrong || null, wrongShare: r.top_wrong && Number(r.wrong_total) ? pct(Number(r.top_wrong_n), Number(r.wrong_total)) : null,
+        // the whole question, for the report: its text, choices and correct answer, and the choice residents picked most overall (named only when at least two chose it)
+        fullStem: r.full_stem || r.stem, options: Array.isArray(r.options) ? r.options : [], answer: r.answer || null, hasImage: !!r.has_image,
+        topPick: r.top_pick || null, topPickN: r.top_pick ? Number(r.top_pick_n) : null, pickTotal: Number(r.pick_total || 0) };
     });
   }
 

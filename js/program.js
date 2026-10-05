@@ -96,9 +96,9 @@ const Program = (() => {
     $app.innerHTML = '<div class="card"><p class="muted">Working out where your residents are weakest...</p></div>';
     const back = preview ? `#/program/${esc(pid)}` : '#/program';
     try {
-      const [mine, roster, topics, questions, weekly] = preview
-        ? await Promise.all([Cloud.adminPrograms().then(l => l.find(p => p.id === pid) || null), Cloud.previewRoster(pid), Cloud.previewTopics(pid, range), Cloud.previewQuestions(pid, range), Cloud.previewWeekly(pid)])
-        : await Promise.all([Cloud.myProgram(), Cloud.facultyRoster(), Cloud.facultyTopics(range), Cloud.facultyQuestions(range), Cloud.facultyWeekly()]);
+      const [mine, roster, topics, questions] = preview
+        ? await Promise.all([Cloud.adminPrograms().then(l => l.find(p => p.id === pid) || null), Cloud.previewRoster(pid), Cloud.previewTopics(pid, range), Cloud.previewQuestions(pid, range)])
+        : await Promise.all([Cloud.myProgram(), Cloud.facultyRoster(), Cloud.facultyTopics(range), Cloud.facultyQuestions(range)]);
       if (!mine) { $app.innerHTML = `<div class="card"><h2>Program insights</h2><p class="muted">No program found. <a href="${back}">Back</a></p></div>`; return; }
       const res = roster.filter(r => r.status === 'approved');
       const crumb = `<p class="crumb"><a href="${back}">Program</a></p>`;
@@ -111,8 +111,7 @@ const Program = (() => {
       const recs = ws.map(w => ({ w, rec: Insights.lessonsFor(w, lessons, qs) }));
       const sum = (rows, k) => rows.reduce((a, r) => a + Number(r[k] || 0), 0), tA = sum(topics, 'attempts'), tC = sum(topics, 'correct'), gA = sum(topics, 'group_attempts'), gC = sum(topics, 'group_correct');
       const active7 = res.filter(r => r.last_active && Date.now() - Date.parse(r.last_active) < 7 * 86400000).length;
-      const who = r => r.display_name || r.email, att = Insights.attention(roster, new Date().toISOString().slice(0, 10)), byId = Object.fromEntries(res.map(r => [r.user_id, r]));
-      const miss = Insights.missed(questions).filter(m => m.pct < 70).slice(0, 10), wk = Insights.weeks(weekly);
+      const miss = Insights.missed(questions).filter(m => m.pct < 70).slice(0, 10);
       // lessons that come up for the most weak topics: where to start
       const tally = new Map(); recs.forEach(({ rec }) => rec.forEach(r => { const t = tally.get(r.lesson.id) || { lesson: r.lesson, n: 0 }; t.n++; tally.set(r.lesson.id, t); }));
       const start = [...tally.values()].sort((a, b) => b.n - a.n || a.lesson.title.localeCompare(b.lesson.title)).slice(0, 5);
@@ -127,7 +126,15 @@ const Program = (() => {
       };
       const objHtml = rows => (rows.length ? `<div class="small obj"><b>Board outline (ABPM):</b><ul class="reclist objlist">${rows.map(r => { const l = Objectives.label(r.item); return `<li><span class="ocode">${esc(l.code)}</span> ${esc(cut(l.text, 150))}${l.under ? ` <span class="muted">under ${esc(l.under.code)} ${esc(cut(l.under.text, 70))}</span>` : ''}${r.via === 'section' ? ' <span class="muted">(whole section)</span>' : ''}</li>`; }).join('')}</ul></div>` : '');
       const secObj = subject => { const b = Objectives.boardOf(subject, bank.subjects); const hs = b ? Objectives.headlines(b, subject, 3) : []; return hs.length ? `<div class="muted small secobj">${hs.map(i => `<span class="ocode">${esc(i.code)}</span> ${esc(cut(i.text, 55))}`).join(' &middot; ')}</div>` : ''; };
-      const wrongText = m => { if (!m.wrong) return '<span class="muted">-</span>'; const q = bank.byId[m.id], o = q && q.options.find(x => x.id === m.wrong); return `<b>${esc(m.wrong)}</b>${o ? ' ' + esc(o.text.length > 70 ? o.text.slice(0, 69) + '…' : o.text) : ''} <span class="muted small">(${m.wrongShare}% of wrong answers)</span>`; };
+      // One missed question in full: the stem, every choice, which is correct, and which one residents picked most. Marks use words as well as colour, so they survive a black-and-white print.
+      const missItem = (m, i) => {
+        const q = bank.byId[m.id], opts = m.options.length ? m.options : (q ? q.options : []), ans = m.answer || (q && q.answer), stem = m.fullStem || (q && q.stem) || m.stem;
+        return `<li class="missitem"><div class="mhead"><span class="rank sm" aria-hidden="true">${i + 1}</span><div class="mmeta"><b>${esc(m.subject)}${m.topic ? ' &middot; ' + esc(m.topic) : ''}</b>
+            <span class="muted small">Program <b>${m.pct}%</b> (${m.attempts} answers, ${m.residents} residents)${m.group === null ? '' : ` &middot; All members <b>${m.group}%</b>`}</span></div></div>
+          <p class="mstem">${esc(stem)}</p>${m.hasImage ? '<p class="muted small">This question has a picture, shown in the app.</p>' : ''}
+          <ul class="mopts">${opts.map(o => { const right = o.id === ans, most = o.id === m.topPick;
+            return `<li class="mopt${right ? ' right' : ''}${most ? ' most' : ''}"><span class="mk">${esc(o.id)}.</span><span class="mt">${esc(o.text)}</span>${right ? '<span class="mflag ok">Correct answer</span>' : ''}${most ? `<span class="mflag pick">Picked most (${m.topPickN} of ${m.pickTotal})</span>` : ''}</li>`; }).join('')}${m.topPick && !opts.some(o => o.id === m.topPick) ? `<li class="mopt most"><span class="mk">${esc(m.topPick)}.</span><span class="mt muted">(this choice is no longer on the question)</span><span class="mflag pick">Picked most (${m.topPickN} of ${m.pickTotal})</span></li>` : ''}</ul></li>`;
+      };
       // one bar on a 0 to 100 track, with a tick at the target so "under target" can be seen at a glance, in print too
       const pbar = (p, cls) => `<div class="pbar ${cls}" aria-hidden="true"><span class="fil" style="width:${p}%"></span><span class="tgt" style="left:${Insights.TARGET}%"></span></div>`;
       const today = new Date(), todayText = today.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' }), rangeText = (RANGES.find(r => r[0] === range) || RANGES[0])[1];
@@ -137,8 +144,7 @@ const Program = (() => {
       const summary = progPct === null ? 'There are not enough answers yet to summarize how the program is doing.'
         : `Across ${tA.toLocaleString()} answers (${rangeText.toLowerCase()}), the program answered <b>${progPct}%</b> correctly${gap === null ? '' : `, ${gap === 0 ? 'the same as' : `<b>${Math.abs(gap)} point${Math.abs(gap) === 1 ? '' : 's'} ${gap > 0 ? 'above' : 'below'}</b>`} all members (${allPct}%)`}. `
           + (weakAll.length ? `<b>${weakAll.length} topic${weakAll.length === 1 ? ' is' : 's are'}</b> under the ${Insights.TARGET}% target; the biggest gaps are ${joinNames(names)}. ` : `No topic is under the ${Insights.TARGET}% target. `)
-          + (best.length ? `The strongest areas are ${joinNames(best.slice(0, 3).map(w => esc(w.label)))}. ` : '')
-          + (att.length ? `${att.length} resident${att.length === 1 ? '' : 's'} may benefit from a check-in.` : 'Every resident is active and on track.');
+          + (best.length ? `The strongest areas are ${joinNames(best.slice(0, 3).map(w => esc(w.label)))}. ` : '');
       $app.innerHTML = `${crumb}
         <div class="rep-controls row"><label for="ins-range" class="sr">Time range</label><select id="ins-range" style="width:auto">${RANGES.map(([d, l]) => `<option value="${d}"${d === range ? ' selected' : ''}>${l}</option>`).join('')}</select>
           <button type="button" id="ins-csv">Download CSV</button><button type="button" class="primary" id="ins-print">Print report</button></div>
@@ -169,12 +175,10 @@ const Program = (() => {
           ${secs.length ? `<h3 class="rep-h2">Sections, best to worst</h3><div class="scroll" role="region" tabindex="0" aria-label="Sections ranked table"><table class="rep-table sectbl"><caption class="sr">Sections ranked by percent correct</caption><thead><tr><th scope="col">Section</th><th scope="col">Program</th><th scope="col">All members</th><th scope="col">Answers</th></tr></thead>
             <tbody>${secs.map(x => `<tr><th scope="row">${esc(x.subject)}${secObj(x.subject)}</th><td><div class="pcell"><b>${x.pct}%</b>${pbar(x.pct, 'prog')}</div></td><td>${x.group === null ? '-' : x.group + '%'}</td><td>${x.attempts}</td></tr>`).join('')}</tbody></table></div>` : ''}</section>
         ${start.length ? `<section class="card rep-sec"><h2 class="rep-h">Lessons to start with</h2><p class="muted rep-note">The lessons that come up for the most weak topics.</p><ol class="startlist">${start.map(t => `<li><span class="rank sm" aria-hidden="true">${start.indexOf(t) + 1}</span><div><a href="#/lesson/${encodeURIComponent(t.lesson.id)}">${esc(t.lesson.title)}</a><div class="muted small">${esc(t.lesson.subject)} &middot; helps with ${t.n} weak topic${t.n === 1 ? '' : 's'}</div></div></li>`).join('')}</ol></section>` : ''}
-        <section class="card rep-sec"><h2 class="rep-h">Questions your program misses most</h2><p class="muted rep-note">Questions under 70% correct with at least 5 answers from 3 residents. The wrong answer people pick most is shown when at least 2 chose it.</p>
-          ${miss.length ? `<div class="scroll" role="region" tabindex="0" aria-label="Most-missed questions table"><table class="rep-table"><caption class="sr">Questions the program misses most</caption><thead><tr><th scope="col">Question</th><th scope="col">Program</th><th scope="col">All members</th><th scope="col">Wrong answer picked most</th></tr></thead>
-            <tbody>${miss.map(m => `<tr><td><a href="#/question/${encodeURIComponent(m.id)}">${esc(m.stem.length > 110 ? m.stem.slice(0, 109) + '…' : m.stem)}</a><div class="muted small">${esc(m.subject)}${m.topic ? ' &middot; ' + esc(m.topic) : ''}</div></td><td><b>${m.pct}%</b> <span class="muted small">(${m.attempts})</span></td><td>${m.group === null ? '-' : m.group + '%'}</td><td>${wrongText(m)}</td></tr>`).join('')}</tbody></table></div>` : '<p class="muted">No question stands out yet.</p>'}</section>
-        ${wk.length >= 2 ? `<section class="card rep-sec"><h2 class="rep-h">Weekly trend</h2><p class="muted rep-note">Percent correct for the whole program each week. Last week: ${wk[wk.length - 1].total} answers from ${wk[wk.length - 1].active} resident${wk[wk.length - 1].active === 1 ? '' : 's'}.</p><div class="chartwrap">${trendChart(wk.slice().reverse(), 'weekly program scores')}</div></section>` : ''}
-        <section class="card rep-sec"><h2 class="rep-h">Residents who may need a check-in</h2>${att.length ? `<ul class="reclist">${att.map(a => `<li><b>${esc(who(byId[a.user_id]))}</b> <span class="muted">${a.reasons.map(esc).join('; ')}</span></li>`).join('')}</ul>` : '<p class="muted">Everyone is active and doing fine.</p>'}</section>
+        <section class="card rep-sec"><h2 class="rep-h">Questions your program misses most</h2><p class="muted rep-note">Questions under 70% correct with at least 5 answers from 3 residents, with every answer choice. A choice is marked when it is the correct answer, and when it is the one your residents picked most (named when at least 2 chose it).</p>
+          ${miss.length ? `<ol class="missed">${miss.map((m, i) => missItem(m, i)).join('')}</ol>` : '<p>No question is under 70% right now.</p>'}</section>
         <footer class="rep-foot"><span>AeroMedQBank &middot; ${esc(mine.name)} &middot; ${esc(todayText)}</span><span>Group totals for approved residents only, never one resident's answers by topic. Residents are told this when they join.</span><span>Board outline items are the codes and wording of the American Board of Preventive Medicine content outlines (Aerospace Medicine; Occupational and Environmental Medicine; Public Health and General Preventive Medicine), matched to each topic by its section and wording.</span></footer>
+        <p class="rep-disc"><b>Disclaimer.</b> AeroMedQBank is an independent educational product. It is not affiliated with, endorsed by, or sponsored by the U.S. Department of Defense (DoD), the U.S. Army, or any other military service or government agency.</p>
         </div>`;
       document.getElementById('ins-range').onchange = e => { range = +e.target.value; insightsPage(pid); };
       document.getElementById('ins-print').onclick = () => window.print();
