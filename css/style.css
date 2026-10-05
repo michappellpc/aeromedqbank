@@ -697,11 +697,5 @@ section.rep-sec:not(.card){padding:0 2px}
 .calc{max-height:calc(100vh - 110px);overflow:auto}
 @media(max-width:600px){.calc{max-height:calc(100vh - 150px)}}
 
-/* the missed-questions section: whole question, every choice, marks in words */
-.missed{list-style:none;margin:10px 0 0;padding:0;display:grid;gap:14px}.missitem{border:1px solid var(--line);border-radius:10px;padding:12px 14px;break-inside:avoid;page-break-inside:avoid}
-.mhead{display:flex;gap:10px;align-items:center}.mmeta{display:flex;flex-direction:column;gap:2px}.mstem{margin:10px 0 8px;line-height:1.5}
-.mopts{list-style:none;margin:0;padding:0;display:grid;gap:5px}.mopt{display:flex;flex-wrap:wrap;gap:4px 8px;align-items:baseline;border:1px solid var(--line);border-radius:8px;padding:6px 10px}.mopt .mk{font-weight:700;min-width:1.4em}.mopt .mt{flex:1 1 220px}
-.mopt.right{border:2px solid var(--good)}.mopt.most{border-style:dashed}.mopt.right.most{border-style:solid}
-.mflag{font-size:.74rem;font-weight:700;letter-spacing:.03em;text-transform:uppercase;border:1px solid currentColor;border-radius:999px;padding:1px 8px;white-space:nowrap}.mflag.ok{color:var(--good)}.mflag.pick{color:var(--warn)}
 .rep-disc{margin:10px 0 0;font-size:.78rem;color:var(--muted);line-height:1.45;break-inside:avoid;page-break-inside:avoid}
-@media print{.missitem{border-color:#9aa5b1}.mopt{border-color:#9aa5b1}.mopt.right{border:2px solid #1a6b3a}.mflag.ok{color:#1a6b3a}.mflag.pick{color:#7a4b00}.rep-disc{color:#444}}
+@media print{.rep-disc{color:#444}}
