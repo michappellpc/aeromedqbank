@@ -84,4 +84,8 @@ const sec = I.sections(rows);
 t('every subject is ranked best to worst', sec.map(x => x.subject).join() === 'A,B' && sec[0].pct === 84 && sec[1].pct === 66);
 t('a section adds up its topics (answers, group figure, topic count)', sec[0].attempts === 100 && sec[0].group === 75 && sec[0].topics === 2);
 t('sections handle no rows', I.sections([]).length === 0 && I.sections().length === 0);
+const mq = I.missed([{ question_id: 'q9', subject: 'S', topic: '', stem: 'Short', attempts: 10, correct: 3, residents: 4, group_attempts: 0, group_correct: 0, top_wrong: 'B', top_wrong_n: 4, wrong_total: 7, full_stem: 'The whole long stem', options: [{ id: 'A', text: 'x' }, { id: 'B', text: 'y' }], answer: 'A', has_image: true, top_pick: 'B', top_pick_n: 4, pick_total: 10 }])[0];
+t('a missed question carries the whole question, its choices and the correct answer', mq.fullStem === 'The whole long stem' && mq.options.length === 2 && mq.answer === 'A' && mq.hasImage === true);
+t('and the choice residents picked most, with how many', mq.topPick === 'B' && mq.topPickN === 4 && mq.pickTotal === 10);
+t('older rows without those fields still work', (r => r.fullStem === 'S' && r.options.length === 0 && r.topPick === null && r.hasImage === false)(I.missed([{ question_id: 'q', subject: 's', stem: 'S', attempts: 5, correct: 1, residents: 3 }])[0]));
 console.log(`\n${pass} passed, ${fail} failed`); process.exit(fail ? 1 : 0);
