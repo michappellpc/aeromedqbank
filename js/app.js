@@ -455,7 +455,7 @@ function flaggedPage() {
     ${items.length ? `<div class="card"><table><thead><tr><th scope="col">Question</th><th scope="col">Subject</th><th scope="col">Your note</th><th scope="col"><span class="sr">Actions</span></th></tr></thead><tbody>${items.map(q => { const s = Store.qstat(q.id); return `<tr><td>${esc(q.stem.slice(0, 110))}${q.stem.length > 110 ? '...' : ''}</td><td>${esc(q.subject)}</td><td>${esc(s.note || '')}</td><td><button data-unflag="${esc(q.id)}" aria-label="Remove the flag from this question">Unflag</button></td></tr>`; }).join('')}</tbody></table></div>` : ''}`;
   const go = document.getElementById('fgo');
   if (go) go.onclick = () => {
-    Store.data.active = { id: uid(), mode: 'tutor', qids: shuffle(items).map(q => q.id), answers: {}, struck: {}, revealed: {}, idx: 0, started: Date.now(), elapsed: 0, limit: 0 };
+    Store.data.active = { id: uid(), mode: 'tutor', qids: shuffle(items).map(q => q.id), answers: {}, struck: {}, revealed: {}, idx: 0, started: Date.now(), elapsed: 0, limit: 0 }; Store.touchActive();
     Store.save(); location.hash = '#/test';
   };
   $app.querySelectorAll('[data-unflag]').forEach(b => b.onclick = () => { Store.toggleFlag(b.dataset.unflag); flaggedPage(); });
@@ -535,7 +535,7 @@ function create(preSubject, preStatus) {
     const order = document.getElementById('order').value, picked = shuffle(p).slice(0, n);
     if (order !== 'random') picked.sort((a, b) => (order === 'hard' ? -1 : 1) * ((a.difficulty || 2) - (b.difficulty || 2)));   // sort is stable, so ties stay random
     const qids = picked.map(q => q.id), mode = f.mode.value;
-    Store.data.active = { id: uid(), mode, qids, answers: {}, struck: {}, marks: {}, revealed: {}, idx: 0, started: Date.now(), elapsed: 0, limit: mode === 'timed' ? n * 90 : 0 };
+    Store.data.active = { id: uid(), mode, qids, answers: {}, struck: {}, marks: {}, revealed: {}, idx: 0, started: Date.now(), elapsed: 0, limit: mode === 'timed' ? n * 90 : 0 }; Store.touchActive();
     Store.save(); location.hash = '#/test';
   };
 }
@@ -642,7 +642,7 @@ function pausedScreen(t) {
     <p class="muted">Question ${t.idx + 1} of ${t.qids.length} &middot; ${answered} answered</p>
     <div class="row"><button class="primary" id="resume" type="button">Resume</button><button class="danger" id="pend" type="button">End test</button></div></div>`;
   const resume = document.getElementById('resume'); resume.focus();
-  resume.onclick = () => { t.paused = false; t.started = Date.now(); persist(t); renderTest(); };
+  resume.onclick = () => { t.paused = false; t.started = Date.now(); persist(t); Store.touchActive(); renderTest(); };
   document.getElementById('pend').onclick = async () => {
     const left = t.qids.filter(x => !t.answers[x]).length;
     if (await ask(`End this test now? ${left ? `${left} question${left === 1 ? ' is' : 's are'} unanswered and will count as incorrect.` : 'You have answered every question.'}`, 'End test')) { t.paused = false; t.started = Date.now(); finish(); }
@@ -687,7 +687,7 @@ function bindTest(t, q) {
   on('fbk', () => feedbackDialog(q));
   const size = d => { Store.data.settings.quizText = Math.min(3, Math.max(0, (+Store.data.settings.quizText || 0) + d)); Store.touchSettings(); renderTest(); const a = document.getElementById(d > 0 ? 'tx-plus' : 'tx-minus'); if (a && !a.disabled) a.focus(); };
   on('tx-minus', () => size(-1)); on('tx-plus', () => size(1));
-  on('pause', () => { persist(t); t.paused = true; Store.save(); renderTest(); });
+  on('pause', () => { persist(t); t.paused = true; Store.touchActive(); renderTest(); });
   on('end', async () => {
     const left = t.qids.filter(x => !t.answers[x]).length, flagged = t.qids.filter(x => (Store.qstat(x) || {}).flagged).length;
     const msg = `End this test now? ${left ? `${left} question${left === 1 ? ' is' : 's are'} unanswered and will count as incorrect.` : 'You have answered every question.'}${flagged ? ` ${flagged} ${flagged === 1 ? 'is' : 'are'} flagged for review.` : ''}`;
@@ -722,7 +722,7 @@ function finish() {
     if (!(t.mode === 'tutor' && t.revealed[qid]) && t.answers[qid]) Store.record(qid, ok, t.answers[qid]); // not yet recorded
   });
   const rec = { id: t.id, date: Date.now(), mode: t.mode, qids: t.qids, answers: t.answers, correct: c, total: t.qids.length, seconds: Math.round(elapsed(t)) };
-  Store.data.active = null; Store.addTest(rec);
+  Store.data.active = null; Store.touchActive(); Store.addTest(rec);
   location.hash = '#/results/' + rec.id;
 }
 
@@ -773,7 +773,8 @@ function review(id) {
 function historyPage() {
   pageTitle('Test history');
   const T = Store.data.tests;
-  $app.innerHTML = `<div class="card"><h2>Test history</h2>${T.length ? `<table><thead><tr><th>Quiz</th><th>Date</th><th>Mode</th><th>Score</th><th>Time</th><th><span class="sr">Details</span></th></tr></thead><tbody>${T.map((r, i) =>
+  const act = Store.data.active, inProg = act ? `<div class="card continue" id="hist-active"><div class="contbody"><b>${act.paused ? 'Paused quiz' : 'Quiz in progress'}</b><span class="muted">${esc(act.mode === 'timed' ? 'Timed' : 'Tutor')} test, question ${Math.min(act.idx + 1, act.qids.length)} of ${act.qids.length} (${Object.keys(act.answers).length} answered). It counts here once you finish it.</span></div><a class="btn primary" href="#/test">Resume</a></div>` : '';
+  $app.innerHTML = `${inProg}<div class="card"><h2>Test history</h2>${T.length ? `<table><thead><tr><th>Quiz</th><th>Date</th><th>Mode</th><th>Score</th><th>Time</th><th><span class="sr">Details</span></th></tr></thead><tbody>${T.map((r, i) =>
     `<tr><td>Quiz ${T.length - i}</td><td>${new Date(r.date).toLocaleString()}</td><td>${r.mode}</td><td>${r.correct}/${r.total} (${pct(r.correct, r.total)}%)</td><td>${fmt(r.seconds)}</td><td><a href="#/results/${r.id}" aria-label="View Quiz ${T.length - i}">View</a></td></tr>`).join('')}</tbody></table>` : '<p class="muted">No completed tests yet.</p>'}</div>`;
   labelScrolls();
 }
@@ -983,10 +984,11 @@ async function startSession() {
   refreshInboxBadge(); badgeTimer = setInterval(refreshInboxBadge, 120000);
   if (!/^#\/[a-z]/.test(location.hash)) location.hash = '#/';       // keep a deep link (a lesson opened in a new tab, a bookmark, a reload); anything else, such as a reset-password token, goes to the dashboard
   route();
-  Cloud.sync().then(() => { applyTheme(); if (ready && !Store.data.active && /^#?\/?$/.test(location.hash)) route(); }).catch(() => {});
+  Cloud.sync().then(() => { applyTheme(); if (ready && /^#?\/?$/.test(location.hash)) route(); }).catch(() => {});       // on the dashboard, so a quiz that arrives from the account shows up
 }
 
 async function signOut() {
+  if (Store.data.active) Store.touchActive();              // so a quiz in progress is saved to the account before this device forgets it
   if (Cloud.pending()) {
     try { await Cloud.sync(); } catch {}
     if (Cloud.pending() && !(await ask(`${Cloud.pending()} change(s) have not synced yet and will be lost if you sign out now.`, 'Sign out anyway'))) return;

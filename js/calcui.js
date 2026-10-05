@@ -1,28 +1,39 @@
 'use strict';
 // The calculator pop-up on the question screen. It floats above the page so it stays open from question to question.
 const CalcUI = (() => {
-  let el = null, ans = 0, hist = [];
+  let el = null, ans = 0, hist = [], angle = 'deg', trigOn = false;
+  try { if (localStorage.getItem('qbank.calcangle') === 'rad') angle = 'rad'; trigOn = localStorage.getItem('qbank.calctrig') === '1'; } catch {}
   const KEYS = [['(', '('], [')', ')'], ['%', '%'], ['C', 'clear'], ['⌫', 'back'],
+    ['sin', 'sin('], ['cos', 'cos('], ['tan', 'tan('], ['sin⁻¹', 'asin('], ['cos⁻¹', 'acos('],
+    ['tan⁻¹', 'atan('], ['sec', 'sec('], ['csc', 'csc('], ['cot', 'cot('], ['abs', 'abs('],
     ['sqrt', 'sqrt('], ['x²', '^2'], ['xʸ', '^'], ['1/x', '1/('], ['n!', '!'],
     ['log', 'log('], ['ln', 'ln('], ['eˣ', 'exp('], ['π', 'pi'], ['ans', 'ans'],
     ['7', '7'], ['8', '8'], ['9', '9'], ['÷', '/'], ['±', 'neg'],
     ['4', '4'], ['5', '5'], ['6', '6'], ['×', '*'], ['EE', 'e'],
     ['1', '1'], ['2', '2'], ['3', '3'], ['−', '-'], ['e', 'e'],
     ['0', '0'], ['.', '.'], ['=', 'eq'], ['+', '+']];
+  const TRIGKEYS = new Set(['sin(', 'cos(', 'tan(', 'asin(', 'acos(', 'atan(', 'sec(', 'csc(', 'cot(', 'abs(']);
   const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   function build() {
     el = document.createElement('div'); el.className = 'calc'; el.setAttribute('role', 'dialog'); el.setAttribute('aria-label', 'Calculator');
-    el.innerHTML = `<div class="calchead"><b>Calculator</b><button type="button" class="calcx" aria-label="Close the calculator">✕</button></div>
+    el.innerHTML = `<div class="calchead"><b>Calculator</b><button type="button" class="calctrigb" aria-controls="calckeys">Trig</button><button type="button" class="calcang"></button><button type="button" class="calcx" aria-label="Close the calculator">✕</button></div>
       <input class="calcin" type="text" inputmode="text" autocomplete="off" spellcheck="false" aria-label="Expression. Type a sum and press Enter." placeholder="Type or tap, then press =">
       <div class="calcout" aria-live="polite"></div>
-      <div class="calckeys">${KEYS.map(([l, v], i) => `<button type="button" data-k="${i}" class="${v === 'eq' ? 'primary' : /^\d$|^\.$/.test(v) ? 'num' : ''}"${l.length > 2 ? ` aria-label="${esc(l)}"` : ''}>${esc(l)}</button>`).join('')}</div>
+      <div class="calckeys" id="calckeys">${KEYS.map(([l, v], i) => `<button type="button" data-k="${i}" class="${v === 'eq' ? 'primary' : /^\d$|^\.$/.test(v) ? 'num' : ''}${TRIGKEYS.has(v) ? ' tg' : ''}"${l.length > 2 ? ` aria-label="${esc(l)}"` : ''}>${esc(l)}</button>`).join('')}</div>
       <ul class="calchist" aria-label="Earlier results"></ul>`;
     document.body.appendChild(el);
-    const inp = el.querySelector('.calcin'), out = el.querySelector('.calcout');
+    const inp = el.querySelector('.calcin'), out = el.querySelector('.calcout'), ang = el.querySelector('.calcang');
+    const paintAngle = () => { ang.textContent = angle === 'deg' ? 'Deg' : 'Rad'; ang.setAttribute('aria-label', angle === 'deg' ? 'Angles are in degrees. Press to use radians.' : 'Angles are in radians. Press to use degrees.'); ang.title = angle === 'deg' ? 'Degrees (press for radians)' : 'Radians (press for degrees)'; };
+    ang.onclick = () => { angle = angle === 'deg' ? 'rad' : 'deg'; try { localStorage.setItem('qbank.calcangle', angle); } catch {} paintAngle(); out.textContent = angle === 'deg' ? 'Angles in degrees' : 'Angles in radians'; out.classList.remove('err'); inp.focus(); };
+    paintAngle();
+    const tb = el.querySelector('.calctrigb');
+    const paintTrig = () => { el.classList.toggle('trig', trigOn); tb.setAttribute('aria-pressed', String(trigOn)); tb.title = trigOn ? 'Hide the trig keys' : 'Show sin, cos, tan and the rest'; };
+    tb.onclick = () => { trigOn = !trigOn; try { localStorage.setItem('qbank.calctrig', trigOn ? '1' : '0'); } catch {} paintTrig(); inp.focus(); };
+    paintTrig();
     const put = txt => { const a = inp.selectionStart ?? inp.value.length, b = inp.selectionEnd ?? a; inp.setRangeText(txt, a, b, 'end'); inp.focus(); out.textContent = ''; out.classList.remove('err'); };
     const equals = () => {
       if (!inp.value.trim()) return;
-      try { const v = Calc.evaluate(inp.value, { ans }), s = Calc.format(v); hist.unshift({ e: inp.value, r: s, v }); hist = hist.slice(0, 5); ans = v; out.textContent = '= ' + s; out.classList.remove('err'); inp.value = s; drawHist(); }
+      try { const v = Calc.evaluate(inp.value, { ans, angle }), s = Calc.format(v); hist.unshift({ e: inp.value, r: s, v }); hist = hist.slice(0, 5); ans = v; out.textContent = '= ' + s; out.classList.remove('err'); inp.value = s; drawHist(); }
       catch (e) { out.textContent = e.message; out.classList.add('err'); }
     };
     const drawHist = () => { el.querySelector('.calchist').innerHTML = hist.map((h, i) => `<li><button type="button" data-h="${i}" title="Use this result">${esc(h.e)} = <b>${esc(h.r)}</b></button></li>`).join(''); };
