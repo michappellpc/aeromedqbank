@@ -4,7 +4,10 @@
 const Admin = (() => {
   let cache = null;                       // { list, stats: Map(id -> {attempts, pct}) }
   const view = { q: '', board: '', subject: '', status: '', show: 'active', tier: '', check: '', diff: '', sort: '', tag: '', picks: (() => { try { return localStorage.getItem('qbank.picks') === '1'; } catch { return false; } })(), flag: '', data: '', min: '', max: '', page: 0, sel: new Set(), open: new Set() };
-  const PAGE = 50;
+  const SIZES = [50, 100, 250, 500, 0];                       // rows per page; 0 shows them all
+  let size = 50; try { const raw = localStorage.getItem('qbank.admin.pagesize'); if (raw !== null && SIZES.includes(+raw)) size = +raw; } catch {}
+  const sizeBox = () => `<div><label for="fpp">Per page</label><select id="fpp">${SIZES.map(n => `<option value="${n}"${n === size ? ' selected' : ''}>${n || 'All'}</option>`).join('')}</select></div>`;
+  const setSize = v => { size = +v; try { localStorage.setItem('qbank.admin.pagesize', String(size)); } catch {} };
   const role = () => (profile && profile.role) || '';
   const isEditor = () => role() === 'admin' || role() === 'reviewer';
   const myEmail = () => Cloud.session.email.toLowerCase();
@@ -74,7 +77,7 @@ const Admin = (() => {
         <div><label for="fl">Checks</label><select id="fl"><option value="">All questions</option><option value="long">Correct answer much longer</option></select></div>
         <div><label for="ffl">Flag</label><select id="ffl"><option value="">Any</option><option value="any">Has any flag</option>${AdminItems.FLAGS.map(f => `<option value="${f}">${esc(ItemStats.FLAG_TEXT[f][0])}</option>`).join('')}</select></div>
         <div><label for="fdt">Data</label><select id="fdt"><option value="">All</option><option value="judged">Enough answers</option><option value="few">Too few answers</option></select></div>
-        <div><label for="fmin">% correct from</label><input id="fmin" type="number" min="0" max="100" value="${esc(view.min)}"></div><div><label for="fmax">to</label><input id="fmax" type="number" min="0" max="100" value="${esc(view.max)}"></div><div class="fpick"><label class="chk"><input type="checkbox" id="fpk"${view.picks ? ' checked' : ''}> Show what members picked under each question</label></div></form></div>
+        <div><label for="fmin">% correct from</label><input id="fmin" type="number" min="0" max="100" value="${esc(view.min)}"></div><div><label for="fmax">to</label><input id="fmax" type="number" min="0" max="100" value="${esc(view.max)}"></div>${sizeBox()}<div class="fpick"><label class="chk"><input type="checkbox" id="fpk"${view.picks ? ' checked' : ''}> Show what members picked under each question</label></div></form></div>
       <div id="bulk"></div><div class="card" id="qres"></div>`;
     const set = (id, v) => { document.getElementById(id).value = v; };
     const fillSubjects = () => { const s = document.getElementById('fs'); s.innerHTML = '<option value="">All</option>' + subjectsFor(view.board ? [view.board] : []).map(x => `<option${x === view.subject ? ' selected' : ''}>${esc(x)}</option>`).join(''); };
@@ -91,6 +94,7 @@ const Admin = (() => {
     on('fo', 'change', e => { view.sort = e.target.value; view.page = 0; paint(); });
     on('fl', 'change', e => { view.check = e.target.value; view.page = 0; paint(); });
     on('ffl', 'change', e => { view.flag = e.target.value; view.page = 0; paint(); }); on('fdt', 'change', e => { view.data = e.target.value; view.page = 0; paint(); });
+    on('fpp', 'change', e => { setSize(e.target.value); view.page = 0; paint(); });
     on('fpk', 'change', e => { view.picks = e.target.checked; try { localStorage.setItem('qbank.picks', view.picks ? '1' : '0'); } catch {} paint(); });
     on('fmin', 'input', e => { view.min = e.target.value; view.page = 0; paint(); }); on('fmax', 'input', e => { view.max = e.target.value; view.page = 0; paint(); });
     document.getElementById('secsum').addEventListener('toggle', e => { try { localStorage.setItem('qbank.secsum', e.target.open ? 'open' : 'closed'); } catch {} });
@@ -140,8 +144,8 @@ const Admin = (() => {
     return `<div class="small picks" aria-label="What members picked on their first try">${i.options.map(o => `<span class="pk${o.correct ? ' right' : ''}"><b>${esc(o.id)}</b> ${o.share}%${o.correct ? ' <span class="sr">(correct)</span>' : ''}<span class="muted"> (${o.n})</span></span>`).join('')}<span class="muted"> ${i.n} first tries</span></div>`;
   };
   function paint() {
-    const dir = view.sort === 'hard' ? -1 : view.sort === 'easy' ? 1 : 0, st = id => cache.stats.get(id) || { attempts: 0, pct: null }, STAT = { 'pc-low': (a, b) => (st(a.id).attempts ? st(a.id).pct : 101) - (st(b.id).attempts ? st(b.id).pct : 101), 'pc-high': (a, b) => (st(b.id).attempts ? st(b.id).pct : -1) - (st(a.id).attempts ? st(a.id).pct : -1), 'n-most': (a, b) => st(b.id).attempts - st(a.id).attempts, 'n-least': (a, b) => st(a.id).attempts - st(b.id).attempts }, rows = filtered().sort((a, b) => { if (STAT[view.sort]) return STAT[view.sort](a, b) || a.id.localeCompare(b.id); const m = AdminItems.sorter(view.sort); if (m) return m(AdminItems.get(a.id) || { attention: 0, flags: [] }, AdminItems.get(b.id) || { attention: 0, flags: [] }) || a.id.localeCompare(b.id); return dir ? dir * ((a.difficulty || 2) - (b.difficulty || 2)) || a.id.localeCompare(b.id) : 0; }), pages = Math.max(1, Math.ceil(rows.length / PAGE)); view.page = Math.min(view.page, pages - 1);
-    lastRows = rows; const extra = AdminItems.ready(), slice = rows.slice(view.page * PAGE, view.page * PAGE + PAGE), all = slice.length && slice.every(q => view.sel.has(q.id));
+    const dir = view.sort === 'hard' ? -1 : view.sort === 'easy' ? 1 : 0, st = id => cache.stats.get(id) || { attempts: 0, pct: null }, STAT = { 'pc-low': (a, b) => (st(a.id).attempts ? st(a.id).pct : 101) - (st(b.id).attempts ? st(b.id).pct : 101), 'pc-high': (a, b) => (st(b.id).attempts ? st(b.id).pct : -1) - (st(a.id).attempts ? st(a.id).pct : -1), 'n-most': (a, b) => st(b.id).attempts - st(a.id).attempts, 'n-least': (a, b) => st(a.id).attempts - st(b.id).attempts }, rows = filtered().sort((a, b) => { if (STAT[view.sort]) return STAT[view.sort](a, b) || a.id.localeCompare(b.id); const m = AdminItems.sorter(view.sort); if (m) return m(AdminItems.get(a.id) || { attention: 0, flags: [] }, AdminItems.get(b.id) || { attention: 0, flags: [] }) || a.id.localeCompare(b.id); return dir ? dir * ((a.difficulty || 2) - (b.difficulty || 2)) || a.id.localeCompare(b.id) : 0; }), pg = size || Math.max(1, rows.length), pages = Math.max(1, Math.ceil(rows.length / pg)); view.page = Math.min(view.page, pages - 1);
+    lastRows = rows; const extra = AdminItems.ready(), slice = rows.slice(view.page * pg, view.page * pg + pg), all = slice.length && slice.every(q => view.sel.has(q.id));
     const tag = q => q.archived ? '<span class="tag archived">Archived</span>' : q.status === 'reviewed' ? `<span class="tag reviewed">Reviewed</span>${q.reviewedBy ? ` <span class="muted">${esc(q.reviewedBy)}</span>` : ''}` : '<span class="tag draft">Draft</span>';
     document.getElementById('qres').innerHTML = rows.length ? `<div class="scroll" role="region" tabindex="0" aria-label="Questions table"><table class="qtable"><caption class="sr">Questions, ${rows.length} shown</caption><thead><tr>
       <th scope="col"><input type="checkbox" id="selall" aria-label="Select all shown"${all ? ' checked' : ''}></th><th scope="col">ID</th><th scope="col">Subject</th><th scope="col">Status</th><th scope="col">Difficulty</th><th scope="col">Tier</th><th scope="col">Answered</th><th scope="col">Updated</th>${extra ? '<th scope="col"><span class="sr">Details</span></th>' : ''}</tr></thead><tbody>${slice.map(q => {

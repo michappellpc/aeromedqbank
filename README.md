@@ -73,6 +73,8 @@ The Questions page now holds everything for judging and tuning difficulty (there
 - **Actions on a selection:** reviewed, draft, archive, tier, set label from data, CSV of the selection, delete, and **Copy selected** (see Copy below). The old rewrite-request and Copy IDs buttons are gone: Copy covers them with its tasks.
 - **Did the rewrite work?** Each wording change (editor, import or upload tool) records how the old wording had done, shown in a question's Details.
 
+The Questions and Flashcards lists show 50 a page by default; a **Per page** choice (50, 100, 250, 500 or All) shows more at once, and is remembered. Lessons always list all of them. With *All*, Select all selects every matching row.
+
 On Questions, sort by **% correct** (lowest or highest first) or by **how many people answered** (most or fewest), and tick **Show what members picked under each question** to see each choice's share and count on first tries under every row. Changing only the difficulty label does not send a live question back to draft. Run the latest `supabase/schema.sql` to switch the measured numbers on; until then the Questions page works as before.
 
 ## Program insights (faculty)
