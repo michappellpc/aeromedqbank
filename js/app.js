@@ -93,6 +93,24 @@ async function hydrateImages() {
 function labelScrolls() { $app.querySelectorAll('.scroll').forEach(b => { const h = b.closest('.card') && b.closest('.card').querySelector('h2,h3'); b.setAttribute('aria-label', (h ? h.textContent : 'Data') + ' table'); }); }
 function pageTitle(t) { const h = document.getElementById('page-title'); if (h) h.textContent = t; document.title = t + ' | AeroMedQBank'; }
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+// Unfinished quizzes. Store.data.active is the one you are in; starting a new quiz parks it (if you had answered anything) instead of throwing it away, so
+// it stays in Test history with a Resume button. A few are kept; they travel with the account (Cloud syncs them with the settings).
+const MAX_PARKED = 5;
+function parkActive() {
+  const t = Store.data.active; if (!t) return false;
+  Store.data.active = null;
+  if (!Object.keys(t.answers || {}).length) return false;             // nothing answered: nothing worth keeping
+  t.elapsed = elapsed(t); t.paused = true; t.started = Date.now();
+  Store.data.parked = [t, ...(Store.data.parked || [])].slice(0, MAX_PARKED);
+  return true;
+}
+function resumeUnfinished(id) {
+  const list = Store.data.parked || [], t = list.find(x => x.id === id); if (!t) return;
+  Store.data.parked = list.filter(x => x.id !== id);
+  parkActive();
+  Store.data.active = t; t.paused = true; Store.touchActive(); Store.save();
+  location.hash = '#/test';
+}
 
 // Navy and teal is the default for everyone. Olive and gold is used only when the member picked it in Settings (paletteChosen), so earlier saved values do not keep it.
 const palette = () => (Store.data.settings.palette === 'olive' && Store.data.settings.paletteChosen ? 'olive' : 'navy');
@@ -415,6 +433,7 @@ function dashboard() {
   ${bank.unreadReplies ? `<div class="card notice">You have <b>${bank.unreadReplies} new repl${bank.unreadReplies === 1 ? 'y' : 'ies'}</b> from the team. <a href="#/support">Open Support</a></div>` : ''}
   ${bank.program && bank.program.status === 'pending' ? `<div class="card notice">Waiting for faculty at <b>${esc(bank.program.name)}</b> to approve you. Until they do, they cannot see any of your progress. <a href="#/settings">Settings</a></div>` : ''}
   ${active ? `<div class="card continue"><div class="contbody"><b>Continue where you left off</b><span class="muted">${active.paused ? 'Paused. ' : ''}${esc(active.mode === 'timed' ? 'Timed' : 'Tutor')} test, question ${Math.min(active.idx + 1, active.qids.length)} of ${active.qids.length} (${Object.keys(active.answers).length} answered)</span><div class="bar" aria-hidden="true"><i style="width:${pct(Object.keys(active.answers).length, active.qids.length)}%"></i></div></div><a class="btn primary" href="#/test">Resume</a></div>` : ''}
+  ${(Store.data.parked || []).length ? `<div class="card notice">You have ${(Store.data.parked || []).length} more unfinished quiz${(Store.data.parked || []).length === 1 ? '' : 'zes'} in <a href="#/history">Test history</a>.</div>` : ''}
   ${examCard(bank.questions.length - used)}
   <div class="grid">
     <div class="card stat"><b>${bank.questions.length}</b><span class="muted">Questions in bank</span></div>
@@ -455,7 +474,8 @@ function flaggedPage() {
     ${items.length ? `<div class="card"><table><thead><tr><th scope="col">Question</th><th scope="col">Subject</th><th scope="col">Your note</th><th scope="col"><span class="sr">Actions</span></th></tr></thead><tbody>${items.map(q => { const s = Store.qstat(q.id); return `<tr><td>${esc(q.stem.slice(0, 110))}${q.stem.length > 110 ? '...' : ''}</td><td>${esc(q.subject)}</td><td>${esc(s.note || '')}</td><td><button data-unflag="${esc(q.id)}" aria-label="Remove the flag from this question">Unflag</button></td></tr>`; }).join('')}</tbody></table></div>` : ''}`;
   const go = document.getElementById('fgo');
   if (go) go.onclick = () => {
-    Store.data.active = { id: uid(), mode: 'tutor', qids: shuffle(items).map(q => q.id), answers: {}, struck: {}, revealed: {}, idx: 0, started: Date.now(), elapsed: 0, limit: 0 }; Store.touchActive();
+    if (parkActive()) toast('Your unfinished quiz is saved in Test history.');
+    Store.data.active = { id: uid(), mode: 'tutor', qids: shuffle(items).map(q => q.id), answers: {}, struck: {}, revealed: {}, idx: 0, started: Date.now(), at: Date.now(), elapsed: 0, limit: 0 }; Store.touchActive();
     Store.save(); location.hash = '#/test';
   };
   $app.querySelectorAll('[data-unflag]').forEach(b => b.onclick = () => { Store.toggleFlag(b.dataset.unflag); flaggedPage(); });
@@ -535,7 +555,8 @@ function create(preSubject, preStatus) {
     const order = document.getElementById('order').value, picked = shuffle(p).slice(0, n);
     if (order !== 'random') picked.sort((a, b) => (order === 'hard' ? -1 : 1) * ((a.difficulty || 2) - (b.difficulty || 2)));   // sort is stable, so ties stay random
     const qids = picked.map(q => q.id), mode = f.mode.value;
-    Store.data.active = { id: uid(), mode, qids, answers: {}, struck: {}, marks: {}, revealed: {}, idx: 0, started: Date.now(), elapsed: 0, limit: mode === 'timed' ? n * 90 : 0 }; Store.touchActive();
+    if (parkActive()) toast('Your unfinished quiz is saved in Test history.');
+    Store.data.active = { id: uid(), mode, qids, answers: {}, struck: {}, marks: {}, revealed: {}, idx: 0, started: Date.now(), at: Date.now(), elapsed: 0, limit: mode === 'timed' ? n * 90 : 0 }; Store.touchActive();
     Store.save(); location.hash = '#/test';
   };
 }
@@ -773,9 +794,19 @@ function review(id) {
 function historyPage() {
   pageTitle('Test history');
   const T = Store.data.tests;
-  const act = Store.data.active, inProg = act ? `<div class="card continue" id="hist-active"><div class="contbody"><b>${act.paused ? 'Paused quiz' : 'Quiz in progress'}</b><span class="muted">${esc(act.mode === 'timed' ? 'Timed' : 'Tutor')} test, question ${Math.min(act.idx + 1, act.qids.length)} of ${act.qids.length} (${Object.keys(act.answers).length} answered). It counts here once you finish it.</span></div><a class="btn primary" href="#/test">Resume</a></div>` : '';
-  $app.innerHTML = `${inProg}<div class="card"><h2>Test history</h2>${T.length ? `<table><thead><tr><th>Quiz</th><th>Date</th><th>Mode</th><th>Score</th><th>Time</th><th><span class="sr">Details</span></th></tr></thead><tbody>${T.map((r, i) =>
-    `<tr><td>Quiz ${T.length - i}</td><td>${new Date(r.date).toLocaleString()}</td><td>${r.mode}</td><td>${r.correct}/${r.total} (${pct(r.correct, r.total)}%)</td><td>${fmt(r.seconds)}</td><td><a href="#/results/${r.id}" aria-label="View Quiz ${T.length - i}">View</a></td></tr>`).join('')}</tbody></table>` : '<p class="muted">No completed tests yet.</p>'}</div>`;
+  const unfinished = [Store.data.active, ...(Store.data.parked || [])].filter(Boolean);
+  const uRow = (t, k) => `<tr class="unfin"><td><span class="tag draft">${t.paused ? 'Paused' : 'In progress'}</span></td><td>${t.at ? new Date(t.at).toLocaleString() : '-'}</td><td>${esc(t.mode === 'timed' ? 'timed' : 'tutor')}</td><td>${Object.keys(t.answers).length} of ${t.qids.length} answered</td><td>${fmt(t.paused ? t.elapsed : elapsed(t))}</td>
+    <td>${k === 0 && Store.data.active ? `<a class="btn primary" href="#/test" aria-label="Resume the ${t.paused ? 'paused' : 'unfinished'} quiz">Resume</a>` : `<button type="button" class="primary" data-resume="${esc(t.id)}" aria-label="Resume this unfinished quiz">Resume</button>`} <button type="button" data-drop="${esc(t.id)}" aria-label="Discard this unfinished quiz">Discard</button></td></tr>`;
+  const rows = unfinished.map(uRow).join('') + T.map((r, i) =>
+    `<tr><td>Quiz ${T.length - i}</td><td>${new Date(r.date).toLocaleString()}</td><td>${r.mode}</td><td>${r.correct}/${r.total} (${pct(r.correct, r.total)}%)</td><td>${fmt(r.seconds)}</td><td><a href="#/results/${r.id}" aria-label="View Quiz ${T.length - i}">View</a></td></tr>`).join('');
+  $app.innerHTML = `<div class="card"><h2>Test history</h2>${rows ? `<table><thead><tr><th>Quiz</th><th>Date</th><th>Mode</th><th>Score</th><th>Time</th><th><span class="sr">Details</span></th></tr></thead><tbody>${rows}</tbody></table>${unfinished.length ? '<p class="muted small">Unfinished quizzes count here once you finish them.</p>' : ''}` : '<p class="muted">No completed tests yet.</p>'}</div>`;
+  $app.querySelectorAll('[data-resume]').forEach(b => b.onclick = () => resumeUnfinished(b.dataset.resume));
+  $app.querySelectorAll('[data-drop]').forEach(b => b.onclick = async () => {
+    if (!(await ask('Discard this unfinished quiz? It will not be scored or kept in your history. Answers you already revealed in a tutor quiz stay in your question statistics.', 'Discard quiz'))) return;
+    const id = b.dataset.drop;
+    if (Store.data.active && Store.data.active.id === id) Store.data.active = null; else Store.data.parked = (Store.data.parked || []).filter(x => x.id !== id);
+    Store.touchActive(); Store.save(); historyPage(); toast('Discarded.');
+  });
   labelScrolls();
 }
 
