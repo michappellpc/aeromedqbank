@@ -611,7 +611,7 @@ th,td{padding:9px 10px}
 .rep-kicker{margin-left:auto;font-size:.78rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);font-weight:600}
 .rep-title{margin:14px 0 4px;font-size:1.9rem;letter-spacing:-.02em;line-height:1.15}
 .rep-meta{display:flex;flex-wrap:wrap;gap:4px 18px;margin:0;color:var(--muted);font-size:.9rem}.rep-meta span+span::before{content:"";display:inline-block;width:4px;height:4px;border-radius:50%;background:var(--muted);vertical-align:middle;margin-right:18px;opacity:.7}
-.rep-conf{font-weight:600}
+
 .rep-sec{margin-bottom:18px}.rep-h{margin:0 0 6px;font-size:1.15rem;letter-spacing:-.01em}
 section.rep-sec:not(.card){padding:0 2px}
 .rep-note{margin:0 0 12px;font-size:.92rem}
@@ -635,7 +635,6 @@ section.rep-sec:not(.card){padding:0 2px}
 @page insights{size:letter;margin:.7in .65in .75in;
   @top-left{content:"AeroMedQBank";font:600 8.5pt system-ui,sans-serif;color:#0f2236}
   @top-right{content:"Program insights report";font:8.5pt system-ui,sans-serif;color:#555}
-  @bottom-left{content:"Confidential: group totals only";font:8.5pt system-ui,sans-serif;color:#555}
   @bottom-right{content:"Page " counter(page) " of " counter(pages);font:8.5pt system-ui,sans-serif;color:#555}}
 @media print{
   /* Nothing here depends on "background graphics": bars are SVG, badges and tiles use borders, and colors are forced on anyway. */

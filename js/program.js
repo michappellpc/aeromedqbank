@@ -145,7 +145,7 @@ const Program = (() => {
         <div class="report" id="report">
         <header class="rep-head"><div class="rep-brand"><img class="logo" src="icons/logo.svg" alt="" width="34" height="34"><span class="wordmark">AeroMed<b>QBank</b></span><span class="rep-kicker">Program insights report</span></div>
           <h2 class="rep-title">${esc(mine.name)}</h2>
-          <p class="rep-meta"><span>Prepared ${esc(todayText)}</span><span>${esc(rangeText)}</span><span>${res.length} approved residents</span><span class="rep-conf">Confidential: group totals only</span></p></header>
+          <p class="rep-meta"><span>Prepared ${esc(todayText)}</span><span>${esc(rangeText)}</span><span>${res.length} approved residents</span></p></header>
         <section class="rep-sec"><h2 class="rep-h">Summary</h2><p class="rep-lead">${summary}</p>
           <div class="kpis"><div class="kpi"><span class="kpi-l">Approved residents</span><b>${res.length}</b><span class="kpi-s">${active7} active in the last 7 days</span></div>
             <div class="kpi"><span class="kpi-l">Program correct</span><b>${progPct === null ? '-' : progPct + '%'}</b><span class="kpi-s">${allPct === null ? 'No comparison yet' : `All members ${allPct}%`}</span></div>
