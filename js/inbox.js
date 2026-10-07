@@ -24,7 +24,9 @@ const Inbox = (() => {
     document.getElementById('ib-show').value = view.show; document.getElementById('ib-kind').value = view.kind;
     document.getElementById('ib-claude').onclick = async () => {
       let qs = []; try { qs = await Cloud.editorQuestions(); } catch {}
-      const items = shown().map(r => ({ ...r, question: r.question_id ? qs.find(q => q.id === r.question_id) || null : null }));
+      const rowsNow = shown(), threads = new Map();
+      await Promise.all(rowsNow.filter(r => r.replies > 0).map(async r => { try { threads.set(r.id, await Cloud.threadMessages(r.id)); } catch {} }));      // only conversations that have replies; a failure just leaves that one as its first message
+      const items = rowsNow.map(r => ({ ...r, thread: threads.get(r.id) || null, question: r.question_id ? qs.find(q => q.id === r.question_id) || null : null }));
       Handoff.open({ kind: 'feedback', items, importHash: '#/admin/questions/import', describe: `${view.show === 'new' ? 'new only' : view.show === 'open' ? 'new and read' : view.show === 'resolved' ? 'resolved' : 'all'}${view.kind ? ', ' + (view.kind === 'support' ? 'support only' : 'question feedback only') : ''}` });
     };
     const paint = () => {
