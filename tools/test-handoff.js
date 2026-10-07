@@ -75,4 +75,11 @@ t('the difficulty task has Claude judge the wording itself first, whatever the n
 t('a question with no answers still gets a line saying so, with its label', (() => { const x = H.build('questions', qs, { task: 'match', stats: { 'q-1': 'q-1: 70% correct on the first try (30 members); labeled Hard' } }); return /- q-2: no answers yet; labeled Medium|- q-2: no answers yet; labeled Easy|- q-2: no answers yet; labeled Hard/.test(x) && /judge it from its wording alone/.test(x); })());
 t('with no numbers at all it says to judge from the wording alone', /no numbers are available, so judge each question from its wording alone/.test(H.build('questions', qs, { task: 'match' })));
 t('other tasks do not get the performance block by default', !/no numbers are available/.test(H.build('questions', qs, { task: 'review' })));
+const convo = [{ id: 31, kind: 'support', message: 'How do I reset?', subject: 'Help', thread: [{ sender: 'member', message: 'How do I reset?', created_at: '2026-10-01T09:00:00Z' }, { sender: 'team', message: 'Use Forgot password.', created_at: '2026-10-02T09:00:00Z', author: 'admin@private.example' }, { sender: 'member', message: 'It did\nnot arrive.', created_at: '2026-10-03T09:00:00Z' }] }, { id: 32, kind: 'support', message: 'Just one message', thread: [{ sender: 'member', message: 'Just one message', created_at: '2026-10-01T09:00:00Z' }] }, { id: 33, kind: 'support', message: 'No thread loaded' }];
+const ct = H.build('feedback', convo, { task: 'reply' });
+t('a message with replies carries the conversation, oldest first, labelled Member and Team', /Conversation so far \(2 replies, oldest first\):\n  Team \(2026-10-02\): Use Forgot password\.\n  Member \(2026-10-03\): It did not arrive\./.test(ct));
+t('the first message is not repeated inside the conversation', ct.split('How do I reset?').length === 2);
+t('team members\' emails and names are never included', !/admin@private\.example/.test(ct));
+t('a message with no replies, or no thread, has no conversation block', (ct.match(/Conversation so far/g) || []).length === 1);
+t('the reply task tells Claude to read the whole conversation and write the next reply', /read all of it first and write the next reply/.test(ct) && /conversation under it too/.test(H.build('feedback', convo, { task: 'fix' })));
 console.log(`\n${pass} passed, ${fail} failed`); process.exit(fail ? 1 : 0);

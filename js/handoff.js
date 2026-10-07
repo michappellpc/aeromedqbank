@@ -34,9 +34,9 @@
       ['outline', 'Tag with the board outline items it covers', 'Decide which items of the ABPM content outline each item covers and set "objectives" on it to a list of those items as "board:code" strings, for example "aem:K1.E.1". You get the outline below; use only codes from it, choose the most specific item that fits (at most 4 per item), and leave "objectives" out where nothing on the outline fits. Do not change anything else about the item.'],
       ['custom', 'Only do what my note says', 'Do what my note below says.']],
     feedback: [
-      ['fix', 'Fix the questions members flagged', 'For each message about a question, decide whether the member is right. Where a question needs a change, return a corrected version of that question. Do not change questions where the member is mistaken.'],
+      ['fix', 'Fix the questions members flagged', 'For each message about a question (read the conversation under it too, when there is one), decide whether the member is right. Where a question needs a change, return a corrected version of that question. Do not change questions where the member is mistaken.'],
       ['group', 'Summarize and group the feedback', 'Group the messages by theme (for example unclear wording, wrong answer key, typos, pictures, requests for features) and summarize each group. List what to fix first.'],
-      ['reply', 'Draft replies to members', 'Draft a short, kind, plain reply to each member message that I can post in the app. Do not promise changes that I have not decided on.'],
+      ['reply', 'Draft replies to members', 'Draft a short, kind, plain reply to each member message that I can post in the app. Where a message has a conversation under it, read all of it first and write the next reply in that conversation, without repeating what the team already said and without answering things that were already settled. Do not promise changes that I have not decided on.'],
       ['custom', 'Only do what my note says', 'Do what my note below says.']]
   };
   const HEAD = 'I run a private board-prep question bank for aerospace, occupational and preventive medicine residents.';
@@ -64,6 +64,9 @@
       lines.push('', 'MESSAGES:');
       items.forEach((m, i) => {
         lines.push('', `--- message ${m.id} (${m.kind === 'support' ? 'support' : 'question feedback'}${m.category ? ', ' + m.category : ''}) ---`, m.message);
+        // the rest of the conversation, oldest first (the member's first message is the one above); replies are labelled Member or Team, with no names or emails
+        const later = (m.thread || []).slice(1);
+        if (later.length) lines.push(`Conversation so far (${later.length} ${later.length === 1 ? 'reply' : 'replies'}, oldest first):`, ...later.map(r => `  ${r.sender === 'team' ? 'Team' : 'Member'}${r.created_at ? ' (' + String(r.created_at).slice(0, 10) + ')' : ''}: ${String(r.message || '').replace(/\s+/g, ' ').trim()}`));
         if (m.subject && m.kind === 'support') lines.push(`Subject: ${m.subject}`);
         if (m.question_id) { lines.push(`About question ${m.question_id}:`); lines.push(m.question ? json(draft(pick(m.question, QF))) : '(the question no longer exists)'); }
       });
