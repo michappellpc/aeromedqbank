@@ -42,6 +42,6 @@ const Store = (() => {
     touchActive() { d.activeAt = Date.now(); save(); fire('settings'); },
     exportJSON: () => JSON.stringify(d, null, 2),
     importJSON(t) { const o = JSON.parse(t); if (!o || typeof o !== 'object' || !o.q || !Array.isArray(o.tests)) throw new Error('Not a QBank export'); d = { ...blank(), ...o }; save(); },
-    reset() { const keep = { hl: d.hl, mine: d.mine, cards: Object.fromEntries(Object.entries(d.cards || {}).filter(([k]) => k.startsWith('my:'))) }; d = { ...blank(), ...keep }; save(); fire('reset'); }   // progress goes; highlights and your own cards stay
+    reset() { const keep = { hl: d.hl, mine: d.mine, cards: Object.fromEntries(Object.entries(d.cards || {}).filter(([k]) => k.startsWith('my:'))) }; if (d.settings && d.settings.stressFree !== undefined) keep.settings = { ...blank().settings, stressFree: d.settings.stressFree }; d = { ...blank(), ...keep }; save(); fire('reset'); }   // progress goes; highlights, your own cards and the Stress Free choice stay
   };
 })();
