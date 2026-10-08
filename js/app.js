@@ -104,8 +104,10 @@ async function hydrateImages() {
   }
 }
 function labelScrolls() { $app.querySelectorAll('.scroll').forEach(b => { const h = b.closest('.card') && b.closest('.card').querySelector('h2,h3'); b.setAttribute('aria-label', (h ? h.textContent : 'Data') + ' table'); }); }
-// PRO beside the name in the header while the signed-in member has a pro account that has not ended (admins and reviewers always have pro access)
-function showProBadge() { const b = document.getElementById('pro-badge'); if (b) b.hidden = !(profile && (proState(profile.plan, profile.pro_until).on || ['admin', 'reviewer'].includes(profile.role))); }
+// PRO (and ADMIN, REVIEWER or FACULTY for those roles) beside the name in the header while the signed-in member has a pro account that has not ended (admins and reviewers always have pro access)
+function showProBadge() { const b = document.getElementById('pro-badge'); if (b) b.hidden = !(profile && (proState(profile.plan, profile.pro_until).on || ['admin', 'reviewer'].includes(profile.role)));
+  const r = document.getElementById('role-badge'), name = profile && { admin: 'ADMIN', reviewer: 'REVIEWER', faculty: 'FACULTY' }[profile.role];
+  if (r) { r.hidden = !name; r.textContent = name || ''; } }
 function pageTitle(t) { const h = document.getElementById('page-title'); if (h) h.textContent = t; document.title = t + ' | AeroMedQBank'; }
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 // Unfinished quizzes. Store.data.active is the one you are in; starting a new quiz parks it (if you had answered anything) instead of throwing it away, so
