@@ -11,9 +11,13 @@ const Cards = (() => {
 
   function lessonFor(c) {                                  // the card's own link, else the best-matching lesson
     const lessons = bank.lessons || [];
-    if (c.lessonId) { const l = lessons.find(x => x.id === c.lessonId); if (l) return l; }
-    const m = Related.match({ subject: c.subject, topic: c.topic, stem: c.front, explanation: c.back, options: [], answer: '' }, lessons);
+    const m = Links.lesson(c, lessons, { words: (card, ls) => { const w = Related.match({ subject: card.subject, topic: card.topic, stem: card.front, explanation: card.back, options: [], answer: '' }, ls); return w ? w.lesson : null; } });
     return m ? m.lesson : null;
+  }
+  // Questions that cover the same board outline items, as links under the answer
+  function relatedQuestions(c) {
+    const qs = Links.questionsForCard(c, visibleQuestions());
+    return qs.length ? `<p class="small">Practice: ${qs.map(q => `<a href="#/question/${encodeURIComponent(q.id)}" target="_blank" rel="noopener">${esc(q.topic || q.stem.slice(0, 50))}<span class="sr"> (opens in a new tab)</span></a>`).join(', ')}</p>` : '';
   }
 
   // ------------------------------------------------------------------ deck list
@@ -95,7 +99,7 @@ const Cards = (() => {
           <p class="flash-side"><span class="sr">${pr.reverse ? 'Answer' : 'Front'}: </span>${pr.reverse ? esc(c.back).replace(/\n/g, '<br>') : esc(c.front)}</p>
           ${shown ? `<div class="flash-back" id="flash-back" tabindex="-1"><span class="sr">${pr.reverse ? 'Prompt' : 'Back'}: </span>${pr.reverse ? esc(c.front) : esc(c.back).replace(/\n/g, '<br>')}
             ${c.references && c.references.length ? `<p class="muted small">${c.references.map(esc).join('; ')}</p>` : ''}${ObjPicker.show(c.objectives)}
-            ${lesson ? `<p class="small"><a href="#/lesson/${encodeURIComponent(lesson.id)}" target="_blank" rel="noopener">Study the lesson: ${esc(lesson.title)}<span class="sr"> (opens in a new tab)</span></a></p>` : ''}</div>
+            ${lesson ? `<p class="small"><a href="#/lesson/${encodeURIComponent(lesson.id)}" target="_blank" rel="noopener">Study the lesson: ${esc(lesson.title)}<span class="sr"> (opens in a new tab)</span></a></p>` : ''}${relatedQuestions(c)}</div>
             <div class="rate" role="group" aria-label="How well did you know it?">${RATINGS.map(([r, l]) => `<button class="rate-${r}" data-rate="${r}"><b>${l}</b>${pr.intervals ? `<span class="small">${CardSched.preview(st, r, t)}</span>` : ''}<span class="sr"> (key ${r})</span></button>`).join('')}</div>`
             : `<div class="row" style="margin-top:14px"><button class="primary" id="reveal">Show answer <span class="sr">(Space)</span></button></div>`}
           <div class="row" style="margin-top:12px"><button type="button" id="suspend" class="small" title="Stop this card from coming up until you turn it back on in Browse">Suspend this card</button></div>
@@ -137,11 +141,15 @@ const Cards = (() => {
     if (!all.length) return indexPage();
     const subjects = [...new Set(all.map(c => c.subject))].sort(), STEP = 40;
     const susOnly = subjectArg === '~suspended';
-    const v = { q: '', subject: subjectArg && !susOnly ? decodeURIComponent(subjectArg) : '', all: false, sus: susOnly, shown: STEP, open: new Set() };
+    const fm = /^~([ql]):(.+)$/.exec(subjectArg || ''), fid = fm ? decodeURIComponent(fm[2]) : '';
+    const fItem = fm ? (fm[1] === 'q' ? bank.byId[fid] : (bank.lessons || []).find(l => l.id === fid)) : null;
+    const only = fItem ? new Set((fm[1] === 'q' ? Links.cardsForQuestion(fItem, all) : Links.cardsForLesson(fItem, all)).map(c => c.id)) : null;
+    const v = { q: '', subject: subjectArg && !susOnly && !fm ? decodeURIComponent(subjectArg) : '', all: false, sus: susOnly, shown: STEP, open: new Set() };
     const isSus = c => Store.suspended().includes(c.id);
     const status = c => { const st = states[c.id]; return isSus(c) ? 'Suspended' : !st ? 'New' : st.due <= t ? 'Due today' : `Next review ${when(st.due)}`; };
     $app.innerHTML = `<p class="crumb"><a href="#/cards">Back to flashcards</a></p><div class="card"><h2 style="margin:0">Browse flashcards</h2>
       <p class="muted">Read through the cards at your own pace. Nothing here is rated or scheduled, so it does not change your reviews.</p>
+      ${fm ? `<p class="notice" role="status">${fItem ? `Showing the ${only.size} card${only.size === 1 ? '' : 's'} that cover ${fm[1] === 'q' ? 'this question' : 'the lesson <b>' + esc(fItem.title) + '</b>'}.` : 'That item is no longer available, so every card is shown.'} <a href="#/cards/browse">Show all cards</a></p>` : ''}
       <form class="filters" onsubmit="return false" aria-label="Filter flashcards" style="margin-top:12px">
         <div><label for="bq">Search</label><input id="bq" type="search" placeholder="words on the card or topic" autocomplete="off"></div>
         <div><label for="bs">Subject</label><select id="bs"><option value="">All subjects</option>${subjects.map(s => `<option${s === v.subject ? ' selected' : ''}>${esc(s)}</option>`).join('')}</select></div>
@@ -149,7 +157,7 @@ const Cards = (() => {
         <div style="align-self:end"><label class="chk"><input type="checkbox" id="bsus"${susOnly ? ' checked' : ''}> Suspended cards only</label></div></form></div>
       <div id="blist"></div>`;
     const el = i => document.getElementById(i);
-    const filtered = () => { const w = v.q.trim().toLowerCase(); return all.filter(c => (!v.sus || isSus(c)) && (!v.subject || c.subject === v.subject) && (!w || c.front.toLowerCase().includes(w) || c.back.toLowerCase().includes(w) || (c.topic || '').toLowerCase().includes(w))); };
+    const filtered = () => { const w = v.q.trim().toLowerCase(); return all.filter(c => (!only || only.has(c.id)) && (!v.sus || isSus(c)) && (!v.subject || c.subject === v.subject) && (!w || c.front.toLowerCase().includes(w) || c.back.toLowerCase().includes(w) || (c.topic || '').toLowerCase().includes(w))); };
     function paint() {
       const rows = filtered(), slice = rows.slice(0, v.shown);
       el('blist').innerHTML = rows.length ? `<p class="muted" aria-live="polite">${rows.length} card${rows.length === 1 ? '' : 's'}</p>${slice.map(c => {
@@ -157,7 +165,7 @@ const Cards = (() => {
         return `<article class="card browsecard"><div class="row spread"><span class="muted small">${esc(c.subject)}${c.topic ? ' &middot; ' + esc(c.topic) : ''}</span><span class="tag">${esc(status(c))}</span></div>
           <p class="flash-side" style="margin:8px 0">${esc(c.front)}</p>
           <div id="bk-${esc(c.id)}"${open ? '' : ' hidden'} class="flash-back">${esc(c.back).replace(/\n/g, '<br>')}${c.references && c.references.length ? `<p class="muted small">${c.references.map(esc).join('; ')}</p>` : ''}${ObjPicker.show(c.objectives)}
-            ${lesson ? `<p class="small"><a href="#/lesson/${encodeURIComponent(lesson.id)}" target="_blank" rel="noopener">Study the lesson: ${esc(lesson.title)}<span class="sr"> (opens in a new tab)</span></a></p>` : ''}</div>
+            ${lesson ? `<p class="small"><a href="#/lesson/${encodeURIComponent(lesson.id)}" target="_blank" rel="noopener">Study the lesson: ${esc(lesson.title)}<span class="sr"> (opens in a new tab)</span></a></p>` : ''}${open ? relatedQuestions(c) : ''}</div>
           <div class="row" style="margin-top:8px"><button type="button" data-sus="${esc(c.id)}" aria-pressed="${isSus(c)}">${isSus(c) ? 'Turn back on' : 'Suspend'}<span class="sr"> card: ${esc(c.front.slice(0, 40))}</span></button></div>
           ${v.all ? '' : `<div class="row" style="margin-top:8px"><button data-flip="${esc(c.id)}" aria-expanded="${open}" aria-controls="bk-${esc(c.id)}">${open ? 'Hide answer' : 'Show answer'}<span class="sr"> for ${esc(c.front.slice(0, 40))}</span></button></div>`}</article>`; }).join('')}
         ${rows.length > v.shown ? `<div class="row" style="justify-content:center"><button id="bmore">Show ${Math.min(STEP, rows.length - v.shown)} more</button></div>` : ''}`

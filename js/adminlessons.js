@@ -4,6 +4,10 @@
 const AdminLessons = (() => {
   const { tabs, askText, note } = Admin;
   let cache = null;
+  // Which lessons have at least one question or flashcard linked to them (by a hand-set link or shared board outline tags)
+  let iuKey = null, iuSet = null;
+  const inUse = () => { if (iuKey !== cache.list || iuSet === null) { iuKey = cache.list; iuSet = Links.lessonsInUse(cache.list, [...(bank.questions || []), ...(bank.cards || [])]); } return iuSet; };
+  const tagOk = x => !view.tag || (view.tag === 'nolinks' ? !inUse().has(x.id) : (view.tag === 'none') === !((x.objectives || []).length));
   const view = { q: '', subject: '', status: '', tag: '', show: 'active', sel: new Set() };
   const refresh = () => { cache = null; Admin.changed = true; };
   const slug = s => String(s || '').toLowerCase().replace(/&/g, ' ').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 48) || 'lesson';
@@ -39,7 +43,7 @@ const AdminLessons = (() => {
   // ------------------------------------------------------------------ list
   const filtered = () => {
     const w = view.q.trim().toLowerCase();
-    return cache.list.filter(l => (view.show === 'all' || (view.show === 'archived') === l.archived) && (!view.subject || l.subject === view.subject) && (!view.status || l.status === view.status) && (!view.tag || (view.tag === 'none') === !((l.objectives || []).length))
+    return cache.list.filter(l => (view.show === 'all' || (view.show === 'archived') === l.archived) && (!view.subject || l.subject === view.subject) && (!view.status || l.status === view.status) && tagOk(l)
       && (!w || l.id.includes(w) || l.title.toLowerCase().includes(w)));
   };
   const tag = l => l.archived ? '<span class="tag archived">Archived</span>' : l.status === 'reviewed' ? `<span class="tag reviewed">Live</span>${l.reviewedBy ? ` <span class="muted">${esc(l.reviewedBy)}</span>` : ''}` : '<span class="tag draft">Draft (hidden)</span>';
@@ -56,7 +60,7 @@ const AdminLessons = (() => {
         <div><label for="fq">Search</label><input id="fq" type="search" value="${esc(view.q)}" placeholder="title or id"></div>
         <div><label for="fs">Subject</label><select id="fs"><option value="">All</option>${subjects.map(s => `<option${s === view.subject ? ' selected' : ''}>${esc(s)}</option>`).join('')}</select></div>
         <div><label for="fst">Status</label><select id="fst"><option value="">All</option><option value="draft">Draft</option><option value="reviewed">Live</option></select></div>
-        <div><label for="fot">Outline tags</label><select id="fot"><option value="">All</option><option value="none">Not tagged yet (${cache.list.filter(x => !x.archived && !(x.objectives || []).length).length})</option><option value="some">Tagged</option></select></div><div><label for="fsh">Show</label><select id="fsh"><option value="active">Active</option><option value="archived">Archived</option><option value="all">Both</option></select></div></form></div>
+        <div><label for="fot">Outline tags</label><select id="fot"><option value="">All</option><option value="none">Not tagged yet (${cache.list.filter(x => !x.archived && !(x.objectives || []).length).length})</option><option value="some">Tagged</option><option value="nolinks">Nothing linked to it yet (${cache.list.filter(x => !x.archived && !inUse().has(x.id)).length})</option></select></div><div><label for="fsh">Show</label><select id="fsh"><option value="active">Active</option><option value="archived">Archived</option><option value="all">Both</option></select></div></form></div>
       <div id="bulk"></div><div class="card" id="lres"></div>`;
     document.getElementById('fst').value = view.status; document.getElementById('fsh').value = view.show; document.getElementById('fot').value = view.tag;
     const on = (id, ev, fn) => document.getElementById(id).addEventListener(ev, fn);

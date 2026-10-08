@@ -3,6 +3,10 @@
 // Loaded before app.js; it uses app.js's helpers (esc, ask, toast, pageTitle, bank, profile, $app) when it runs.
 const Admin = (() => {
   let cache = null;                       // { list, stats: Map(id -> {attempts, pct}) }
+  // Which items have a lesson, by a hand-set pin or by sharing board outline tags (worked out once per list)
+  let wlKey = null, wlSet = null;
+  const withLesson = () => { if (wlKey !== cache.list || wlSet === null) { wlKey = cache.list; wlSet = Links.withLesson(cache.list, bank.lessons || []); } return wlSet; };
+  const tagOk = x => !view.tag || (view.tag === 'nolesson' ? !withLesson().has(x.id) : (view.tag === 'none') === !((x.objectives || []).length));
   const view = { q: '', board: '', subject: '', status: '', show: 'active', tier: '', check: '', diff: '', sort: '', tag: '', picks: (() => { try { return localStorage.getItem('qbank.picks') === '1'; } catch { return false; } })(), flag: '', data: '', min: '', max: '', page: 0, sel: new Set(), open: new Set() };
   const SIZES = [50, 100, 250, 500, 0];                       // rows per page; 0 shows them all
   let size = 50; try { const raw = localStorage.getItem('qbank.admin.pagesize'); if (raw !== null && SIZES.includes(+raw)) size = +raw; } catch {}
@@ -72,7 +76,7 @@ const Admin = (() => {
         <div><label for="fst">Status</label><select id="fst"><option value="">All</option><option value="draft">Draft</option><option value="reviewed">Reviewed</option></select></div>
         <div><label for="fsh">Show</label><select id="fsh"><option value="active">Active</option><option value="archived">Archived</option><option value="all">Both</option></select></div>
         <div><label for="ft">Tier</label><select id="ft"><option value="">All</option><option value="free">Free</option><option value="pro">Pro</option></select></div>
-        <div><label for="fot">Outline tags</label><select id="fot"><option value="">All</option><option value="none">Not tagged yet (${cache.list.filter(x => !x.archived && !(x.objectives || []).length).length})</option><option value="some">Tagged</option></select></div><div><label for="fd">Difficulty</label><select id="fd"><option value="">All</option><option value="1">Easy</option><option value="2">Medium</option><option value="3">Hard</option></select></div>
+        <div><label for="fot">Outline tags</label><select id="fot"><option value="">All</option><option value="none">Not tagged yet (${cache.list.filter(x => !x.archived && !(x.objectives || []).length).length})</option><option value="some">Tagged</option><option value="nolesson">No lesson linked yet (${cache.list.filter(x => !x.archived && !withLesson().has(x.id)).length})</option></select></div><div><label for="fd">Difficulty</label><select id="fd"><option value="">All</option><option value="1">Easy</option><option value="2">Medium</option><option value="3">Hard</option></select></div>
         <div><label for="fo">Sort by</label><select id="fo"><option value="">ID</option><option value="hard">Label: hardest first</option><option value="easy">Label: easiest first</option><option value="pc-low">% correct: lowest first</option><option value="pc-high">% correct: highest first</option><option value="n-most">Answered by the most people</option><option value="n-least">Answered by the fewest people</option>${AdminItems.SORTS.map(([v, t]) => `<option value="${v}">${t}</option>`).join('')}</select></div>
         <div><label for="fl">Checks</label><select id="fl"><option value="">All questions</option><option value="long">Correct answer much longer</option></select></div>
         <div><label for="ffl">Flag</label><select id="ffl"><option value="">Any</option><option value="any">Has any flag</option>${AdminItems.FLAGS.map(f => `<option value="${f}">${esc(ItemStats.FLAG_TEXT[f][0])}</option>`).join('')}</select></div>
@@ -113,7 +117,7 @@ const Admin = (() => {
   const describeView = () => {
     const bn = id => (bank.boards.find(b => b.id === id) || {}).name || id, p = [];
     if (view.q) p.push(`search "${view.q}"`); if (view.board) p.push(bn(view.board)); if (view.subject) p.push(view.subject); if (view.diff) p.push(['', 'Easy', 'Medium', 'Hard'][view.diff]);
-    if (view.status) p.push(view.status === 'reviewed' ? 'live' : view.status); if (view.show !== 'active') p.push(view.show === 'all' ? 'including archived' : 'archived'); if (view.tier) p.push(view.tier + ' tier'); if (view.tag) p.push(view.tag === 'none' ? 'no outline tags yet' : 'has outline tags');
+    if (view.status) p.push(view.status === 'reviewed' ? 'live' : view.status); if (view.show !== 'active') p.push(view.show === 'all' ? 'including archived' : 'archived'); if (view.tier) p.push(view.tier + ' tier'); if (view.tag) p.push(view.tag === 'none' ? 'no outline tags yet' : view.tag === 'nolesson' ? 'no lesson linked yet' : 'has outline tags');
     if (view.flag) p.push(view.flag === 'any' ? 'has a flag' : 'flag: ' + ItemStats.FLAG_TEXT[view.flag][0]); if (view.data) p.push(view.data === 'judged' ? 'enough answers' : 'too few answers'); if (view.min !== '' || view.max !== '') p.push(`${view.min || 0}% to ${view.max || 100}% correct`);
     return p.length ? 'filters: ' + p.join(', ') : 'no filters';
   };
@@ -133,7 +137,7 @@ const Admin = (() => {
     const w = view.q.trim().toLowerCase();
     return cache.list.filter(q =>
       (view.show === 'all' || (view.show === 'archived') === q.archived) && (!view.board || q.boards.includes(view.board)) && (!view.subject || q.subject === view.subject) &&
-      (!view.status || q.status === view.status) && (!view.tier || q.tier === view.tier) && (view.check !== 'long' || QValidate.lengthTell(q)) && (!view.diff || (q.difficulty || 2) === +view.diff) && (!view.tag || (view.tag === 'none') === !((q.objectives || []).length)) && measured(q) &&
+      (!view.status || q.status === view.status) && (!view.tier || q.tier === view.tier) && (view.check !== 'long' || QValidate.lengthTell(q)) && (!view.diff || (q.difficulty || 2) === +view.diff) && tagOk(q) && measured(q) &&
       (!w || q.id.includes(w) || (q.topic || '').toLowerCase().includes(w) || q.stem.toLowerCase().includes(w)));
   };
 
