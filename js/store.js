@@ -22,6 +22,9 @@ const Store = (() => {
     cardState: id => (d.cards || {})[id] || null,
     cardStates: () => d.cards || (d.cards = {}),
     rateCard(id, st) { (d.cards || (d.cards = {}))[id] = st; save(); fire('card', id, st); },
+    // suspended flashcards: a list of card ids in settings, so it syncs with the other settings
+    suspended: () => ((d.settings || {}).suspended || []).filter(x => typeof x === 'string'),
+    setSuspended(id, on) { const set = new Set(((d.settings || {}).suspended || []).filter(x => typeof x === 'string')); on ? set.add(id) : set.delete(id); d.settings.suspended = [...set].slice(0, 5000); save(); fire('settings'); },
     newCardsSeen(day) { const m = d.cardsMeta || {}; return m.day === day ? m.newSeen || 0 : 0; },
     countNewCard(day) { const m = d.cardsMeta && d.cardsMeta.day === day ? d.cardsMeta : (d.cardsMeta = { day, newSeen: 0 }); m.newSeen = (m.newSeen || 0) + 1; save(); },
     // highlights: hl[id] = { id, k: 'q'|'l', i: item id, f: field, a, b, t: the highlighted words }
