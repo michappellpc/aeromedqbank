@@ -489,9 +489,8 @@ function dashboard() {
     <div id="perf-body"></div>
   </div>`}
   `;
-  document.getElementById('cover-text').innerHTML = `<h2 class="pagetitle">Dashboard</h2><p>${sf ? 'Stress Free is on. Your scores are tucked away for now.' : esc(headline)}</p><div class="row"><a class="btn primary" href="#/create">Create a new test</a><button type="button" class="btn" id="sf" aria-pressed="${sf}" title="Hide your scores on the dashboard and let Pulse cheer you on instead">Stress Free: ${sf ? 'On' : 'Off'}</button>${sf ? '<button type="button" class="btn" id="sf-more">Another quote</button>' : ''}</div>`;
-  document.getElementById('sf').onclick = () => { Store.data.settings.stressFree = !sf; Store.touchSettings(); dashboard(); };
-  const sfm = document.getElementById('sf-more'); if (sfm) sfm.onclick = dashboard;
+  document.getElementById('cover-text').innerHTML = `<h2 class="pagetitle">Dashboard</h2><p>${sf ? 'Stress Free is on. Your scores are tucked away for now.' : esc(headline)}</p><div class="row"><a class="btn primary" href="#/create">Create a new test</a><label class="sfswitch" title="Hide your scores on the dashboard and let Pulse cheer you on instead"><input type="checkbox" role="switch" id="sf"${sf ? ' checked' : ''}><span class="trk" aria-hidden="true"></span>Stress Free</label></div>`;
+  document.getElementById('sf').onchange = e => { Store.data.settings.stressFree = e.target.checked; Store.touchSettings(); dashboard(); document.getElementById('sf').focus(); };
   const exb = document.getElementById('exam-edit'); if (exb) exb.onclick = examDialog;
   if (profile && profile.role === 'admin') facultyViewCard();
   if (!sf) bindPerf();
