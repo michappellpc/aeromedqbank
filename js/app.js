@@ -250,12 +250,12 @@ async function route() {
     try { setQuestions(await Cloud.questions()); bank.lessons = await Cloud.lessons(); await loadCards(); } catch {}
     if (location.hash.replace(/^#\/?/, '').split('/')[0] !== p) return;   // the person moved on while it loaded
   }
-  document.querySelectorAll('nav a').forEach(l => l.classList.toggle('on', l.getAttribute('href').split('/').slice(0, 2).join('/') === '#/' + (p === 'test' ? 'create' : p === 'lesson' ? 'lessons' : p === 'results' || p === 'review' ? 'history' : p === 'question' ? 'highlights' : p)));
+  document.querySelectorAll('nav a').forEach(l => l.classList.toggle('on', l.getAttribute('href').split('/').slice(0, 2).join('/') === '#/' + (p === 'test' ? 'create' : p === 'lesson' ? 'lessons' : p === 'mine' ? '' : p === 'results' || p === 'review' ? 'history' : p === 'question' ? 'highlights' : p)));
   document.getElementById('nav-more').classList.toggle('on', !!document.querySelector('#secgroup a.on'));
   if (p === '' || p === 'results') refreshPeer();
   const t = Store.data.active;
   if (p === 'test' && t) return renderTest();
-  ({ '': () => (profile && profile.role === 'faculty' ? Program.dashboard() : dashboard()), create: () => create(arg, arg2), flagged: flaggedPage, program: () => (arg === 'insights' ? Program.insightsPage('') : arg2 === 'insights' ? Program.insightsPage(arg) : arg2 === 'dashboard' ? Program.dashboard(arg) : Program.facultyPage(arg)), cards: () => Cards.page(arg, arg2), support: () => Support.page(arg), lessons: () => (arg ? Lessons.subjectPage(arg) : Lessons.indexPage()), lesson: () => Lessons.lessonPage(arg), history: historyPage, settings, admin: () => Admin.route(arg, arg2, arg3), results: () => results(arg), review: () => review(arg), highlights: Notebook.page, question: () => Notebook.question(arg) }[p] || dashboard)();
+  ({ '': () => (profile && profile.role === 'faculty' ? Program.dashboard() : dashboard()), mine: dashboard, create: () => create(arg, arg2), flagged: flaggedPage, program: () => (arg === 'insights' ? Program.insightsPage('') : arg2 === 'insights' ? Program.insightsPage(arg) : arg2 === 'dashboard' ? Program.dashboard(arg) : Program.facultyPage(arg)), cards: () => Cards.page(arg, arg2), support: () => Support.page(arg), lessons: () => (arg ? Lessons.subjectPage(arg) : Lessons.indexPage()), lesson: () => Lessons.lessonPage(arg), history: historyPage, settings, admin: () => Admin.route(arg, arg2, arg3), results: () => results(arg), review: () => review(arg), highlights: Notebook.page, question: () => Notebook.question(arg) }[p] || dashboard)();
   window.scrollTo(0, 0);
 }
 window.addEventListener('hashchange', route);
@@ -435,6 +435,11 @@ function thisDay() {
     <ul class="otd">${items.map(e => `<li><b>${e.y}</b> <span class="tag">${OTD_KIND[e.k]}</span> ${esc(e.t)}</li>`).join('')}</ul></div>`;
 }
 
+// Faculty have two views on their home: their program, and the ordinary dashboard of their own practice
+function facTabs(on) {
+  const t = (id, href, label) => `<a class="btn${on === id ? ' primary' : ''}" href="${href}"${on === id ? ' aria-current="page"' : ''}>${label}</a>`;
+  return `<nav class="factabs" aria-label="Dashboard view">${t('program', '#/', 'My program')}${t('mine', '#/mine', 'My dashboard')}</nav>`;
+}
 // For admins: a way to open the dashboard a program's faculty see, for any program
 async function facultyViewCard() {
   if (!document.getElementById('facview')) return;
@@ -493,6 +498,7 @@ function dashboard() {
   document.getElementById('sf').onchange = e => { Store.data.settings.stressFree = e.target.checked; Store.touchSettings(); dashboard(); document.getElementById('sf').focus(); };
   const exb = document.getElementById('exam-edit'); if (exb) exb.onclick = examDialog;
   if (profile && profile.role === 'admin') facultyViewCard();
+  if (profile && profile.role === 'faculty') $app.insertAdjacentHTML('afterbegin', facTabs('mine'));
   if (!sf) bindPerf();
   if (sf) { if (mascotOn()) Mascot.mount(document.getElementById('scene-slot'), { pose: 'happy', msg: esc(quote), scale: 6 }); else document.getElementById('cover-text').insertAdjacentHTML('beforeend', `<p class="sfquote"><i>${esc(quote)}</i></p>`); }
   else if (mascotOn()) Mascot.mount(document.getElementById('scene-slot'), { pose: acc !== null && acc >= 80 ? 'cheer' : 'idle', msg: esc(hello), scale: 6 });
