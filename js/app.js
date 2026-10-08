@@ -450,6 +450,8 @@ function dashboard() {
   const st = Store.data.q, all = Object.values(st);
   const used = all.filter(s => s.seen).length, c = all.reduce((a, s) => a + s.correct, 0), w = all.reduce((a, s) => a + s.wrong, 0);
   const active = Store.data.active;
+  const sf = !!Store.data.settings.stressFree;            // Stress Free: no scores on the dashboard, a calming line from the mascot instead
+  const quote = Mascot.quotes[Math.floor(Math.random() * Mascot.quotes.length)];
   const acc = c + w ? pct(c, c + w) : null, missed = all.filter(s => s.last === 'w').length;
   const hello = acc === null ? 'Welcome, Doc. Ready for your first set of questions?'
     : (acc >= 80 ? 'Strong average. Keep the pressure on.' : acc >= 60 ? 'Solid progress. Let\'s tighten up the weak spots.' : 'Every question is practice that counts.')
@@ -466,18 +468,18 @@ function dashboard() {
   <div class="grid">
     <div class="card stat"><b>${bank.questions.length}</b><span class="muted">Questions in bank</span></div>
     <div class="card stat"><b>${used}</b><span class="muted">Used (${pct(used, bank.questions.length)}%)</span></div>
-    <div class="card stat" id="tile-overall"><b>${c + w ? pct(c, c + w) + '%' : '—'}</b><span class="muted">Overall correct</span></div>
-    <div class="card stat" id="tile-recent"><b id="tile-recent-v">—</b><span class="muted" id="tile-recent-l">Recent correct</span></div>
+    ${sf ? '' : `<div class="card stat" id="tile-overall"><b>${c + w ? pct(c, c + w) + '%' : '—'}</b><span class="muted">Overall correct</span></div>
+    <div class="card stat" id="tile-recent"><b id="tile-recent-v">—</b><span class="muted" id="tile-recent-l">Recent correct</span></div>`}
     ${all.some(s => s.flagged) ? `<a class="card stat statlink" href="#/flagged"><b>${all.filter(s => s.flagged).length}</b><span class="muted">Flagged &rsaquo; review</span></a>` : `<div class="card stat"><b>0</b><span class="muted">Flagged</span></div>`}
   </div>
   ${thisDay()}
-  ${Store.data.tests.length >= 2 ? `<div class="card" id="trend-card"><h2>Score trend</h2>
+  ${!sf && Store.data.tests.length >= 2 ? `<div class="card" id="trend-card"><h2>Score trend</h2>
     <div class="perfctl"><div class="seg" role="group" aria-label="Which score the chart shows">${Object.entries(TRENDS).map(([k, v]) => `<button type="button" data-pt="${k}">${v}</button>`).join('')}</div>
       <label class="chk" id="trend-cmp-row" hidden><input type="checkbox" id="trend-cmp"> Compare with everyone</label></div>
     <p class="muted small" id="trend-note" aria-live="polite"></p><div id="trend-body"></div></div>` : ''}
   ${cardsNotice()}
-  ${focusAreas()}
-  <div class="card" id="perf"><h2 id="perf-title">Performance by subject</h2>
+  ${sf ? '' : focusAreas()}
+  ${sf ? '' : `<div class="card" id="perf"><h2 id="perf-title">Performance by subject</h2>
     <div class="perfctl">
       <div class="seg" role="group" aria-label="Show by"><button type="button" data-pg="subject">Subject</button><button type="button" data-pg="topic">Topic</button></div>
       <div class="seg" role="group" aria-label="Which score to show"><button type="button" data-ps="recent">Recent</button><button type="button" data-ps="overall">Overall</button><button type="button" data-ps="both">Both</button></div>
@@ -485,13 +487,15 @@ function dashboard() {
       <div><label for="perf-sort">Sort by</label><select id="perf-sort"></select></div></div>
     <p class="muted small" id="perf-note" aria-live="polite"></p>
     <div id="perf-body"></div>
-  </div>
+  </div>`}
   `;
-  document.getElementById('cover-text').innerHTML = `<h2 class="pagetitle">Dashboard</h2><p>${esc(headline)}</p><a class="btn primary" href="#/create">Create a new test</a>`;
+  document.getElementById('cover-text').innerHTML = `<h2 class="pagetitle">Dashboard</h2><p>${sf ? 'Stress Free is on. Your scores are tucked away for now.' : esc(headline)}</p><div class="row"><a class="btn primary" href="#/create">Create a new test</a><label class="sfswitch" title="Hide your scores on the dashboard and let Pulse cheer you on instead"><input type="checkbox" role="switch" id="sf"${sf ? ' checked' : ''}><span class="trk" aria-hidden="true"></span>Stress Free</label></div>`;
+  document.getElementById('sf').onchange = e => { Store.data.settings.stressFree = e.target.checked; Store.touchSettings(); dashboard(); document.getElementById('sf').focus(); };
   const exb = document.getElementById('exam-edit'); if (exb) exb.onclick = examDialog;
   if (profile && profile.role === 'admin') facultyViewCard();
-  bindPerf();
-  if (mascotOn()) Mascot.mount(document.getElementById('scene-slot'), { pose: acc !== null && acc >= 80 ? 'cheer' : 'idle', msg: esc(hello), scale: 6 });
+  if (!sf) bindPerf();
+  if (sf) { if (mascotOn()) Mascot.mount(document.getElementById('scene-slot'), { pose: 'happy', msg: esc(quote), scale: 6 }); else document.getElementById('cover-text').insertAdjacentHTML('beforeend', `<p class="sfquote"><i>${esc(quote)}</i></p>`); }
+  else if (mascotOn()) Mascot.mount(document.getElementById('scene-slot'), { pose: acc !== null && acc >= 80 ? 'cheer' : 'idle', msg: esc(hello), scale: 6 });
 }
 
 // ---------- flagged questions ----------

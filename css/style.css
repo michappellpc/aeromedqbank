@@ -222,6 +222,14 @@ td,th{padding:10px 10px}tbody tr:hover{background:var(--sel)}
 .brand .logo{display:block;border-radius:7px}
 .wordmark{font-size:1.15rem;font-weight:700;letter-spacing:.01em;color:#fff}
 .wordmark b{font-weight:400;color:var(--hdrfg);margin-left:1px}
+.sfswitch{display:inline-flex;align-items:center;gap:10px;cursor:pointer;color:#fff;font-weight:600;padding:8px 14px;border-radius:99px;background:rgba(0,0,0,.4)}
+.sfswitch input{position:absolute;opacity:0;width:1px;height:1px;margin:0}
+.sfswitch .trk{width:42px;height:24px;border-radius:99px;background:#6b7280;position:relative;flex:none;transition:background .2s}
+.sfswitch .trk::after{content:'';position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#fff;transition:transform .2s}
+.sfswitch input:checked + .trk{background:#2e9d6a}
+.sfswitch input:checked + .trk::after{transform:translateX(18px)}
+.sfswitch input:focus-visible + .trk{outline:3px solid #fff;outline-offset:2px}
+@media (prefers-reduced-motion:reduce){.sfswitch .trk,.sfswitch .trk::after{transition:none}}
 .probadge{font-size:.62rem;font-weight:700;letter-spacing:.08em;line-height:1;padding:3px 6px;border-radius:4px;border:1px solid var(--hdrfg);color:var(--hdrfg)}
 .wordmark.big{font-size:1.5rem;color:var(--fg)}.wordmark.big b{color:var(--gold)}
 .signin-brand{display:flex;align-items:center;gap:12px;margin-bottom:8px}

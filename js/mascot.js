@@ -115,5 +115,38 @@ const Mascot = (() => {
     wrong: ['Not quite. Read the explanation, then regroup.', 'Review it and move on. The next one is yours.', 'Every miss is useful before the boards.', 'Better to learn it here than on exam day.'],
     tips: ['Rule out what you can first.', 'Trust your first read.', 'Read the last line of the stem twice.', 'Slow is smooth, smooth is fast.']
   };
-  return { sprite, scene, halloween, mount, stop, pick, lines };
+  // Stress Free mode: the dashboard hides the scores and Pulse offers one of these instead. Written for this app, so none is a borrowed quote.
+  const quotes = [
+    'You do not have to know it all today. You just have to learn a little more than yesterday.',
+    'Steady beats fast. One question at a time gets you there.',
+    'A wrong answer here is a lesson you will not need to learn on exam day.',
+    'You have trained for harder things than this. Take a breath and begin.',
+    'Progress is quiet. It is happening even when you cannot see it.',
+    'Rest is part of studying. Your brain files things away while you sleep.',
+    'Ten focused minutes beat an hour of worrying.',
+    'You belong here. Keep showing up and the knowledge follows.',
+    'Do the next question. That is the whole plan for right now.',
+    'Nobody remembers everything. Good doctors know where to look and keep learning.',
+    'Be kind to yourself. You would encourage a colleague, so encourage yourself.',
+    'Small reviews, done often, add up faster than one heroic night.',
+    'Curiosity first, scores later. Ask why the answer is the answer.',
+    'Every question you attempt makes the next one easier.',
+    'The goal today is to learn something, not to be perfect.',
+    'Calm minds recall more. Unclench your jaw, drop your shoulders, and go.',
+    'You are building a skill that will help real people. That is worth the effort.',
+    'Bad day? Do five questions, then go for a walk. That still counts.',
+    'Trust the work you have already put in.',
+    'Flying is learned in small, careful steps. So is medicine.',
+    'It is fine to be tired. It is fine to take a break and come back.',
+    'You are allowed to be a work in progress.',
+    'Learn it once, review it again, and it becomes yours.',
+    'Breathe in, breathe out. Then pick one topic and begin.',
+    'Confidence comes from practice, and practice starts with the next question.',
+    'Missing a question is just information. Use it and move on.',
+    'You have more time than your worry tells you.',
+    'Look how far you have come. Keep the pace that feels sustainable.',
+    'Clear skies take patience. Keep climbing.',
+    'Today only needs a little. Do a little, and call it a good day.'
+  ];
+  return { sprite, scene, halloween, mount, stop, pick, lines, quotes };
 })();
