@@ -33,6 +33,8 @@ jobs:
         run: node tools/test-onthisday.js
       - name: Test the related-lesson matching
         run: node tools/test-related.js
+      - name: Test linking by board outline tags
+        run: node tools/test-links.js
       - name: Test the lesson rules and sample lessons
         run: node tools/test-lvalidate.js
   database-rules:

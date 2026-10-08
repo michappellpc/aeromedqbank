@@ -4,6 +4,10 @@
 const AdminCards = (() => {
   const { tabs, askText, note } = Admin;
   let cache = null;
+  // Which cards have a lesson, by a hand-set link or by sharing board outline tags (worked out once per list)
+  let wlKey = null, wlSet = null;
+  const withLesson = () => { if (wlKey !== cache.list || wlSet === null) { wlKey = cache.list; wlSet = Links.withLesson(cache.list, bank.lessons || []); } return wlSet; };
+  const tagOk = x => !view.tag || (view.tag === 'nolesson' ? !withLesson().has(x.id) : (view.tag === 'none') === !((x.objectives || []).length));
   const view = { q: '', subject: '', status: '', tag: '', show: 'active', sel: new Set(), page: 0 };
   const SIZES = [50, 100, 250, 500, 0];                       // rows per page; 0 shows them all
   let size = 50; try { const raw = localStorage.getItem('qbank.admin.pagesize'); if (raw !== null && SIZES.includes(+raw)) size = +raw; } catch {}
@@ -32,7 +36,7 @@ const AdminCards = (() => {
   // ------------------------------------------------------------------ list
   const filtered = () => {
     const w = view.q.trim().toLowerCase();
-    return cache.list.filter(c => (view.show === 'all' || (view.show === 'archived') === c.archived) && (!view.subject || c.subject === view.subject) && (!view.status || c.status === view.status) && (!view.tag || (view.tag === 'none') === !((c.objectives || []).length))
+    return cache.list.filter(c => (view.show === 'all' || (view.show === 'archived') === c.archived) && (!view.subject || c.subject === view.subject) && (!view.status || c.status === view.status) && tagOk(c)
       && (!w || c.id.includes(w) || c.front.toLowerCase().includes(w) || c.back.toLowerCase().includes(w) || (c.topic || '').toLowerCase().includes(w)));
   };
   const tag = c => c.archived ? '<span class="tag archived">Archived</span>' : c.status === 'reviewed' ? `<span class="tag reviewed">Live</span>${c.reviewedBy ? ` <span class="muted">${esc(c.reviewedBy)}</span>` : ''}` : '<span class="tag draft">Draft (hidden)</span>';
@@ -50,7 +54,7 @@ const AdminCards = (() => {
         <div><label for="fq">Search</label><input id="fq" type="search" value="${esc(view.q)}" placeholder="id, topic, or words on the card"></div>
         <div><label for="fs">Subject</label><select id="fs"><option value="">All</option>${subjects.map(s => `<option${s === view.subject ? ' selected' : ''}>${esc(s)}</option>`).join('')}</select></div>
         <div><label for="fst">Status</label><select id="fst"><option value="">All</option><option value="draft">Draft</option><option value="reviewed">Reviewed</option></select></div>
-        <div><label for="fot">Outline tags</label><select id="fot"><option value="">All</option><option value="none">Not tagged yet (${cache.list.filter(x => !x.archived && !(x.objectives || []).length).length})</option><option value="some">Tagged</option></select></div><div><label for="fsh">Show</label><select id="fsh"><option value="active">Active</option><option value="archived">Archived</option><option value="all">Both</option></select></div>${sizeBox()}</form></div>
+        <div><label for="fot">Outline tags</label><select id="fot"><option value="">All</option><option value="none">Not tagged yet (${cache.list.filter(x => !x.archived && !(x.objectives || []).length).length})</option><option value="some">Tagged</option><option value="nolesson">No lesson linked yet (${cache.list.filter(x => !x.archived && !withLesson().has(x.id)).length})</option></select></div><div><label for="fsh">Show</label><select id="fsh"><option value="active">Active</option><option value="archived">Archived</option><option value="all">Both</option></select></div>${sizeBox()}</form></div>
       <div id="bulk"></div><div class="card" id="cres"></div>`;
     const el = id => document.getElementById(id);
     el('fst').value = view.status; el('fsh').value = view.show; el('fot').value = view.tag;

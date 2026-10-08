@@ -51,18 +51,31 @@ const relatedCache = new Map();
 // The lesson a question links to: the one chosen by hand if there is one, else the best match. Returns { lesson, pinned } or null.
 function lessonLinkFor(q) {
   const lessons = bank.lessons || [];
-  if (q.lessonId) { const l = lessons.find(x => x.id === q.lessonId); if (l) return { lesson: l, pinned: true }; }
-  const m = lessons.length ? Related.match(q, lessons) : null;
-  return m ? { lesson: m.lesson, pinned: false } : null;
+  return lessons.length ? Links.lesson(q, lessons, { words: wordLesson }) : null;
 }
+const wordLesson = (item, lessons) => { const m = Related.match(item, lessons); return m ? m.lesson : null; };
 function relatedLesson(q) {
-  const lessons = bank.lessons || [], key = q.id + '|' + lessons.length + '|' + (q.lessonId || '');
+  const lessons = bank.lessons || [], key = q.id + '|' + lessons.length + '|' + (q.lessonId || '') + '|' + (q.objectives || []).join(',') + '|' + lessons.map(l => (l.objectives || []).length).join('');
   if (!relatedCache.has(key)) relatedCache.set(key, lessons.length ? lessonLinkFor(q) : null);
   const m = relatedCache.get(key);
   const tab = '<span class="sr"> (opens in a new tab)</span>';
-  if (m) return `<p class="relatedcard"><span class="relatedlesson">Study this: <a href="#/lesson/${encodeURIComponent(m.lesson.id)}" target="_blank" rel="noopener">${esc(m.lesson.title)}${tab}</a></span></p>`;
+  const also = m && m.also && m.also.length ? ` Also: ${m.also.map(l => `<a href="#/lesson/${encodeURIComponent(l.id)}" target="_blank" rel="noopener">${esc(l.title)}${tab}</a>`).join(', ')}` : '';
+  if (m) return `<p class="relatedcard"><span class="relatedlesson">Study this: <a href="#/lesson/${encodeURIComponent(m.lesson.id)}" target="_blank" rel="noopener">${esc(m.lesson.title)}${tab}</a>${also}</span></p>`;
   if (lessons.some(l => l.subject === q.subject)) return `<p class="relatedcard"><span class="relatedlesson">More to read: <a href="#/lessons/${encodeURIComponent(q.subject)}" target="_blank" rel="noopener">Lessons on ${esc(q.subject)}${tab}</a></span></p>`;
   return '';
+}
+// A link under an explanation to the flashcards that cover the same board outline items (and any cards you made from this question)
+function relatedCards(q) {
+  const n = Links.cardsForQuestion(q, bank.cards || []).length;
+  return n ? `<p class="relatedcard"><span class="relatedlesson">Review: <a href="#/cards/browse/~q:${encodeURIComponent(q.id)}" target="_blank" rel="noopener">${n} flashcard${n === 1 ? '' : 's'} on this<span class="sr"> (opens in a new tab)</span></a></span></p>` : '';
+}
+// The questions this member can practice (drafts only when they have chosen to see them)
+const visibleQuestions = () => bank.questions.filter(q => !isDraft(q) || showDrafts());
+// Starts a tutor-mode test on exactly these questions
+function practiceQuestions(items) {
+  if (parkActive()) toast('Your unfinished quiz is saved in Test history.');
+  Store.data.active = { id: uid(), mode: 'tutor', qids: shuffle(items).map(q => q.id), answers: {}, struck: {}, revealed: {}, idx: 0, started: Date.now(), at: Date.now(), elapsed: 0, limit: 0 }; Store.touchActive();
+  Store.save(); location.hash = '#/test';
 }
 // The explanation shown under a question: the verdict, how other members did, the reasoning, why each choice is right or wrong, a lesson link and references.
 function explanationHtml(q, sel, verdict) {
@@ -72,7 +85,7 @@ function explanationHtml(q, sel, verdict) {
     ${peerLine(q.id) ? `<p class="peerrow">${peerLine(q.id)}</p>` : ''}
     <h2 class="exph">Explanation</h2><p class="exptext" ${HlUI.attrs('q', q.id, 'expl')}>${esc(q.explanation)}</p>
     ${notes.length ? `<h2 class="exph">Answer choices</h2><ul class="optnotes">${notes.map(o => `<li class="${o.id === q.answer ? 'right' : ''}"><b>${esc(o.id)}.</b> <span ${HlUI.attrs('q', q.id, 'note-' + o.id)}>${esc(q.optionNotes[o.id])}</span></li>`).join('')}</ul>` : ''}
-    ${relatedLesson(q)}
+    ${relatedLesson(q)}${relatedCards(q)}
     <p class="mkrow"><button type="button" data-mkcard="${esc(q.id)}" title="Turn this question into a flashcard of your own">&#9998; Make flashcard</button></p>
     ${q.references && q.references.length ? `<p class="muted small refs">References: ${q.references.map(esc).join('; ')}</p>` : ''}${ObjPicker.show(q.objectives)}</div>`;
 }
@@ -473,11 +486,7 @@ function flaggedPage() {
     ${items.length ? '<button class="btn primary" id="fgo">Practice these questions</button>' : ''}</div>
     ${items.length ? `<div class="card"><table><thead><tr><th scope="col">Question</th><th scope="col">Subject</th><th scope="col">Your note</th><th scope="col"><span class="sr">Actions</span></th></tr></thead><tbody>${items.map(q => { const s = Store.qstat(q.id); return `<tr><td>${esc(q.stem.slice(0, 110))}${q.stem.length > 110 ? '...' : ''}</td><td>${esc(q.subject)}</td><td>${esc(s.note || '')}</td><td><button data-unflag="${esc(q.id)}" aria-label="Remove the flag from this question">Unflag</button></td></tr>`; }).join('')}</tbody></table></div>` : ''}`;
   const go = document.getElementById('fgo');
-  if (go) go.onclick = () => {
-    if (parkActive()) toast('Your unfinished quiz is saved in Test history.');
-    Store.data.active = { id: uid(), mode: 'tutor', qids: shuffle(items).map(q => q.id), answers: {}, struck: {}, revealed: {}, idx: 0, started: Date.now(), at: Date.now(), elapsed: 0, limit: 0 }; Store.touchActive();
-    Store.save(); location.hash = '#/test';
-  };
+  if (go) go.onclick = () => practiceQuestions(items);
   $app.querySelectorAll('[data-unflag]').forEach(b => b.onclick = () => { Store.toggleFlag(b.dataset.unflag); flaggedPage(); });
 }
 
