@@ -255,7 +255,7 @@ async function route() {
   if (p === '' || p === 'results') refreshPeer();
   const t = Store.data.active;
   if (p === 'test' && t) return renderTest();
-  ({ '': () => (profile && profile.role === 'faculty' ? Program.dashboard() : dashboard()), create: () => create(arg, arg2), flagged: flaggedPage, program: () => (arg === 'insights' ? Program.insightsPage('') : arg2 === 'insights' ? Program.insightsPage(arg) : Program.facultyPage(arg)), cards: () => Cards.page(arg, arg2), support: () => Support.page(arg), lessons: () => (arg ? Lessons.subjectPage(arg) : Lessons.indexPage()), lesson: () => Lessons.lessonPage(arg), history: historyPage, settings, admin: () => Admin.route(arg, arg2, arg3), results: () => results(arg), review: () => review(arg), highlights: Notebook.page, question: () => Notebook.question(arg) }[p] || dashboard)();
+  ({ '': () => (profile && profile.role === 'faculty' ? Program.dashboard() : dashboard()), create: () => create(arg, arg2), flagged: flaggedPage, program: () => (arg === 'insights' ? Program.insightsPage('') : arg2 === 'insights' ? Program.insightsPage(arg) : arg2 === 'dashboard' ? Program.dashboard(arg) : Program.facultyPage(arg)), cards: () => Cards.page(arg, arg2), support: () => Support.page(arg), lessons: () => (arg ? Lessons.subjectPage(arg) : Lessons.indexPage()), lesson: () => Lessons.lessonPage(arg), history: historyPage, settings, admin: () => Admin.route(arg, arg2, arg3), results: () => results(arg), review: () => review(arg), highlights: Notebook.page, question: () => Notebook.question(arg) }[p] || dashboard)();
   window.scrollTo(0, 0);
 }
 window.addEventListener('hashchange', route);
@@ -435,6 +435,16 @@ function thisDay() {
     <ul class="otd">${items.map(e => `<li><b>${e.y}</b> <span class="tag">${OTD_KIND[e.k]}</span> ${esc(e.t)}</li>`).join('')}</ul></div>`;
 }
 
+// For admins: a way to open the dashboard a program's faculty see, for any program
+async function facultyViewCard() {
+  if (!document.getElementById('facview')) return;
+  const list = (await Cloud.adminPrograms().catch(() => [])).filter(p => p.active !== false);
+  const box = document.getElementById('facview');       // looked up again: the page may have been redrawn while the list loaded
+  if (!list.length || !box) return;
+  box.innerHTML = `<div class="card"><div class="row spread"><div><b>See what faculty see</b><div class="muted">Open the dashboard a program's faculty get, exactly as they see it.</div></div>
+    <div class="row"><label class="sr" for="fv-pick">Program</label><select id="fv-pick">${list.map(p => `<option value="${esc(p.id)}">${esc(p.name)}</option>`).join('')}</select><button type="button" id="fv-go">Open</button></div></div></div>`;
+  document.getElementById('fv-go').onclick = () => { location.hash = '#/program/' + encodeURIComponent(document.getElementById('fv-pick').value) + '/dashboard'; };
+}
 function dashboard() {
   pageTitle('Dashboard');
   const st = Store.data.q, all = Object.values(st);
@@ -451,6 +461,7 @@ function dashboard() {
   ${bank.program && bank.program.status === 'pending' ? `<div class="card notice">Waiting for faculty at <b>${esc(bank.program.name)}</b> to approve you. Until they do, they cannot see any of your progress. <a href="#/settings">Settings</a></div>` : ''}
   ${active ? `<div class="card continue"><div class="contbody"><b>Continue where you left off</b><span class="muted">${active.paused ? 'Paused. ' : ''}${esc(active.mode === 'timed' ? 'Timed' : 'Tutor')} test, question ${Math.min(active.idx + 1, active.qids.length)} of ${active.qids.length} (${Object.keys(active.answers).length} answered)</span><div class="bar" aria-hidden="true"><i style="width:${pct(Object.keys(active.answers).length, active.qids.length)}%"></i></div></div><a class="btn primary" href="#/test">Resume</a></div>` : ''}
   ${(Store.data.parked || []).length ? `<div class="card notice">You have ${(Store.data.parked || []).length} more unfinished quiz${(Store.data.parked || []).length === 1 ? '' : 'zes'} in <a href="#/history">Test history</a>.</div>` : ''}
+  <div id="facview"></div>
   ${examCard(bank.questions.length - used)}
   <div class="grid">
     <div class="card stat"><b>${bank.questions.length}</b><span class="muted">Questions in bank</span></div>
@@ -478,6 +489,7 @@ function dashboard() {
   `;
   document.getElementById('cover-text').innerHTML = `<h2 class="pagetitle">Dashboard</h2><p>${esc(headline)}</p><a class="btn primary" href="#/create">Create a new test</a>`;
   const exb = document.getElementById('exam-edit'); if (exb) exb.onclick = examDialog;
+  if (profile && profile.role === 'admin') facultyViewCard();
   bindPerf();
   if (mascotOn()) Mascot.mount(document.getElementById('scene-slot'), { pose: acc !== null && acc >= 80 ? 'cheer' : 'idle', msg: esc(hello), scale: 6 });
 }
