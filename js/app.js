@@ -45,6 +45,7 @@ const pickBadge = (qid, optId) => {
 let peerAt = 0;
 function refreshPeer() { if (!Cloud.enabled || Date.now() - peerAt < 300000) return; peerAt = Date.now(); Cloud.peerStats().then(m => { bank.peer = m; paintTrend(); }); Cloud.peerChoices().then(m => { bank.choices = m; }); }
 const mascotOn = () => Store.data.settings.mascot !== false;
+const quizMascotOn = () => mascotOn() && Store.data.settings.quizMascot !== false;   // the ram while taking a test can be turned off on its own
 const showDrafts = () => Store.data.settings.showDrafts !== false;
 // A link under an explanation to the most relevant lesson, or to the subject's lessons if none fits well.
 const relatedCache = new Map();
@@ -643,6 +644,7 @@ function renderTest() {
       <button class="flagbtn ${st && st.flagged ? 'on' : ''}" id="flag">⚑ Flag</button>
       <button id="fbk" title="Report a problem or suggest a change to this question">✎ Feedback</button>
       <span style="flex:1"></span><button id="pause" type="button" title="Stop the clock and hide the question until you are ready">&#10074;&#10074; Pause</button><button class="danger" id="end">End test</button>
+    ${mascotOn() ? `<div id="coach" class="coach"><div id="coachm"></div><button id="ram" type="button" class="ramtog" aria-pressed="${!quizMascotOn()}" title="${quizMascotOn() ? 'Hide the ram while you take tests' : 'Show the ram again'}">${quizMascotOn() ? 'Hide ram' : 'Show ram'}</button></div>` : ''}
     </div>
     <details style="margin-top:12px"><summary>Notes</summary><textarea id="note" rows="3" placeholder="Your notes on this question">${esc(st ? st.note : '')}</textarea></details>
   </div></div>
@@ -651,6 +653,13 @@ function renderTest() {
   <div style="height:24px"></div>`;
   let streak = 0;
   if (shown && sel === q.answer) for (let i = t.idx; i >= 0 && t.revealed[t.qids[i]] && t.answers[t.qids[i]] === bank.byId[t.qids[i]].answer; i--) streak++;
+  const L = Mascot.lines;
+  const coach = shown
+    ? (sel === q.answer
+      ? { pose: streak >= 3 ? 'cheer' : 'happy', msg: streak >= 3 ? `${streak} in a row. Nicely done.` : Mascot.pick(L.correct, id) }
+      : { pose: 'sad', msg: Mascot.pick(L.wrong, id) })
+    : { pose: 'idle', msg: tutor || t.idx === 0 ? Mascot.pick(L.tips, id + t.idx) : '' };
+  if (quizMascotOn()) Mascot.mount(document.getElementById('coachm'), { ...coach, msg: coach.msg && esc(coach.msg).replace(/&#39;/g, "'"), scale: 3 });
   bindTest(t, q); hydrateImages(); HlUI.paintAll($app);
   if (refocus) { const f = $app.querySelector(`[data-opt="${refocus}"]`); if (f) f.focus(); refocus = null; }
 }
@@ -741,6 +750,7 @@ function bindTest(t, q) {
   on('prev', () => go(t.idx - 1)); on('next', () => go(t.idx + 1));
   on('submit', submit); on('flag', () => { Store.toggleFlag(id); renderTest(); });
   on('fbk', () => feedbackDialog(q));
+  on('ram', () => { Store.data.settings.quizMascot = !quizMascotOn(); Store.touchSettings(); renderTest(); const again = document.getElementById('ram'); if (again) again.focus(); });
   const size = d => { Store.data.settings.quizText = Math.min(3, Math.max(0, (+Store.data.settings.quizText || 0) + d)); Store.touchSettings(); renderTest(); const a = document.getElementById(d > 0 ? 'tx-plus' : 'tx-minus'); if (a && !a.disabled) a.focus(); };
   on('tx-minus', () => size(-1)); on('tx-plus', () => size(1));
   on('pause', () => { persist(t); t.paused = true; Store.touchActive(); renderTest(); });
@@ -854,7 +864,8 @@ function settings() {
     <p>Exam date: <b>${Store.data.settings.exam && validDate(Store.data.settings.exam.date) ? esc(new Date(Store.data.settings.exam.date + 'T12:00:00').toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })) : 'not set'}</b> <button id="exam-set" type="button">${Store.data.settings.exam && validDate(Store.data.settings.exam.date) ? 'Change' : 'Set'}</button></p>
     <p><label for="palette">Color theme</label> <select id="palette" style="width:auto"><option value="navy"${palette() === 'navy' ? ' selected' : ''}>Navy and teal</option><option value="olive"${palette() === 'olive' ? ' selected' : ''}>Olive and gold</option></select></p>
     ${!Cloud.enabled || Admin.isEditor() ? `<label class="chk"><input type="checkbox" id="drafts" ${showDrafts() ? 'checked' : ''}> Include draft questions that a physician has not yet reviewed</label>` : ''}
-    <label class="chk"><input type="checkbox" id="mascot" ${mascotOn() ? 'checked' : ''}> Show the mascot and encouragement</label></div>
+    <label class="chk"><input type="checkbox" id="mascot" ${mascotOn() ? 'checked' : ''}> Show the mascot and encouragement</label>
+    <label class="chk"><input type="checkbox" id="quizmascot" ${Store.data.settings.quizMascot !== false ? 'checked' : ''}> Show the ram while I take a test</label></div>
     ${Cloud.enabled ? `<div class="card"><h3>Account</h3>
       <p>Signed in as <b>${esc(Cloud.session.email)}</b>${profile ? ` <span class="tag">${esc(profile.role === 'admin' ? 'Admin' : profile.role === 'reviewer' ? 'Reviewer' : proState(profile.plan, profile.pro_until).on ? (profile.pro_until ? 'Member until ' + dayText(profile.pro_until) : 'Member') : 'Free')}</span>` : ''}</p>
       <p class="muted" id="syncline"></p>
@@ -883,6 +894,7 @@ function settings() {
     catch (x) { msg.textContent = x.offline ? 'No connection. Nothing was saved.' : 'Could not save: ' + x.message; msg.hidden = false; }
     document.getElementById('nm-go').disabled = false;
   };
+  document.getElementById('quizmascot').onchange = e => { Store.data.settings.quizMascot = e.target.checked; Store.touchSettings(); };
   document.getElementById('mascot').onchange = e => { Store.data.settings.mascot = e.target.checked; Store.save(); };
   document.getElementById('exam-set').onclick = examDialog;
   document.getElementById('palette').onchange = e => { Store.data.settings.palette = e.target.value === 'olive' ? 'olive' : 'navy'; Store.data.settings.paletteChosen = true; Store.touchSettings(); applyTheme(); };
