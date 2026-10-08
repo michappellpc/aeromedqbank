@@ -627,11 +627,12 @@ begin
   return query
     select q.id, q.subject, q.status, q.archived, count(a.id), count(a.id) filter (where a.ok),
            case when count(a.id) = 0 then null else round(100.0 * count(a.id) filter (where a.ok) / count(a.id), 1) end
-    from public.questions q left join public.attempts a on a.question_id = q.id
+    from public.questions q
+    left join public.attempts a on a.question_id = q.id and not exists (select 1 from public.profiles f where f.id = a.user_id and f.role = 'faculty')   -- faculty tests are not residents' performance
     group by q.id order by q.id;
 end $$;
 
--- How much the group has answered lately, for the admin Overview: one row per window of hours, counting every try by active members.
+-- How much the group has answered lately, for the admin Overview: one row per window of hours, counting every try by active members (faculty left out: they test questions).
 -- hours = 0 means all time. questions is how many different questions were answered, members how many different people answered.
 drop function if exists public.admin_recent_activity(int[]);
 create function public.admin_recent_activity(windows int[] default array[24, 48, 72, 168, 336, 720, 2160, 0])
@@ -643,7 +644,7 @@ begin
   return query
     select w.h, count(a.id), count(a.id) filter (where a.ok), count(distinct a.question_id), count(distinct a.user_id)
     from unnest(windows) as w(h)
-    left join (select t.id, t.ok, t.question_id, t.user_id, t.at from public.attempts t join public.profiles p on p.id = t.user_id and p.active) a
+    left join (select t.id, t.ok, t.question_id, t.user_id, t.at from public.attempts t join public.profiles p on p.id = t.user_id and p.active and p.role <> 'faculty') a
       on w.h = 0 or a.at >= now() - make_interval(hours => w.h)
     group by w.h order by case when w.h = 0 then 2147483647 else w.h end;
 end $$;
@@ -1136,7 +1137,7 @@ begin
   return query
   with first_try as (
     select distinct on (a.user_id, a.question_id) a.user_id, a.question_id as qid, a.ok
-    from public.attempts a join public.profiles p on p.id = a.user_id and p.active
+    from public.attempts a join public.profiles p on p.id = a.user_id and p.active and p.role <> 'faculty'     -- faculty try questions to test them, so they are kept out of the group figures
     order by a.user_id, a.question_id, a.at, a.id
   )
   select f.qid, count(*)::int, round(100.0 * count(*) filter (where f.ok) / count(*), 0)
@@ -1155,7 +1156,7 @@ begin
   return query
   with first_try as (
     select distinct on (a.user_id, a.question_id) a.user_id, a.question_id as qid, a.chosen
-    from public.attempts a join public.profiles p on p.id = a.user_id and p.active
+    from public.attempts a join public.profiles p on p.id = a.user_id and p.active and p.role <> 'faculty'
     order by a.user_id, a.question_id, a.at, a.id
   ), counted as (
     select f.qid, f.chosen as pick, count(*)::int as n, sum(count(*)) over (partition by f.qid)::int as tot
