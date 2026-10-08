@@ -222,6 +222,7 @@ td,th{padding:10px 10px}tbody tr:hover{background:var(--sel)}
 .brand .logo{display:block;border-radius:7px}
 .wordmark{font-size:1.15rem;font-weight:700;letter-spacing:.01em;color:#fff}
 .wordmark b{font-weight:400;color:var(--hdrfg);margin-left:1px}
+.probadge{font-size:.62rem;font-weight:700;letter-spacing:.08em;line-height:1;padding:3px 6px;border-radius:4px;border:1px solid var(--hdrfg);color:var(--hdrfg)}
 .wordmark.big{font-size:1.5rem;color:var(--fg)}.wordmark.big b{color:var(--gold)}
 .signin-brand{display:flex;align-items:center;gap:12px;margin-bottom:8px}
 .pagehead{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;margin:4px 0 18px}

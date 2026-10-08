@@ -104,6 +104,8 @@ async function hydrateImages() {
   }
 }
 function labelScrolls() { $app.querySelectorAll('.scroll').forEach(b => { const h = b.closest('.card') && b.closest('.card').querySelector('h2,h3'); b.setAttribute('aria-label', (h ? h.textContent : 'Data') + ' table'); }); }
+// PRO beside the name in the header while the signed-in member has a pro account that has not ended
+function showProBadge() { const b = document.getElementById('pro-badge'); if (b) b.hidden = !(profile && proState(profile.plan, profile.pro_until).on); }
 function pageTitle(t) { const h = document.getElementById('page-title'); if (h) h.textContent = t; document.title = t + ' | AeroMedQBank'; }
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 // Unfinished quizzes. Store.data.active is the one you are in; starting a new quiz parks it (if you had answered anything) instead of throwing it away, so
@@ -1016,6 +1018,7 @@ async function startSession() {
   Store.hooks.hl = id => Cloud.queueHl(id);
   Store.hooks.mine = id => Cloud.queueMine(id);
   lockUI(false); ready = true;
+  showProBadge();
   document.getElementById('nav-program').hidden = profile.role !== 'faculty';
   document.getElementById('nav-support').hidden = false;
   clearInterval(badgeTimer);
@@ -1036,7 +1039,7 @@ async function signOut() {
   const key = Cloud.userKey();
   await Cloud.signOut(); Store.forget(key);
   ['attempt', 'mark', 'test', 'settings', 'reset', 'card', 'hl', 'mine'].forEach(k => delete Store.hooks[k]);
-  profile = null; ready = false; Store.use('qbank.v1.signedout'); applyTheme();
+  profile = null; ready = false; showProBadge(); Store.use('qbank.v1.signedout'); applyTheme();
   location.hash = '#/';                       // signing out clears the page, so the next person starts at the dashboard
   renderSignIn();
 }
