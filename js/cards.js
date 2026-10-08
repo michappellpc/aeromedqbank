@@ -5,7 +5,7 @@ const Cards = (() => {
   const day = () => CardSched.today();
   const subjectCards = subject => (bank.cards || []).filter(c => !subject || c.subject === subject);
   const prefs = () => CardSched.settings(Store.data.settings && Store.data.settings.cards);
-  const optsFor = () => { const p = prefs(); return { newPerDay: p.newPerDay, maxReviews: p.maxReviews, newSeenToday: Store.newCardsSeen(day()) }; };
+  const optsFor = () => { const p = prefs(); return { newPerDay: p.newPerDay, maxReviews: p.maxReviews, newSeenToday: Store.newCardsSeen(day()), suspended: Store.suspended() }; };
   const shuffled = a => { const b = a.slice(); for (let i = b.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [b[i], b[j]] = [b[j], b[i]]; } return b; };
   const when = ymd => { const n = Math.round((Date.parse(ymd) - Date.parse(day())) / 86400000); return n <= 0 ? 'today' : n === 1 ? 'tomorrow' : `in ${n} days`; };
 
@@ -33,7 +33,7 @@ const Cards = (() => {
       <div class="card"><div class="row spread"><div><h2 style="margin:0">Today</h2><p class="muted" style="margin:4px 0 0">${k.due + k.new ? `${k.due} to review and ${k.new} new` : 'Nothing is due. Come back tomorrow, or study a deck below to get ahead.'}</p></div>
         <div class="row"><a class="btn primary" href="#/cards/study"${k.due + k.new ? '' : ' aria-disabled="true"'}>${k.due + k.new ? `Study ${k.due + k.new} card${k.due + k.new === 1 ? '' : 's'}` : 'All done for today'}</a><a class="btn" href="#/cards/browse">Browse all cards</a></div></div></div>
       <div class="card"><h2>Decks</h2><div class="scroll" role="region" tabindex="0" aria-label="Decks table"><table><caption class="sr">Flashcard decks by subject</caption><thead><tr><th scope="col">Subject</th><th scope="col">Due</th><th scope="col">New</th><th scope="col">Cards</th><th scope="col"><span class="sr">Study</span></th></tr></thead><tbody>${rows}</tbody></table></div>
-        <p class="muted small">Up to ${prefs().newPerDay} new cards a day${prefs().maxReviews ? ` and ${prefs().maxReviews} reviews per session` : ''}, so reviews never pile up.</p></div>
+        <p class="muted small">Up to ${prefs().newPerDay} new cards a day${prefs().maxReviews ? ` and ${prefs().maxReviews} reviews per session` : ''}, so reviews never pile up.${k.suspended ? ` ${k.suspended} card${k.suspended === 1 ? ' is' : 's are'} suspended. <a href="#/cards/browse/~suspended">See suspended cards</a>.` : ''}</p></div>
       ${MyCards.section()}
       <details class="card flashset" id="flashset"><summary><b>Flashcard settings</b></summary>${settingsForm()}</details>`;
     bindSettings(); MyCards.bind(indexPage);
@@ -98,13 +98,20 @@ const Cards = (() => {
             ${lesson ? `<p class="small"><a href="#/lesson/${encodeURIComponent(lesson.id)}" target="_blank" rel="noopener">Study the lesson: ${esc(lesson.title)}<span class="sr"> (opens in a new tab)</span></a></p>` : ''}</div>
             <div class="rate" role="group" aria-label="How well did you know it?">${RATINGS.map(([r, l]) => `<button class="rate-${r}" data-rate="${r}"><b>${l}</b>${pr.intervals ? `<span class="small">${CardSched.preview(st, r, t)}</span>` : ''}<span class="sr"> (key ${r})</span></button>`).join('')}</div>`
             : `<div class="row" style="margin-top:14px"><button class="primary" id="reveal">Show answer <span class="sr">(Space)</span></button></div>`}
+          <div class="row" style="margin-top:12px"><button type="button" id="suspend" class="small" title="Stop this card from coming up until you turn it back on in Browse">Suspend this card</button></div>
         </div>
         <p class="muted small">Keys: Space shows the answer, 1 to 4 rate it.${st ? '' : ' This is a new card.'}</p>`;
       const rv = document.getElementById('reveal'); if (rv) { rv.onclick = () => { shown = true; draw('back'); }; if (focusTarget !== 'none') rv.focus(); }
       $app.querySelectorAll('[data-rate]').forEach(b => b.onclick = () => rate(+b.dataset.rate));
+      document.getElementById('suspend').onclick = () => suspend();
       if (focusTarget === 'back') { const fb = document.getElementById('flash-back'); if (fb) fb.focus(); }
     }
 
+    function suspend() {                                       // takes the card out of this session and every later one, without rating it
+      const c = queue[idx]; Store.setSuspended(c.id, true);
+      for (let j = queue.length - 1; j > idx; j--) if (queue[j].id === c.id) queue.splice(j, 1);
+      queue.splice(idx, 1); shown = false; toast('Card suspended. Turn it back on from Browse.'); draw();
+    }
     function rate(r) {
       const c = queue[idx], prev = Store.cardState(c.id);
       if (!prev) Store.countNewCard(t);
@@ -129,17 +136,20 @@ const Cards = (() => {
     const all = bank.cards || [], states = Store.cardStates(), t = day();
     if (!all.length) return indexPage();
     const subjects = [...new Set(all.map(c => c.subject))].sort(), STEP = 40;
-    const v = { q: '', subject: subjectArg ? decodeURIComponent(subjectArg) : '', all: false, shown: STEP, open: new Set() };
-    const status = c => { const st = states[c.id]; return !st ? 'New' : st.due <= t ? 'Due today' : `Next review ${when(st.due)}`; };
+    const susOnly = subjectArg === '~suspended';
+    const v = { q: '', subject: subjectArg && !susOnly ? decodeURIComponent(subjectArg) : '', all: false, sus: susOnly, shown: STEP, open: new Set() };
+    const isSus = c => Store.suspended().includes(c.id);
+    const status = c => { const st = states[c.id]; return isSus(c) ? 'Suspended' : !st ? 'New' : st.due <= t ? 'Due today' : `Next review ${when(st.due)}`; };
     $app.innerHTML = `<p class="crumb"><a href="#/cards">Back to flashcards</a></p><div class="card"><h2 style="margin:0">Browse flashcards</h2>
       <p class="muted">Read through the cards at your own pace. Nothing here is rated or scheduled, so it does not change your reviews.</p>
       <form class="filters" onsubmit="return false" aria-label="Filter flashcards" style="margin-top:12px">
         <div><label for="bq">Search</label><input id="bq" type="search" placeholder="words on the card or topic" autocomplete="off"></div>
         <div><label for="bs">Subject</label><select id="bs"><option value="">All subjects</option>${subjects.map(s => `<option${s === v.subject ? ' selected' : ''}>${esc(s)}</option>`).join('')}</select></div>
-        <div style="align-self:end"><label class="chk"><input type="checkbox" id="ball"> Show all answers</label></div></form></div>
+        <div style="align-self:end"><label class="chk"><input type="checkbox" id="ball"> Show all answers</label></div>
+        <div style="align-self:end"><label class="chk"><input type="checkbox" id="bsus"${susOnly ? ' checked' : ''}> Suspended cards only</label></div></form></div>
       <div id="blist"></div>`;
     const el = i => document.getElementById(i);
-    const filtered = () => { const w = v.q.trim().toLowerCase(); return all.filter(c => (!v.subject || c.subject === v.subject) && (!w || c.front.toLowerCase().includes(w) || c.back.toLowerCase().includes(w) || (c.topic || '').toLowerCase().includes(w))); };
+    const filtered = () => { const w = v.q.trim().toLowerCase(); return all.filter(c => (!v.sus || isSus(c)) && (!v.subject || c.subject === v.subject) && (!w || c.front.toLowerCase().includes(w) || c.back.toLowerCase().includes(w) || (c.topic || '').toLowerCase().includes(w))); };
     function paint() {
       const rows = filtered(), slice = rows.slice(0, v.shown);
       el('blist').innerHTML = rows.length ? `<p class="muted" aria-live="polite">${rows.length} card${rows.length === 1 ? '' : 's'}</p>${slice.map(c => {
@@ -148,14 +158,17 @@ const Cards = (() => {
           <p class="flash-side" style="margin:8px 0">${esc(c.front)}</p>
           <div id="bk-${esc(c.id)}"${open ? '' : ' hidden'} class="flash-back">${esc(c.back).replace(/\n/g, '<br>')}${c.references && c.references.length ? `<p class="muted small">${c.references.map(esc).join('; ')}</p>` : ''}${ObjPicker.show(c.objectives)}
             ${lesson ? `<p class="small"><a href="#/lesson/${encodeURIComponent(lesson.id)}" target="_blank" rel="noopener">Study the lesson: ${esc(lesson.title)}<span class="sr"> (opens in a new tab)</span></a></p>` : ''}</div>
+          <div class="row" style="margin-top:8px"><button type="button" data-sus="${esc(c.id)}" aria-pressed="${isSus(c)}">${isSus(c) ? 'Turn back on' : 'Suspend'}<span class="sr"> card: ${esc(c.front.slice(0, 40))}</span></button></div>
           ${v.all ? '' : `<div class="row" style="margin-top:8px"><button data-flip="${esc(c.id)}" aria-expanded="${open}" aria-controls="bk-${esc(c.id)}">${open ? 'Hide answer' : 'Show answer'}<span class="sr"> for ${esc(c.front.slice(0, 40))}</span></button></div>`}</article>`; }).join('')}
         ${rows.length > v.shown ? `<div class="row" style="justify-content:center"><button id="bmore">Show ${Math.min(STEP, rows.length - v.shown)} more</button></div>` : ''}`
         : '<div class="card"><p class="muted">No cards match.</p></div>';
       el('blist').querySelectorAll('[data-flip]').forEach(b => b.onclick = () => { const id = b.dataset.flip; v.open.has(id) ? v.open.delete(id) : v.open.add(id); const keep = id; paint(); const again = el('blist').querySelector(`[data-flip="${keep}"]`); if (again) again.focus(); });
+      el('blist').querySelectorAll('[data-sus]').forEach(b => b.onclick = () => { const id = b.dataset.sus; Store.setSuspended(id, !isSus({ id })); toast(isSus({ id }) ? 'Card suspended.' : 'Card turned back on.'); paint(); const again = el('blist').querySelector(`[data-sus="${id}"]`); if (again) again.focus(); });
       if (el('bmore')) el('bmore').onclick = () => { v.shown += STEP; paint(); };
     }
     el('bq').oninput = e => { v.q = e.target.value; v.shown = STEP; paint(); };
     el('bs').onchange = e => { v.subject = e.target.value; v.shown = STEP; paint(); };
+    el('bsus').onchange = e => { v.sus = e.target.checked; v.shown = STEP; paint(); };
     el('ball').onchange = e => { v.all = e.target.checked; paint(); };
     paint();
   }

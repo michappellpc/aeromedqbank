@@ -33,16 +33,19 @@
   const isDue = (st, now) => !!st && st.due <= now;
 
   // Today's session: cards that are due (oldest first), then new cards up to what is left of today's new-card allowance.
-  function queue(cards, states, now, opts = {}) {
+  // Suspended cards (opts.suspended, a list of card ids) are left out of everything: not due, not new, not counted.
+  const active = (cards, opts) => { const sus = new Set(opts.suspended || []); return sus.size ? cards.filter(c => !sus.has(c.id)) : cards; };
+  function queue(allCards, states, now, opts = {}) {
+    const cards = active(allCards, opts);
     const newLeft = Math.max(0, (opts.newPerDay ?? 10) - (opts.newSeenToday || 0));
     let due = cards.filter(c => isDue(states[c.id], now)).sort((a, b) => states[a.id].due.localeCompare(states[b.id].due) || a.id.localeCompare(b.id));
     if (opts.maxReviews > 0) due = due.slice(0, opts.maxReviews);                      // 0 or missing means no limit
     const fresh = cards.filter(c => isNew(states[c.id])).sort((a, b) => a.id.localeCompare(b.id)).slice(0, newLeft);
     return [...due, ...fresh];
   }
-  function counts(cards, states, now, opts = {}) {
-    const q = queue(cards, states, now, opts);
-    return { due: cards.filter(c => isDue(states[c.id], now)).length, new: q.filter(c => isNew(states[c.id])).length, newTotal: cards.filter(c => isNew(states[c.id])).length,
+  function counts(allCards, states, now, opts = {}) {
+    const cards = active(allCards, opts), q = queue(allCards, states, now, opts);
+    return { suspended: allCards.length - cards.length, due: cards.filter(c => isDue(states[c.id], now)).length, new: q.filter(c => isNew(states[c.id])).length, newTotal: cards.filter(c => isNew(states[c.id])).length,
       learned: cards.filter(c => states[c.id] && states[c.id].reps >= 3).length, total: cards.length };
   }
   // The member's choices, tidied: anything out of range falls back to the default

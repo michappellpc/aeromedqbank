@@ -66,6 +66,12 @@ t('the review limit caps what is due in a session', S.queue(many, dueStates, D0,
 t('the cap keeps the most overdue cards', (() => { const s2 = { ...dueStates, c29: { e: 2.5, i: 1, due: '2026-09-01', reps: 1, lapses: 0 } }; return S.queue(many, s2, D0, { maxReviews: 5 })[0].id === 'c29'; })());
 t('zero new cards means none in the session', S.queue(many, {}, D0, { newPerDay: 0 }).length === 0);
 
+console.log('Suspended cards');
+t('a suspended card is left out of the session, due or new', (() => { const q = S.queue(many, dueStates, D0, { suspended: ['c00', 'c01'] }).map(c => c.id); return q.length === 28 && !q.includes('c00') && !q.includes('c01'); })());
+t('a suspended new card does not use up the new-card allowance', (() => { const q = S.queue(many, {}, D0, { newPerDay: 3, suspended: ['c00'] }).map(c => c.id); return q.length === 3 && q[0] === 'c01'; })());
+t('counts leave suspended cards out and report how many', (() => { const k = S.counts(many, dueStates, D0, { suspended: ['c00', 'zzz'] }); return k.due === 29 && k.total === 29 && k.suspended === 1; })());
+t('with nothing suspended the counts are unchanged', S.counts(many, dueStates, D0).total === 30 && S.counts(many, dueStates, D0).suspended === 0);
+
 console.log('Days between dates');
 t('counts whole days', S.daysBetween('2026-10-01', '2026-10-01') === 0 && S.daysBetween('2026-10-01', '2026-11-15') === 45 && S.daysBetween('2026-10-05', '2026-10-01') === -4);
 t('crosses year ends and leap days', S.daysBetween('2026-12-31', '2027-01-01') === 1 && S.daysBetween('2028-02-28', '2028-03-01') === 2 && S.daysBetween('2026-01-01', '2027-01-01') === 365);
