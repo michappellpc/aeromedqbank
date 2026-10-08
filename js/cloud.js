@@ -354,7 +354,7 @@ const Cloud = (() => {
     },
     async profile() {
       try {
-        const r = await api(`/rest/v1/profiles?select=email,display_name,role,plan,active&id=eq.${uid()}&limit=1`);
+        const r = await api(`/rest/v1/profiles?select=email,display_name,role,plan,pro_until,active&id=eq.${uid()}&limit=1`).catch(e => { if (e && (e.status === 400 || e.status === 404) && /pro_until|schema cache|column/i.test(e.message || '')) return api(`/rest/v1/profiles?select=email,display_name,role,plan,active&id=eq.${uid()}&limit=1`); throw e; });   // an older database has no pro_until yet
         const p = r && r[0] ? r[0] : null;
         if (p) jset(pKey(), p);
         return p;
