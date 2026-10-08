@@ -26,6 +26,7 @@ t('each task has its own instruction', ['review', 'harder', 'easier', 'match', '
 t('performance lines are added when given', /HOW THEY HAVE BEEN PERFORMING/.test(H.build('questions', qs, { task: 'harder', stats: { 'q-1': 'q-1: 92% correct' } })) && /- q-1: 92% correct/.test(H.build('questions', qs, { task: 'harder', stats: { 'q-1': 'q-1: 92% correct' } })));
 t('and left out when not', !/PERFORMING/.test(text));
 t('a part says which part it is', /This is part 2 of 3\./.test(H.build('questions', qs, { task: 'review', part: [1, 3] })) && !/This is part/.test(H.build('questions', qs, { task: 'review', part: [0, 1] })));
+t('the size choices include the default, and bigger ones', ['questions', 'lessons', 'cards', 'feedback'].every(k => H.SIZES[k].includes(H.CHUNK[k]) && Math.max(...H.SIZES[k]) > H.CHUNK[k]));
 t('a long list is split into parts of a sensible size', H.chunk(Array.from({ length: 45 }, (_, i) => i), H.CHUNK.questions).map(p => p.length).join() === '20,20,5');
 
 console.log('Lessons and flashcards');

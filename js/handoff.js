@@ -6,7 +6,8 @@
   if (typeof module === 'object' && module.exports) module.exports = factory(root); else root.Handoff = factory(root);
 })(typeof self !== 'undefined' ? self : this, function (root) {
   // How many fit comfortably in one message to a chat
-  const CHUNK = { questions: 20, lessons: 5, cards: 40, feedback: 25 };
+  const CHUNK = { questions: 20, lessons: 5, cards: 40, feedback: 25 };               // how many go in one message by default
+  const SIZES = { questions: [10, 20, 40, 60, 100], lessons: [3, 5, 10, 15, 25], cards: [20, 40, 80, 150, 250], feedback: [10, 25, 50, 100] };   // the choices offered
   const NOUN = { questions: ['question', 'questions'], lessons: ['lesson', 'lessons'], cards: ['flashcard', 'flashcards'], feedback: ['message', 'messages'] };
   const IMPORT = { questions: '#/admin/questions/import', lessons: '#/admin/lessons/import', cards: '#/admin/cards/import' };
   const TASKS = {
@@ -105,7 +106,9 @@
       <p class="muted" id="hf-sum"></p>
       ${sel.length ? `<fieldset class="inline"><legend class="sr">Which ${NOUN[kind][1]}</legend><label class="chk"><input type="radio" name="hf-src" value="shown" checked> All ${all.length} shown by the filters</label><label class="chk"><input type="radio" name="hf-src" value="sel"> Only the ${sel.length} I selected</label></fieldset>` : ''}
       <div class="fgrid"><div><label for="hf-task">What should Claude do?</label><select id="hf-task">${tasks.map(t => `<option value="${t[0]}">${esc(t[1])}</option>`).join('')}</select></div>
+        <div><label for="hf-size-sel">${NOUN[kind][1].replace(/^./, c => c.toUpperCase())} per message</label><select id="hf-size-sel">${SIZES[kind].map(n => `<option value="${n}">${n}${n === CHUNK[kind] ? ' (default)' : ''}</option>`).join('')}</select></div>
         <div id="hf-partbox" hidden><label for="hf-part">Part</label><select id="hf-part"></select></div></div>
+      <p class="muted small">A bigger message lets Claude work on more at once and uses more of your usage. Claude has to write every changed item back in full, so if its reply stops partway, pick a smaller number.</p>
       <label for="hf-note">Your note to Claude (optional): how you like things done</label><textarea id="hf-note" rows="3" placeholder="e.g. Keep my explanations short. Use ABPM wording. Do not change the references."></textarea>
       ${o.stats ? '<label class="chk"><input type="checkbox" id="hf-stats" checked> Include how each has been performing</label>' : ''}
       <label for="hf-prev">The message (you can read it before you copy)</label><textarea id="hf-prev" rows="9" readonly style="font:12px/1.4 ui-monospace,Menlo,Consolas,monospace"></textarea>
@@ -117,9 +120,10 @@
     const onKey = e => { if (e.key === 'Escape') { e.stopPropagation(); close(); } };
     doc.addEventListener('keydown', onKey, true);
     d.onclick = e => { if (e.target === d) close(); };
+    const size = () => { const v = +E('hf-size-sel').value; return SIZES[kind].includes(v) ? v : CHUNK[kind]; };
     const current = () => { const src = d.querySelector('[name=hf-src]:checked'); return src && src.value === 'sel' ? sel : all; };
     const draw = () => {
-      const list = current(), parts = chunk(list, CHUNK[kind]), pb = E('hf-partbox'), ps = E('hf-part');
+      const list = current(), parts = chunk(list, size()), pb = E('hf-partbox'), ps = E('hf-part');
       if (parts.length > 1) { const keep = +ps.value || 0; ps.innerHTML = parts.map((p, i) => `<option value="${i}">${i + 1} of ${parts.length} (${plural(kind, p.length)})</option>`).join(''); ps.value = String(Math.min(keep, parts.length - 1)); pb.hidden = false; } else pb.hidden = true;
       const idx = parts.length > 1 ? +ps.value : 0, chosen = parts[idx] || [];
       const stats = o.stats && E('hf-stats') && E('hf-stats').checked ? Object.fromEntries(chosen.map(i => [i.id, o.stats(i)]).filter(x => x[1])) : null;
@@ -129,10 +133,10 @@
       const shows = tk === 'lessons' && o.currentLesson ? Object.fromEntries(chosen.map(i => { const c = o.currentLesson(i); return [i.id, c ? { id: c.lesson.id, title: c.lesson.title, pinned: c.pinned } : null]; })) : null;
       const text = build(kind, chosen, { task: tk, note: E('hf-note').value, part: [idx, parts.length], stats, today: ymd, catalog, outline, current: shows });
       E('hf-prev').value = text; d._text = text;
-      E('hf-sum').textContent = `${plural(kind, list.length)}${o.describe ? ' (' + o.describe + ')' : ''}${parts.length > 1 ? `. That is a lot for one message, so it is split into ${parts.length} parts of up to ${CHUNK[kind]}: copy one part at a time.` : '.'}`;
+      E('hf-sum').textContent = `${plural(kind, list.length)}${o.describe ? ' (' + o.describe + ')' : ''}${parts.length > 1 ? `. That is a lot for one message, so it is split into ${parts.length} parts of up to ${size()}: copy one part at a time.` : '.'}`;
       E('hf-size').textContent = `About ${Math.round(text.length / 5).toLocaleString()} words in this message.`;
     };
-    ['hf-task', 'hf-part', 'hf-note', 'hf-stats'].forEach(id => { const e = E(id); if (e) e.addEventListener(id === 'hf-note' ? 'input' : 'change', draw); });
+    ['hf-task', 'hf-part', 'hf-size-sel', 'hf-note', 'hf-stats'].forEach(id => { const e = E(id); if (e) e.addEventListener(id === 'hf-note' ? 'input' : 'change', draw); });
     d.querySelectorAll('[name=hf-src]').forEach(r => r.addEventListener('change', () => { E('hf-part').value = '0'; draw(); }));
     E('hf-x').onclick = close;
     E('hf-copy').onclick = async () => {
@@ -141,7 +145,9 @@
     };
     E('hf-dl').onclick = () => { const a = doc.createElement('a'); a.href = root.URL.createObjectURL(new root.Blob([d._text], { type: 'text/plain' })); a.download = `for-claude-${kind}-${new Date().toISOString().slice(0, 10)}.txt`; a.click(); };
     const imp = E('hf-imp'); if (imp) imp.onclick = () => close();
+    try { const saved = +root.localStorage.getItem('qbank.hfsize.' + kind); E('hf-size-sel').value = String(SIZES[kind].includes(saved) ? saved : CHUNK[kind]); } catch { E('hf-size-sel').value = String(CHUNK[kind]); }   // the last choice is remembered
+    E('hf-size-sel').addEventListener('change', () => { try { root.localStorage.setItem('qbank.hfsize.' + kind, E('hf-size-sel').value); } catch { /* not saved */ } E('hf-part').value = '0'; });
     doc.body.appendChild(d); draw(); E('hf-copy').focus();
   }
-  return { build, chunk, open, TASKS, CHUNK, IMPORT, QF, LF, CF };
+  return { build, chunk, open, TASKS, CHUNK, SIZES, IMPORT, QF, LF, CF };
 });
