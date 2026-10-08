@@ -672,4 +672,16 @@ has "an empty name is refused (clear it instead)"                  "allowed_emai
 eq  "a member cannot name someone else"                            "0" "$(as a "update allowed_emails set full_name = 'Hacked' where email = 'b@x' returning email;" 2>&1 | grep -c 'b@x')"
 eq  "a name given before sign-up is carried to the new account"    "Pat Newcomer" "$(root "insert into allowed_emails (email, role, plan, full_name) values ('newname@x', 'member', 'free', 'Pat Newcomer'); insert into auth.users (id, email, raw_app_meta_data) values ('00000000-0000-0000-0000-0000000000f8', 'newname@x', '{\"invited\": \"true\"}'); select display_name from profiles where email = 'newname@x';" | tail -1)"
 root "delete from allowed_emails where email = 'newname@x'; delete from auth.users where email = 'newname@x'; update allowed_emails set note = null, plan = 'pro', full_name = null where email = 'a@x'; update profiles set display_name = null where email = 'a@x';" >/dev/null
+echo; echo "Faculty tests are kept separate"
+FAC=00000000-0000-0000-0002-000000000001
+as admin "select set_peer_min_users(1); commit;" >/dev/null
+snap() { echo "$(as a "select coalesce(users::text,'-')||','||coalesce(pct_correct::text,'-') from peer_stats() where question_id='q-free';")/$(as a "select coalesce(sum(picks),0) from peer_choices() where question_id='q-free';")/$(as admin "select attempts||','||correct from admin_question_stats() where question_id='q-free';")/$(as admin "select attempts||','||members from admin_recent_activity('{0}');")"; }
+BEFORE="$(snap)"
+root "insert into attempts (user_id, question_id, ok, chosen, client_id) values ('$FAC','q-free',false,'C','fac-t1'), ('$FAC','q-pro',true,'A','fac-t2');" >/dev/null
+eq  "the faculty tries were recorded"                       "2" "$(root "select count(*) from attempts where user_id='$FAC'")"
+eq  "they change nothing in the group figures residents see, the question stats or the recent activity" "$BEFORE" "$(snap)"
+eq  "a faculty member's own tries still count for their own history" "2" "$(root "select count(*) from attempts where user_id='$FAC' and ok is not null")"
+root "delete from attempts where client_id in ('fac-t1','fac-t2');" >/dev/null
+as admin "select set_peer_min_users(10); commit;" >/dev/null
+
 echo; echo "$PASS passed, $FAIL failed"; [[ $FAIL -eq 0 ]]

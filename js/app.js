@@ -255,7 +255,7 @@ async function route() {
   if (p === '' || p === 'results') refreshPeer();
   const t = Store.data.active;
   if (p === 'test' && t) return renderTest();
-  ({ '': dashboard, create: () => create(arg, arg2), flagged: flaggedPage, program: () => (arg === 'insights' ? Program.insightsPage('') : arg2 === 'insights' ? Program.insightsPage(arg) : Program.facultyPage(arg)), cards: () => Cards.page(arg, arg2), support: () => Support.page(arg), lessons: () => (arg ? Lessons.subjectPage(arg) : Lessons.indexPage()), lesson: () => Lessons.lessonPage(arg), history: historyPage, settings, admin: () => Admin.route(arg, arg2, arg3), results: () => results(arg), review: () => review(arg), highlights: Notebook.page, question: () => Notebook.question(arg) }[p] || dashboard)();
+  ({ '': () => (profile && profile.role === 'faculty' ? Program.dashboard() : dashboard()), create: () => create(arg, arg2), flagged: flaggedPage, program: () => (arg === 'insights' ? Program.insightsPage('') : arg2 === 'insights' ? Program.insightsPage(arg) : Program.facultyPage(arg)), cards: () => Cards.page(arg, arg2), support: () => Support.page(arg), lessons: () => (arg ? Lessons.subjectPage(arg) : Lessons.indexPage()), lesson: () => Lessons.lessonPage(arg), history: historyPage, settings, admin: () => Admin.route(arg, arg2, arg3), results: () => results(arg), review: () => review(arg), highlights: Notebook.page, question: () => Notebook.question(arg) }[p] || dashboard)();
   window.scrollTo(0, 0);
 }
 window.addEventListener('hashchange', route);
@@ -1058,7 +1058,7 @@ async function adminPage() {
     const memBy = Object.fromEntries(mem.map(m => [m.email, m]));
     const progName = id => ((programs.find(p => p.id === id) || {}).name || id || '');
     const progCell = (id, status) => (id ? `${esc(progName(id))}${status === 'pending' ? ' <span class="tag draft">pending</span>' : ''}` : '<span class="muted">-</span>');
-    const act = mem.filter(m => m.active), tot = act.reduce((x, m) => x + m.attempts, 0), cor = act.reduce((x, m) => x + m.correct, 0);
+    const act = mem.filter(m => m.active), counted = act.filter(m => m.role !== 'faculty'), tot = counted.reduce((x, m) => x + m.attempts, 0), cor = counted.reduce((x, m) => x + m.correct, 0);   // faculty answers are left out of the group totals
     const recent = await Cloud.rpc('admin_recent_activity').catch(() => null);
     const me = Cloud.session.email.toLowerCase();
     $app.innerHTML = `${Admin.tabs('overview')}<div class="grid">

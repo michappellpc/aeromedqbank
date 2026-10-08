@@ -46,6 +46,36 @@ const Program = (() => {
   }
 
   // ------------------------------------------------------------------ faculty page
+  // ------------------------------------------------------------------ faculty: their dashboard
+  // What faculty see on opening the app: how their residents are doing, not their own scores. Their own answers (they try questions to see
+  // and test them) are kept out of every program and group figure, so nothing here or in the residents' numbers includes them.
+  async function dashboard() {
+    pageTitle('Dashboard');
+    $app.innerHTML = '<div class="card"><p class="muted">Loading your program...</p></div>';
+    const own = `<div class="card"><h2>Your own practice</h2><p class="muted">Try the questions, lessons and flashcards the way a resident would. What you answer is kept separate: it does not count toward your residents' numbers or the group averages.</p><div class="row"><a class="btn primary" href="#/create">New test</a><a class="btn" href="#/lessons">Lessons</a><a class="btn" href="#/cards">Flashcards</a><a class="btn" href="#/history">Test history</a></div></div>`;
+    const notes = `${bank.unreadReplies ? `<div class="card notice">You have <b>${bank.unreadReplies} new repl${bank.unreadReplies === 1 ? 'y' : 'ies'}</b> from the team. <a href="#/support">Open Support</a></div>` : ''}${Store.data.active ? `<div class="card notice">You have a test in progress. <a href="#/test">Continue it</a></div>` : ''}`;
+    try {
+      const mine = await Cloud.myProgram();     // asked first: the roster calls refuse faculty who have no program yet
+      const [roster, subj] = mine ? await Promise.all([Cloud.facultyRoster(), Cloud.facultySubjects()]) : [[], []];
+      if (!mine) { $app.innerHTML = `<div class="pagehead"><div><h2 class="pagetitle">Dashboard</h2></div></div>${notes}<div class="card"><p class="muted">You have not been assigned to a program yet. Ask an administrator.</p></div>${own}`; return; }
+      const who = r => r.display_name || r.email;
+      const res = roster.filter(r => r.status === 'approved'), pending = roster.filter(r => r.status === 'pending');
+      const tot = res.reduce((a, r) => a + Number(r.attempts || 0), 0), cor = res.reduce((a, r) => a + Number(r.correct || 0), 0);
+      const ago = r => (r.last_active ? (Date.now() - new Date(r.last_active).getTime()) / 86400000 : Infinity);
+      const week = res.filter(r => ago(r) <= 7).length, quiet = res.filter(r => ago(r) > 14).sort((a, b) => ago(b) - ago(a));
+      const subjects = [...new Set(subj.map(x => x.subject))].map(s => { const rows = subj.filter(x => x.subject === s), n = rows.reduce((a, x) => a + Number(x.attempts), 0), c = rows.reduce((a, x) => a + Number(x.correct), 0); return { s, n, p: n ? pct(c, n) : null }; }).filter(x => x.n).sort((a, b) => a.p - b.p || b.n - a.n);
+      const heat = p => `<td class="heat ${p >= 70 ? 'hi' : p >= 50 ? 'mid' : 'lo'}"><b>${p}%</b></td>`;
+      $app.innerHTML = `<div class="pagehead"><div><h2 class="pagetitle">${esc(mine.name)}</h2><p class="muted">Your residents at a glance. Your own practice answers are kept separate and are not part of these numbers.</p></div><div class="row"><a class="btn primary" href="#/program">Residents</a><a class="btn" href="#/program/insights">Program insights</a></div></div>
+        ${notes}
+        ${pending.length ? `<div class="card notice"><b>${pending.length} ${pending.length === 1 ? 'person is' : 'people are'} waiting for your approval.</b> <a href="#/program">Review requests</a></div>` : ''}
+        <div class="grid"><div class="card stat"><b>${res.length}</b><span>Residents</span></div><div class="card stat"><b>${week}</b><span>Active in the last 7 days</span></div><div class="card stat"><b>${tot}</b><span>Questions answered</span></div><div class="card stat"><b>${tot ? pct(cor, tot) + '%' : '-'}</b><span>Program correct</span></div></div>
+        ${res.length ? '' : '<div class="card"><p class="muted">No residents have joined yet. Residents choose your program when they sign up, or in Settings, and you approve them under Residents.</p></div>'}
+        ${quiet.length ? `<div class="card"><h2>Quiet for two weeks or more</h2><p class="muted">${quiet.length} of ${res.length} resident${res.length === 1 ? '' : 's'} ${quiet.length === 1 ? 'has' : 'have'} not answered anything in 14 days or longer.</p><ul class="reclist">${quiet.slice(0, 8).map(r => `<li>${esc(who(r))} <span class="muted">${r.last_active ? 'last active ' + new Date(r.last_active).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : 'has not started'}</span></li>`).join('')}</ul>${quiet.length > 8 ? `<p class="muted small">and ${quiet.length - 8} more. <a href="#/program">See everyone</a></p>` : ''}</div>` : ''}
+        ${subjects.length ? `<div class="card"><h2>How the program is doing by subject</h2><p class="muted">Weakest first. Percent correct across all your residents, with how many questions that is. Green is 70% or more, amber 50 to 69, red under 50.</p><div class="scroll" role="region" tabindex="0" aria-label="Program subjects table"><table class="heatmap"><caption class="sr">Program percent correct by subject, weakest first</caption><thead><tr><th scope="col">Subject</th><th scope="col">Questions answered</th><th scope="col">Correct</th></tr></thead><tbody>${subjects.map(x => `<tr><th scope="row">${esc(x.s)}</th><td>${x.n}</td>${heat(x.p)}</tr>`).join('')}</tbody></table></div><p class="small"><a href="#/program/insights">See the topics and questions behind these, and the lessons that would help most</a></p></div>` : ''}
+        ${own}`;
+    } catch (e) { $app.innerHTML = `<div class="card"><h2>Dashboard</h2><p class="muted">Could not load your program: ${esc(e.offline ? 'you are offline' : e.message)}</p></div>${own}`; }
+  }
+
   async function facultyPage(pid) {
     pageTitle('Program');
     const preview = !!pid && !!profile && profile.role === 'admin';   // an admin looking at exactly what a program's faculty see
@@ -54,7 +84,7 @@ const Program = (() => {
     try {
       const [mine, roster, subj] = preview
         ? await Promise.all([Cloud.adminPrograms().then(l => l.find(p => p.id === pid) || null), Cloud.previewRoster(pid), Cloud.previewSubjects(pid)])
-        : await Promise.all([Cloud.myProgram(), Cloud.facultyRoster(), Cloud.facultySubjects()]);
+        : await (async () => { const m = await Cloud.myProgram(); return m ? [m, ...(await Promise.all([Cloud.facultyRoster(), Cloud.facultySubjects()]))] : [null, [], []]; })();
       if (!mine && preview) { $app.innerHTML = '<div class="card"><h2>Program</h2><p class="muted">That program was not found. <a href="#/admin">Back to Admin</a></p></div>'; return; }
       if (!mine) { $app.innerHTML = '<div class="card"><h2>Program</h2><p class="muted">You have not been assigned to a program yet. Ask an administrator.</p></div>'; return; }
       const who = r => r.display_name || r.email;   // the name a resident chose, else their email
@@ -208,5 +238,5 @@ const Program = (() => {
       try { await Cloud.deleteProgram(p.id); toast('Deleted.'); again(); } catch (x) { say('Could not delete: ' + x.message); }
     });
   }
-  return { mountSettings, facultyPage, insightsPage, mountAdmin, options, NOTICE, slug };
+  return { mountSettings, dashboard, facultyPage, insightsPage, mountAdmin, options, NOTICE, slug };
 })();
