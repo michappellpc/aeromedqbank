@@ -227,6 +227,8 @@ td,th{padding:10px 10px}tbody tr:hover{background:var(--sel)}
 .brand .logo{display:block;border-radius:7px}
 .wordmark{font-size:1.15rem;font-weight:700;letter-spacing:.01em;color:#fff}
 .wordmark b{font-weight:400;color:var(--hdrfg);margin-left:1px}
+.chg{white-space:nowrap}
+@media(max-width:600px){.heatmap .qa{display:none}.heatmap th,.heatmap td{padding:8px 5px;font-size:.82rem}.heatmap thead th{font-size:.68rem;letter-spacing:0}}.chg.up{color:var(--good)}.chg.down{color:var(--bad)}.chg.flat{color:var(--muted)}
 .factabs{display:flex;gap:8px;margin:0 0 14px;flex-wrap:wrap}
 .sfswitch{display:inline-flex;align-items:center;gap:10px;cursor:pointer;color:#fff;font-weight:600;padding:8px 14px;border-radius:99px;background:rgba(0,0,0,.4)}
 .sfswitch input{position:absolute;opacity:0;width:1px;height:1px;margin:0}

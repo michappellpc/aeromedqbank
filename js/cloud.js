@@ -383,6 +383,8 @@ const Cloud = (() => {
     previewRoster: pid => api('/rest/v1/rpc/preview_roster', { method: 'POST', body: { pid } }),
     previewSubjects: pid => api('/rest/v1/rpc/preview_subjects', { method: 'POST', body: { pid } }),
     questionRevisions: id => api('/rest/v1/question_revisions?select=*&question_id=eq.' + encodeURIComponent(id) + '&order=revised_at.desc&limit=20'),
+    facultySubjectTrend: days => api('/rest/v1/rpc/faculty_subject_trend', { method: 'POST', body: { days: days || 30 } }),
+    previewSubjectTrend: (pid, days) => api('/rest/v1/rpc/preview_subject_trend', { method: 'POST', body: { pid, days: days || 30 } }),
     facultyTopics: days => api('/rest/v1/rpc/faculty_topics', { method: 'POST', body: { days: days || 0 } }),
     facultyQuestions: days => api('/rest/v1/rpc/faculty_questions', { method: 'POST', body: { days: days || 0 } }),
     facultyWeekly: () => api('/rest/v1/rpc/faculty_weekly', { method: 'POST', body: {} }),

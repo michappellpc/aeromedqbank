@@ -795,6 +795,9 @@ drop function if exists public.faculty_weekly();
 drop function if exists public.preview_topics(text, int);
 drop function if exists public.preview_questions(text, int);
 drop function if exists public.preview_weekly(text);
+drop function if exists public.preview_subject_trend(text, int);
+drop function if exists public.faculty_subject_trend(int);
+drop function if exists public._program_subject_trend(text, int);
 drop function if exists public._program_topics(text, int);
 drop function if exists public._program_questions(text, int);
 drop function if exists public._program_weekly(text);
@@ -933,6 +936,46 @@ $$
 begin
   if not public.is_admin() then raise exception 'admins only'; end if;
   return query select * from public._program_weekly(pid);
+end $$;
+
+-- How each subject is moving: the program's percent correct over the last N days against the N days before that (N from 7 to 365).
+-- Group totals only, like the rest of the faculty analysis, and a subject needs at least three residents answering in the two
+-- periods together before it is shown. Faculty and staff answers are left out; so are archived and draft questions.
+create or replace function public._program_subject_trend(fp text, days int)
+  returns table (subject text, recent_attempts bigint, recent_correct bigint, prev_attempts bigint, prev_correct bigint)
+  language sql stable security definer set search_path = public as
+$$
+  with d as (select least(greatest(coalesce(days, 30), 7), 365) as n),
+  mem as (
+    select p.id from public.profiles p where p.program_id = fp and p.program_status = 'approved' and p.role <> 'faculty' and p.active),
+  a as (
+    select q.subject, t.user_id, t.ok, t.at >= now() - make_interval(days => d.n) as recent
+    from public.attempts t
+    join public.questions q on q.id = t.question_id
+    join mem on mem.id = t.user_id
+    cross join d
+    where not q.archived and q.status = 'reviewed' and t.at >= now() - make_interval(days => 2 * d.n))
+  select a.subject, count(*) filter (where a.recent), count(*) filter (where a.recent and a.ok),
+         count(*) filter (where not a.recent), count(*) filter (where not a.recent and a.ok)
+  from a group by a.subject
+  having count(distinct a.user_id) >= 3 and public._program_cohort_ok(fp)
+$$;
+create or replace function public.faculty_subject_trend(days int default 30)
+  returns table (subject text, recent_attempts bigint, recent_correct bigint, prev_attempts bigint, prev_correct bigint)
+  language plpgsql stable security definer set search_path = public as
+$$
+declare fp text := public.faculty_program_id();
+begin
+  if fp is null then raise exception 'faculty only'; end if;
+  return query select * from public._program_subject_trend(fp, days);
+end $$;
+create or replace function public.preview_subject_trend(pid text, days int default 30)
+  returns table (subject text, recent_attempts bigint, recent_correct bigint, prev_attempts bigint, prev_correct bigint)
+  language plpgsql stable security definer set search_path = public as
+$$
+begin
+  if not public.is_admin() then raise exception 'admins only'; end if;
+  return query select * from public._program_subject_trend(pid, days);
 end $$;
 
 -- A member can choose a name to show in place of their email wherever a program's faculty look at them. Optional; blank clears it.
@@ -1194,6 +1237,7 @@ grant execute on function public.my_program(), public.leave_program(), public.fa
 grant execute on function public.set_my_name(text) to authenticated;
 grant execute on function public.preview_roster(text), public.preview_subjects(text), public.program_decide(text, uuid, boolean), public.program_remove(text, uuid) to authenticated;
 grant execute on function public.faculty_topics(int), public.faculty_questions(int), public.faculty_weekly(), public.preview_topics(text, int), public.preview_questions(text, int), public.preview_weekly(text) to authenticated;
+grant execute on function public.faculty_subject_trend(int), public.preview_subject_trend(text, int) to authenticated;
 grant execute on function public.request_program(text), public.faculty_decide(uuid, boolean), public.faculty_remove(uuid) to authenticated;
 grant execute on function public.peer_stats(), public.peer_choices(), public.peer_min_users() to authenticated;
 grant execute on function public.set_peer_min_users(int) to authenticated;
