@@ -46,6 +46,7 @@ let peerAt = 0;
 function refreshPeer() { if (!Cloud.enabled || Date.now() - peerAt < 300000) return; peerAt = Date.now(); Cloud.peerStats().then(m => { bank.peer = m; paintTrend(); }); Cloud.peerChoices().then(m => { bank.choices = m; }); }
 const mascotOn = () => Store.data.settings.mascot !== false;
 const quizMascotOn = () => mascotOn() && Store.data.settings.quizMascot !== false;   // the ram while taking a test can be turned off on its own
+const quizBubbleOff = new Set();   // questions where the member tapped the ram's speech bubble away (on a phone)
 const showDrafts = () => Store.data.settings.showDrafts !== false;
 // A link under an explanation to the most relevant lesson, or to the subject's lessons if none fits well.
 const relatedCache = new Map();
@@ -656,6 +657,11 @@ function renderTest() {
   // He says a motivational quote (the same one all the way through a question) and his face reacts to the answer
   const coach = { pose: shown ? (sel === q.answer ? (streak >= 3 ? 'cheer' : 'happy') : 'sad') : 'idle', msg: Mascot.pick(Mascot.quotes, id + ':' + t.idx) };
   if (quizMascotOn()) Mascot.mount(document.getElementById('coachm'), { ...coach, msg: coach.msg && esc(coach.msg).replace(/&#39;/g, "'"), scale: 3 });
+  const bub = document.querySelector('#coachm .bubble');       // on a phone the bubble can be tapped away if it is over something
+  if (bub && matchMedia('(max-width: 600px)').matches) {
+    if (quizBubbleOff.has(id)) bub.remove();
+    else { const off = () => { quizBubbleOff.add(id); bub.remove(); }; bub.setAttribute('role', 'button'); bub.tabIndex = 0; bub.title = 'Tap to hide this quote'; bub.onclick = off; bub.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); off(); } }; }
+  }
   bindTest(t, q); hydrateImages(); HlUI.paintAll($app);
   if (refocus) { const f = $app.querySelector(`[data-opt="${refocus}"]`); if (f) f.focus(); refocus = null; }
 }
