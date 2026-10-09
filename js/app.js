@@ -621,8 +621,6 @@ function renderTest() {
   // The tools (Highlight, Strike out, Clear marks, Calculator, text size) sit in the sticky sidebar on wide screens so they stay in reach while you scroll;
   // on narrow screens the sidebar is below the question, so the same row stays pinned to the top of the question instead.
   const wide = matchMedia('(min-width: 861px)').matches, toolsHtml = `<div class="marktools" role="group" aria-label="Mark up the question"><button type="button" id="mk-h" title="Highlight the selected text">Highlight</button><button type="button" id="mk-s" title="Strike out the selected text">Strike out</button><button type="button" id="mk-c" title="Remove your highlights and strikes from this question">Clear marks</button><button type="button" id="calc" aria-haspopup="dialog" aria-expanded="${CalcUI.isOpen()}" title="Open the calculator">Calculator</button><span class="sr">Select text in the question, then choose a tool. Marks last for this test.</span><span style="flex:1"></span><span class="textsize" role="group" aria-label="Text size"><button type="button" id="tx-minus" aria-label="Smaller text" title="Smaller text"${txt <= 0 ? ' disabled' : ''}>A&minus;</button><button type="button" id="tx-plus" aria-label="Larger text" title="Larger text"${txt >= 3 ? ' disabled' : ''}>A+</button></span></div>`;
-  // The ram goes in the sidebar under the tools on a wide screen, and just above the action bar on a narrow one, so he never covers a button or the text
-  const coachHtml = mascotOn() ? `<div id="coach" class="coach"><div id="coachm"></div><button id="ram" type="button" class="ramtog" aria-pressed="${!quizMascotOn()}" title="${quizMascotOn() ? 'Hide the ram while you take tests' : 'Show the ram again'}">${quizMascotOn() ? 'Hide ram' : 'Show ram'}</button></div>` : '';
   $app.innerHTML = `<div class="testlayout"><div class="testmain">
   <div class="card qcard" data-size="${txt}">
     <div class="row spread"><div>${q.boards.map(b => `<span class="tag">${esc(boardName(b))}</span>`).join('')}${isDraft(q) ? '<span class="tag draft" title="Not yet reviewed by a physician">Draft</span>' : ''}<span class="tag hltag" data-hlq="${esc(id)}" title="You have highlighted text in this question"${Store.hlIn('q', id).length ? '' : ' hidden'}>&#9998; Highlighted</span><span class="muted">${esc(q.subject)}${q.topic && shown ? ' · ' + esc(q.topic) : ''}</span></div>
@@ -646,12 +644,12 @@ function renderTest() {
       <button class="flagbtn ${st && st.flagged ? 'on' : ''}" id="flag">⚑ Flag</button>
       <button id="fbk" title="Report a problem or suggest a change to this question">✎ Feedback</button>
       <span style="flex:1"></span><button id="pause" type="button" title="Stop the clock and hide the question until you are ready">&#10074;&#10074; Pause</button><button class="danger" id="end">End test</button>
-    ${wide ? '' : coachHtml}
+    ${mascotOn() ? `<div id="coach" class="coach"><div id="coachm"></div><button id="ram" type="button" class="ramtog" aria-pressed="${!quizMascotOn()}" title="${quizMascotOn() ? 'Hide the ram while you take tests' : 'Show the ram again'}">${quizMascotOn() ? 'Hide ram' : 'Show ram'}</button></div>` : ''}
     </div>
     <details style="margin-top:12px"><summary>Notes</summary><textarea id="note" rows="3" placeholder="Your notes on this question">${esc(st ? st.note : '')}</textarea></details>
   </div></div>
   <aside class="card navcard" aria-label="Question navigator"><h2 class="navh">Questions</h2><div class="nav">${nav}</div>
-    <p class="muted small legend">${t.qids.filter(x => t.answers[x]).length} of ${t.qids.length} answered</p><div class="bar" aria-hidden="true"><i style="width:${Math.round(100 * t.qids.filter(x => t.answers[x]).length / t.qids.length)}%"></i></div>${wide ? toolsHtml.replace('class="marktools"', 'class="marktools sidetools"') : ''}${wide ? coachHtml : ''}</aside></div>
+    <p class="muted small legend">${t.qids.filter(x => t.answers[x]).length} of ${t.qids.length} answered</p><div class="bar" aria-hidden="true"><i style="width:${Math.round(100 * t.qids.filter(x => t.answers[x]).length / t.qids.length)}%"></i></div>${wide ? toolsHtml.replace('class="marktools"', 'class="marktools sidetools"') : ''}</aside></div>
   <div style="height:24px"></div>`;
   let streak = 0;
   if (shown && sel === q.answer) for (let i = t.idx; i >= 0 && t.revealed[t.qids[i]] && t.answers[t.qids[i]] === bank.byId[t.qids[i]].answer; i--) streak++;

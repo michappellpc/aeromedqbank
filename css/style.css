@@ -435,18 +435,8 @@ button.primary:hover:not(:disabled),.btn.primary:hover{background:var(--btn-h);b
 .qcard[data-size="3"] .stem,.qcard[data-size="3"] .opt{font-size:1.5rem}
 .opt{padding:12px 14px}
 .actionbar{position:sticky;bottom:0;z-index:3;margin:18px -16px -16px;padding:12px 16px;background:var(--card);border-top:1px solid var(--line);border-radius:0 0 var(--r) var(--r);box-shadow:0 -6px 14px -10px rgba(0,0,0,.25)}
-/* narrow screens: the ram is a small row at the end of the action bar, in the flow, so he covers nothing */
-.actionbar .coach{position:static;right:auto;bottom:auto;pointer-events:auto;flex-direction:row-reverse;align-items:center;justify-content:flex-start;width:auto;margin:0 0 0 auto;gap:8px}
-.actionbar .coach .sprite{width:46px;height:auto}.actionbar .coach .ramtog{margin:0;position:static;min-height:32px;font-size:.8rem;padding:2px 12px}
-.actionbar .coach .bubble{margin-bottom:0;max-width:min(300px,60vw)}
-.actionbar .coach .bubble::before{top:50%;bottom:auto;right:-5px;left:auto;transform:translateY(-50%) rotate(45deg)}
-@media(max-width:600px){.actionbar{bottom:56px;margin-bottom:0;border-radius:0}}
-/* wide screens: the ram sits in the sidebar under the tools, where nothing else is */
-.navcard .coach{position:static;right:auto;bottom:auto;pointer-events:auto;align-items:center;margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}
-.navcard .coach .mascot{flex-direction:column-reverse;align-items:center;gap:0}
-.navcard .coach .bubble{margin:0 0 12px;max-width:100%;text-align:center;font-size:.85rem}
-.navcard .coach .bubble::before{left:50%;right:auto;top:auto;bottom:-6px;transform:translateX(-50%) rotate(45deg)}
-.navcard .coach .ramtog{margin-top:6px}
+.actionbar .coach{bottom:calc(112px + env(safe-area-inset-bottom,0px))}
+@media(max-width:600px){.actionbar{bottom:56px;margin-bottom:0;border-radius:0}.actionbar .coach{position:absolute;bottom:calc(100% - 2px);right:6px}.actionbar .coach .sprite{width:56px;height:auto}}
 .expl{white-space:normal;border-left:0;background:transparent;padding:0;margin-top:18px;border-radius:0}
 .expl .verdict{display:flex;gap:8px;align-items:center;padding:10px 14px;border-radius:10px;font-size:1.02rem;border:1px solid var(--line)}
 .expl .verdict.ok{background:color-mix(in srgb,var(--good) 14%,var(--card));border-color:var(--good)}
