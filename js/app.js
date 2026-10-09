@@ -252,7 +252,7 @@ async function route() {
     try { setQuestions(await Cloud.questions()); bank.lessons = await Cloud.lessons(); await loadCards(); } catch {}
     if (location.hash.replace(/^#\/?/, '').split('/')[0] !== p) return;   // the person moved on while it loaded
   }
-  document.querySelectorAll('nav a').forEach(l => l.classList.toggle('on', l.getAttribute('href').split('/').slice(0, 2).join('/') === '#/' + (p === 'test' ? 'create' : p === 'lesson' ? 'lessons' : p === 'mine' ? '' : p === 'results' || p === 'review' ? 'history' : p === 'question' ? 'highlights' : p)));
+  document.querySelectorAll('nav a').forEach(l => l.classList.toggle('on', !l.closest('#progmenu') && ( l.getAttribute('href').split('/').slice(0, 2).join('/') === '#/' + (p === 'test' ? 'create' : p === 'lesson' ? 'lessons' : p === 'mine' ? '' : p === 'results' || p === 'review' ? 'history' : p === 'question' ? 'highlights' : p))));
   document.getElementById('nav-more').classList.toggle('on', !!document.querySelector('#secgroup a.on'));
   if (p === '' || p === 'results') refreshPeer();
   const t = Store.data.active;
@@ -272,6 +272,24 @@ matchMedia('(min-width: 861px)').addEventListener('change', () => { if (location
   window.addEventListener('hashchange', () => close());
 }
 
+// Admin only: the arrow beside Dashboard lists every residency program's dashboard
+const progMenu = (() => {
+  const btn = () => document.getElementById('nav-progs'), box = () => document.getElementById('progmenu');
+  const close = back => { const b = btn(), m = box(); if (!b || !m) return; m.hidden = true; b.setAttribute('aria-expanded', 'false'); if (back) b.focus(); };
+  document.addEventListener('click', e => { const m = box(); if (m && !m.hidden && !e.target.closest('.navdash')) close(); });
+  document.addEventListener('keydown', e => { const m = box(); if (e.key === 'Escape' && m && !m.hidden) { e.stopPropagation(); close(true); } });
+  window.addEventListener('hashchange', () => close());
+  async function setup() {
+    const b = btn(), m = box(); if (!b || !m) return;
+    if (!(profile && profile.role === 'admin')) { b.hidden = true; m.hidden = true; return; }
+    const list = (await Cloud.adminPrograms().catch(() => [])).filter(p => p.active !== false);
+    if (!profile || profile.role !== 'admin') return;
+    m.innerHTML = `<div class="mhead">Dashboard</div><a href="#/">My dashboard</a>${list.length ? `<hr><div class="mhead">As faculty see it</div>${list.map(p => `<a href="#/program/${encodeURIComponent(p.id)}/dashboard">${esc(p.name)}</a>`).join('')}` : ''}`;
+    b.hidden = !list.length;
+    b.onclick = () => { const open = m.hidden; m.hidden = !open; b.setAttribute('aria-expanded', String(open)); if (open) { const first = m.querySelector('a'); if (first) first.focus(); } };
+  }
+  return { setup, close };
+})();
 // ---------- dashboard ----------
 // "Focus areas": the member's weakest subjects (lowest percent correct, at least MIN answers), with the lessons for each and
 // a one-click practice of the questions they missed in it.
@@ -1057,7 +1075,7 @@ async function startSession() {
   Store.hooks.hl = id => Cloud.queueHl(id);
   Store.hooks.mine = id => Cloud.queueMine(id);
   lockUI(false); ready = true;
-  showProBadge();
+  showProBadge(); progMenu.setup();
   document.getElementById('nav-program').hidden = profile.role !== 'faculty';
   document.getElementById('nav-support').hidden = false;
   clearInterval(badgeTimer);
@@ -1078,7 +1096,7 @@ async function signOut() {
   const key = Cloud.userKey();
   await Cloud.signOut(); Store.forget(key);
   ['attempt', 'mark', 'test', 'settings', 'reset', 'card', 'hl', 'mine'].forEach(k => delete Store.hooks[k]);
-  profile = null; ready = false; showProBadge(); Store.use('qbank.v1.signedout'); applyTheme();
+  profile = null; ready = false; showProBadge(); progMenu.setup(); Store.use('qbank.v1.signedout'); applyTheme();
   location.hash = '#/';                       // signing out clears the page, so the next person starts at the dashboard
   renderSignIn();
 }
