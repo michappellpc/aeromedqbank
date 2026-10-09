@@ -651,14 +651,10 @@ function renderTest() {
   <aside class="card navcard" aria-label="Question navigator"><h2 class="navh">Questions</h2><div class="nav">${nav}</div>
     <p class="muted small legend">${t.qids.filter(x => t.answers[x]).length} of ${t.qids.length} answered</p><div class="bar" aria-hidden="true"><i style="width:${Math.round(100 * t.qids.filter(x => t.answers[x]).length / t.qids.length)}%"></i></div>${wide ? toolsHtml.replace('class="marktools"', 'class="marktools sidetools"') : ''}</aside></div>
   <div style="height:24px"></div>`;
-  let streak = 0;
+  let streak = 0;   // answers right in a row, for his cheer
   if (shown && sel === q.answer) for (let i = t.idx; i >= 0 && t.revealed[t.qids[i]] && t.answers[t.qids[i]] === bank.byId[t.qids[i]].answer; i--) streak++;
-  const L = Mascot.lines;
-  const coach = shown
-    ? (sel === q.answer
-      ? { pose: streak >= 3 ? 'cheer' : 'happy', msg: streak >= 3 ? `${streak} in a row. Nicely done.` : Mascot.pick(L.correct, id) }
-      : { pose: 'sad', msg: Mascot.pick(L.wrong, id) })
-    : { pose: 'idle', msg: tutor || t.idx === 0 ? Mascot.pick(L.tips, id + t.idx) : '' };
+  // He says a motivational quote (the same one all the way through a question) and his face reacts to the answer
+  const coach = { pose: shown ? (sel === q.answer ? (streak >= 3 ? 'cheer' : 'happy') : 'sad') : 'idle', msg: Mascot.pick(Mascot.quotes, id + ':' + t.idx) };
   if (quizMascotOn()) Mascot.mount(document.getElementById('coachm'), { ...coach, msg: coach.msg && esc(coach.msg).replace(/&#39;/g, "'"), scale: 3 });
   bindTest(t, q); hydrateImages(); HlUI.paintAll($app);
   if (refocus) { const f = $app.querySelector(`[data-opt="${refocus}"]`); if (f) f.focus(); refocus = null; }
