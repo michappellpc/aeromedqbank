@@ -657,10 +657,11 @@ function renderTest() {
   // He says a motivational quote (the same one all the way through a question) and his face reacts to the answer
   const coach = { pose: shown ? (sel === q.answer ? (streak >= 3 ? 'cheer' : 'happy') : 'sad') : 'idle', msg: Mascot.pick(Mascot.quotes, id + ':' + t.idx) };
   if (quizMascotOn()) Mascot.mount(document.getElementById('coachm'), { ...coach, msg: coach.msg && esc(coach.msg).replace(/&#39;/g, "'"), scale: 3 });
-  const bub = document.querySelector('#coachm .bubble');       // on a phone the bubble can be tapped away if it is over something
-  if (bub && matchMedia('(max-width: 600px)').matches) {
-    if (quizBubbleOff.has(id)) bub.remove();
-    else { const off = () => { quizBubbleOff.add(id); bub.remove(); }; bub.setAttribute('role', 'button'); bub.tabIndex = 0; bub.title = 'Tap to hide this quote'; bub.onclick = off; bub.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); off(); } }; }
+  const cm = document.getElementById('coachm');            // on a phone, tap the ram to put his quote away or bring it back (the bubble itself never blocks a tap)
+  if (cm && matchMedia('(max-width: 600px)').matches) {
+    const show = () => { const b = cm.querySelector('.bubble'); if (b) b.style.display = quizBubbleOff.has(id) ? 'none' : ''; };
+    show();
+    cm.onclick = e => { if (!e.target.closest('.sprite')) return; quizBubbleOff.has(id) ? quizBubbleOff.delete(id) : quizBubbleOff.add(id); show(); };
   }
   bindTest(t, q); hydrateImages(); HlUI.paintAll($app);
   if (refocus) { const f = $app.querySelector(`[data-opt="${refocus}"]`); if (f) f.focus(); refocus = null; }
