@@ -460,16 +460,6 @@ function facTabs(on) {
   const t = (id, href, label) => `<a class="btn${on === id ? ' primary' : ''}" href="${href}"${on === id ? ' aria-current="page"' : ''}>${label}</a>`;
   return `<nav class="factabs" aria-label="Dashboard view">${t('program', '#/', 'My program')}${t('mine', '#/mine', 'My dashboard')}</nav>`;
 }
-// For admins: a way to open the dashboard a program's faculty see, for any program
-async function facultyViewCard() {
-  if (!document.getElementById('facview')) return;
-  const list = (await Cloud.adminPrograms().catch(() => [])).filter(p => p.active !== false);
-  const box = document.getElementById('facview');       // looked up again: the page may have been redrawn while the list loaded
-  if (!list.length || !box) return;
-  box.innerHTML = `<div class="card"><div class="row spread"><div><b>See what faculty see</b><div class="muted">Open the dashboard a program's faculty get, exactly as they see it.</div></div>
-    <div class="row"><label class="sr" for="fv-pick">Program</label><select id="fv-pick">${list.map(p => `<option value="${esc(p.id)}">${esc(p.name)}</option>`).join('')}</select><button type="button" id="fv-go">Open</button></div></div></div>`;
-  document.getElementById('fv-go').onclick = () => { location.hash = '#/program/' + encodeURIComponent(document.getElementById('fv-pick').value) + '/dashboard'; };
-}
 function dashboard() {
   pageTitle('Dashboard');
   const st = Store.data.q, all = Object.values(st);
@@ -488,7 +478,6 @@ function dashboard() {
   ${bank.program && bank.program.status === 'pending' ? `<div class="card notice">Waiting for faculty at <b>${esc(bank.program.name)}</b> to approve you. Until they do, they cannot see any of your progress. <a href="#/settings">Settings</a></div>` : ''}
   ${active ? `<div class="card continue"><div class="contbody"><b>Continue where you left off</b><span class="muted">${active.paused ? 'Paused. ' : ''}${esc(active.mode === 'timed' ? 'Timed' : 'Tutor')} test, question ${Math.min(active.idx + 1, active.qids.length)} of ${active.qids.length} (${Object.keys(active.answers).length} answered)</span><div class="bar" aria-hidden="true"><i style="width:${pct(Object.keys(active.answers).length, active.qids.length)}%"></i></div></div><a class="btn primary" href="#/test">Resume</a></div>` : ''}
   ${(Store.data.parked || []).length ? `<div class="card notice">You have ${(Store.data.parked || []).length} more unfinished quiz${(Store.data.parked || []).length === 1 ? '' : 'zes'} in <a href="#/history">Test history</a>.</div>` : ''}
-  <div id="facview"></div>
   ${examCard(bank.questions.length - used)}
   <div class="grid">
     <div class="card stat"><b>${bank.questions.length}</b><span class="muted">Questions in bank</span></div>
@@ -517,7 +506,6 @@ function dashboard() {
   document.getElementById('cover-text').innerHTML = `<h2 class="pagetitle">Dashboard</h2><p>${sf ? 'Stress Free is on. Your scores are tucked away for now.' : esc(headline)}</p><div class="row"><a class="btn primary" href="#/create">Create a new test</a><label class="sfswitch" title="Hide your scores on the dashboard and let Pulse cheer you on instead"><input type="checkbox" role="switch" id="sf"${sf ? ' checked' : ''}><span class="trk" aria-hidden="true"></span>Stress Free</label></div>`;
   document.getElementById('sf').onchange = e => { Store.data.settings.stressFree = e.target.checked; Store.touchSettings(); dashboard(); document.getElementById('sf').focus(); };
   const exb = document.getElementById('exam-edit'); if (exb) exb.onclick = examDialog;
-  if (profile && profile.role === 'admin') facultyViewCard();
   if (profile && profile.role === 'faculty') $app.insertAdjacentHTML('afterbegin', facTabs('mine'));
   if (!sf) bindPerf();
   if (sf) { if (mascotOn()) Mascot.mount(document.getElementById('scene-slot'), { pose: 'happy', msg: esc(quote), scale: 6 }); else document.getElementById('cover-text').insertAdjacentHTML('beforeend', `<p class="sfquote"><i>${esc(quote)}</i></p>`); }
