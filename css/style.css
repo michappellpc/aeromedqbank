@@ -490,6 +490,14 @@ label.choice:has(input:focus-visible){outline:3px solid var(--link);outline-offs
 
 /* ---- Navigation: More menu on phones, calmer type ---- */
 .secgroup{display:contents}.navmore{display:none}
+/* Admin only: an arrow beside Dashboard opens a list of every residency program's dashboard */
+.navdash{position:relative;display:inline-flex;align-items:center;gap:2px}
+.navprogs{background:none;border:0;color:#c5cbac;padding:6px 6px;min-height:0;min-width:0;line-height:1;font-size:.85rem;cursor:pointer;border-radius:6px}.navprogs:hover,.navprogs[aria-expanded="true"]{color:#fff;background:rgba(255,255,255,.1)}
+.progmenu{position:absolute;top:100%;left:0;z-index:30;min-width:240px;max-width:min(340px,92vw);max-height:60vh;overflow:auto;background:var(--card);color:var(--fg);border:1px solid var(--line);border-radius:10px;box-shadow:0 10px 28px rgba(0,0,0,.3);padding:6px}
+.navprogs[hidden],.progmenu[hidden]{display:none!important}
+.progmenu .mhead{margin:6px 10px 4px;font-size:.72rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.progmenu a{display:block;padding:9px 10px;border-radius:6px;color:var(--fg);border:0;font-size:.92rem;text-align:left}.progmenu a:hover,.progmenu a:focus-visible{background:var(--sel);color:var(--fg)}
+.progmenu hr{border:0;border-top:1px solid var(--line);margin:6px 0}
 @media(max-width:600px){
   nav a{white-space:nowrap;font-size:.8rem;padding:10px 2px}
   nav button.navmore{display:block;flex:1;background:none;box-shadow:none;border:0;border-top:3px solid transparent;border-radius:0;color:#c5cbac;font:inherit;font-size:.8rem;padding:10px 2px;text-align:center;position:relative;min-height:0}
@@ -497,6 +505,7 @@ label.choice:has(input:focus-visible){outline:3px solid var(--link);outline-offs
   .navmore::after{content:"\25B4";margin-left:3px;font-size:.65rem}nav.open .navmore::after{content:"\25BE"}
   nav:has(.secgroup .navbadge:not([hidden])) .navmore::before{content:"";position:absolute;top:6px;right:calc(50% - 30px);width:9px;height:9px;border-radius:50%;background:#c0392b}
   .secgroup{display:none}
+  .navdash{display:contents}.navprogs,.progmenu{display:none!important}
   nav.open .secgroup{display:grid;grid-template-columns:repeat(2,1fr);gap:4px;position:fixed;left:8px;right:8px;bottom:calc(64px + env(safe-area-inset-bottom,0px));padding:8px;background:var(--hdr);border:1px solid var(--line);border-radius:var(--r);box-shadow:0 -6px 24px rgba(0,0,0,.35)}
   nav.open .secgroup a{display:block;font-size:.95rem;border:0;border-radius:8px;padding:14px 8px;background:rgba(255,255,255,.06);flex:none}
   nav.open .secgroup a[hidden]{display:none}

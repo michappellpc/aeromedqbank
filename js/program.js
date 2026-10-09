@@ -53,6 +53,12 @@ const Program = (() => {
     pageTitle('Dashboard');
     const preview = !!pid && !!profile && profile.role === 'admin';   // an admin looking at exactly what a program's faculty see on opening the app
     const pre = preview ? esc(pid) + '/' : '', here = location.hash;     // if they have moved on by the time the data arrives, leave the page they went to alone
+    // The cover (sky, plane and the ram) at the top, like the member dashboard, with the program's name and a line from Pulse
+    const cover = (title, sub, links, msg) => {
+      const ct = document.getElementById('cover-text'); if (!ct) return;
+      ct.innerHTML = `<h2 class="pagetitle">${esc(title)}</h2><p>${esc(sub)}</p>${links ? `<div class="row">${links}</div>` : ''}`;
+      if (mascotOn()) Mascot.mount(document.getElementById('scene-slot'), { pose: 'happy', msg: esc(msg), scale: 6 });
+    };
     if (!profile || (profile.role !== 'faculty' && !preview)) { $app.innerHTML = '<div class="card"><h2>Dashboard</h2><p class="muted">This page is for program faculty.</p></div>'; return; }
     $app.innerHTML = '<div class="card"><p class="muted">Loading your program...</p></div>';
     const tabs = preview ? '' : facTabs('program');
@@ -63,7 +69,7 @@ const Program = (() => {
       const [roster, subj] = mine ? await Promise.all(preview ? [Cloud.previewRoster(pid), Cloud.previewSubjects(pid)] : [Cloud.facultyRoster(), Cloud.facultySubjects()]) : [[], []];
       if (location.hash !== here) return;
       if (!mine && preview) { $app.innerHTML = '<div class="card"><h2>Dashboard</h2><p class="muted">That program was not found. <a href="#/admin">Back to Admin</a></p></div>'; return; }
-      if (!mine) { $app.innerHTML = `${tabs}<div class="pagehead"><div><h2 class="pagetitle">Dashboard</h2></div></div>${notes}<div class="card"><p class="muted">You have not been assigned to a program yet. Ask an administrator.</p></div>${own}`; return; }
+      if (!mine) { $app.innerHTML = `${tabs}${Mascot.scene(bank.config.coverImage)}${notes}<div class="card"><p class="muted">You have not been assigned to a program yet. Ask an administrator.</p></div>${own}`; cover('Dashboard', 'Welcome, Doc.', '', 'An administrator will connect you to your program.'); return; }
       const who = r => r.display_name || r.email;
       const res = roster.filter(r => r.status === 'approved'), pending = roster.filter(r => r.status === 'pending');
       const tot = res.reduce((a, r) => a + Number(r.attempts || 0), 0), cor = res.reduce((a, r) => a + Number(r.correct || 0), 0);
@@ -71,7 +77,7 @@ const Program = (() => {
       const week = res.filter(r => ago(r) <= 7).length, quiet = res.filter(r => ago(r) > 14).sort((a, b) => ago(b) - ago(a));
       const subjects = [...new Set(subj.map(x => x.subject))].map(s => { const rows = subj.filter(x => x.subject === s), n = rows.reduce((a, x) => a + Number(x.attempts), 0), c = rows.reduce((a, x) => a + Number(x.correct), 0); return { s, n, p: n ? pct(c, n) : null }; }).filter(x => x.n).sort((a, b) => a.p - b.p || b.n - a.n);
       const heat = p => `<td class="heat ${p >= 70 ? 'hi' : p >= 50 ? 'mid' : 'lo'}"><b>${p}%</b></td>`;
-      $app.innerHTML = `${tabs}<div class="pagehead"><div><h2 class="pagetitle">${esc(mine.name)}</h2><p class="muted">Your residents at a glance. Your own practice answers are kept separate and are not part of these numbers.</p></div><div class="row"><a class="btn primary" href="#/program${preview ? '/' + esc(pid) : ''}">Residents</a><a class="btn" href="#/program/${pre}insights">Program insights</a></div></div>
+      $app.innerHTML = `${tabs}${Mascot.scene(bank.config.coverImage)}
         ${preview ? `<div class="card notice rep-preview"><b>Preview.</b> This is the dashboard faculty for ${esc(mine.name)} see when they open the app. <a href="#/admin">Back to Admin</a></div>` : ''}
         ${notes}
         ${pending.length ? `<div class="card notice"><b>${pending.length} ${pending.length === 1 ? 'person is' : 'people are'} waiting for your approval.</b> <a href="#/program${preview ? '/' + esc(pid) : ''}">Review requests</a></div>` : ''}
@@ -80,6 +86,8 @@ const Program = (() => {
         ${quiet.length ? `<div class="card"><h2>Quiet for two weeks or more</h2><p class="muted">${quiet.length} of ${res.length} resident${res.length === 1 ? '' : 's'} ${quiet.length === 1 ? 'has' : 'have'} not answered anything in 14 days or longer.</p><ul class="reclist">${quiet.slice(0, 8).map(r => `<li>${esc(who(r))} <span class="muted">${r.last_active ? 'last active ' + new Date(r.last_active).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : 'has not started'}</span></li>`).join('')}</ul>${quiet.length > 8 ? `<p class="muted small">and ${quiet.length - 8} more. <a href="#/program${preview ? '/' + esc(pid) : ''}">See everyone</a></p>` : ''}</div>` : ''}
         ${subjects.length ? `<div class="card"><h2>How the program is doing by subject</h2><p class="muted">Weakest first. Percent correct across all your residents, with how many questions that is. Green is 70% or more, amber 50 to 69, red under 50.</p><div class="scroll" role="region" tabindex="0" aria-label="Program subjects table"><table class="heatmap"><caption class="sr">Program percent correct by subject, weakest first</caption><thead><tr><th scope="col">Subject</th><th scope="col">Questions answered</th><th scope="col">Correct</th></tr></thead><tbody>${subjects.map(x => `<tr><th scope="row">${esc(x.s)}</th><td>${x.n}</td>${heat(x.p)}</tr>`).join('')}</tbody></table></div><p class="small"><a href="#/program/${pre}insights">See the topics and questions behind these, and the lessons that would help most</a></p></div>` : ''}
         ${own}`;
+      cover(mine.name, 'Your residents at a glance. Your own practice answers are kept separate and are not part of these numbers.', `<a class="btn primary" href="#/program${preview ? '/' + esc(pid) : ''}">Residents</a><a class="btn" href="#/program/${pre}insights">Program insights</a>`,
+        !res.length ? 'No residents yet. They find you when they sign up.' : week === res.length ? `All ${res.length} resident${res.length === 1 ? ' was' : 's were'} active this week. Nice.` : `${week} of ${res.length} resident${res.length === 1 ? ' was' : 's were'} active this week.`);
     } catch (e) { $app.innerHTML = `${tabs}<div class="card"><h2>Dashboard</h2><p class="muted">Could not load your program: ${esc(e.offline ? 'you are offline' : e.message)}</p></div>${own}`; }
   }
 
