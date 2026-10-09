@@ -684,4 +684,20 @@ eq  "a faculty member's own tries still count for their own history" "2" "$(root
 root "delete from attempts where client_id in ('fac-t1','fac-t2');" >/dev/null
 as admin "select set_peer_min_users(10); commit;" >/dev/null
 
+echo; echo "Subject trend for faculty"
+trend() { asfac "select coalesce(string_agg(subject||':'||recent_attempts||','||recent_correct||','||prev_attempts||','||prev_correct, ';' order by subject), '') from faculty_subject_trend($1);"; }
+eq  "faculty see this period against the one before, per subject (30 days: 30 recent answers, 22 right, none before)" "S:30,22,0,0" "$(trend 30)"
+eq  "with 90 days, the 12 wrong answers from 150 days ago are the earlier period" "S:30,22,12,0" "$(trend 90)"
+eq  "with 180 days they are part of the recent period, and nothing is before" "S:42,22,0,0" "$(trend 180)"
+eq  "a subject only two residents answered is left out" "0" "$(asfac "select count(*) from faculty_subject_trend(180) where subject='S2';")"
+eq  "a window outside 7 to 365 days is pulled into range, not an error" "S:30,22,0,0" "$(trend 1)"
+eq  "an admin sees the same for any program" "S:30,22,12,0" "$(as admin "select string_agg(subject||':'||recent_attempts||','||recent_correct||','||prev_attempts||','||prev_correct, ';') from preview_subject_trend('prog-ins', 90);")"
+eq  "a program with fewer than three residents returns nothing" "0" "$(as admin "select count(*) from preview_subject_trend('prog-two', 180);")"
+has "a member cannot call the faculty version"  "faculty only" "$(as a "select * from faculty_subject_trend(30);")"
+has "a member cannot call the preview"          "admins only" "$(as a "select * from preview_subject_trend('prog-ins', 30);")"
+has "signed-out visitors cannot call it"        "permission denied" "$(as anon "select * from faculty_subject_trend(30);")"
+root "insert into attempts (user_id, question_id, ok, client_id) values ('$IF','qi-1',false,'fac-trend-1'), ('$IF','qi-1',false,'fac-trend-2');" >/dev/null
+eq  "faculty answers do not move the trend" "S:30,22,0,0" "$(trend 30)"
+root "delete from attempts where client_id like 'fac-trend-%';" >/dev/null
+
 echo; echo "$PASS passed, $FAIL failed"; [[ $FAIL -eq 0 ]]

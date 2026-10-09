@@ -46,6 +46,8 @@ const Program = (() => {
   }
 
   // ------------------------------------------------------------------ faculty page
+  let trendDays = 30, focusTrend = false;      // the dashboard compares this many recent days with the same number before them
+  const TREND_CHOICES = [[14, '14 days'], [30, '30 days'], [90, '90 days']], TREND_MIN = 5;   // each period needs at least this many answers before a change is shown
   // ------------------------------------------------------------------ faculty: their dashboard
   // What faculty see on opening the app: how their residents are doing, not their own scores. Their own answers (they try questions to see
   // and test them) are kept out of every program and group figure, so nothing here or in the residents' numbers includes them.
@@ -67,6 +69,7 @@ const Program = (() => {
     try {
       const mine = preview ? await Cloud.adminPrograms().then(l => l.find(p => p.id === pid) || null) : await Cloud.myProgram();     // asked first: the roster calls refuse faculty who have no program yet
       const [roster, subj] = mine ? await Promise.all(preview ? [Cloud.previewRoster(pid), Cloud.previewSubjects(pid)] : [Cloud.facultyRoster(), Cloud.facultySubjects()]) : [[], []];
+      const trend = mine ? await (preview ? Cloud.previewSubjectTrend(pid, trendDays) : Cloud.facultySubjectTrend(trendDays)).catch(() => null) : null;     // null on a database without the trend function yet
       if (location.hash !== here) return;
       if (!mine && preview) { $app.innerHTML = '<div class="card"><h2>Dashboard</h2><p class="muted">That program was not found. <a href="#/admin">Back to Admin</a></p></div>'; return; }
       if (!mine) { $app.innerHTML = `${tabs}${Mascot.scene(bank.config.coverImage)}${notes}<div class="card"><p class="muted">You have not been assigned to a program yet. Ask an administrator.</p></div>${own}`; cover('Dashboard', 'Welcome, Doc.', '', 'An administrator will connect you to your program.'); return; }
@@ -77,6 +80,15 @@ const Program = (() => {
       const week = res.filter(r => ago(r) <= 7).length, quiet = res.filter(r => ago(r) > 14).sort((a, b) => ago(b) - ago(a));
       const subjects = [...new Set(subj.map(x => x.subject))].map(s => { const rows = subj.filter(x => x.subject === s), n = rows.reduce((a, x) => a + Number(x.attempts), 0), c = rows.reduce((a, x) => a + Number(x.correct), 0); return { s, n, p: n ? pct(c, n) : null }; }).filter(x => x.n).sort((a, b) => a.p - b.p || b.n - a.n);
       const heat = p => `<td class="heat ${p >= 70 ? 'hi' : p >= 50 ? 'mid' : 'lo'}"><b>${p}%</b></td>`;
+      const tr = Object.fromEntries((trend || []).map(r => [r.subject, r]));
+      const trendCells = s => {
+        const r = tr[s]; if (!r) return '<td class="muted">-</td><td class="muted">-</td>';
+        const rn = Number(r.recent_attempts), pn = Number(r.prev_attempts), rp = rn ? pct(Number(r.recent_correct), rn) : null, pp = pn ? pct(Number(r.prev_correct), pn) : null;
+        const now = rn ? `${rp}% <span class="muted">(${rn})</span>` : '<span class="muted">none</span>';
+        if (rn < TREND_MIN || pn < TREND_MIN) return `<td>${now}</td><td class="muted"><span aria-hidden="true">-</span><span class="sr">Not enough answers in both periods to show a change</span></td>`;
+        const d = rp - pp, kind = d >= 3 ? 'up' : d <= -3 ? 'down' : 'flat';
+        return `<td>${now}</td><td class="chg ${kind}" title="${pp}% before, ${rp}% now"><b>${kind === 'up' ? '&#9650; +' + d : kind === 'down' ? '&#9660; ' + d : '&#9654; ' + (d > 0 ? '+' : '') + d}</b> <span class="sr">${kind === 'up' ? 'up' : kind === 'down' ? 'down' : 'about the same,'} ${Math.abs(d)} points from ${pp}%</span></td>`;
+      };
       $app.innerHTML = `${tabs}${Mascot.scene(bank.config.coverImage)}
         ${preview ? `<div class="card notice rep-preview"><b>Preview.</b> This is the dashboard faculty for ${esc(mine.name)} see when they open the app. <a href="#/admin">Back to Admin</a></div>` : ''}
         ${notes}
@@ -84,10 +96,15 @@ const Program = (() => {
         <div class="grid"><div class="card stat"><b>${res.length}</b><span>Residents</span></div><div class="card stat"><b>${week}</b><span>Active in the last 7 days</span></div><div class="card stat"><b>${tot}</b><span>Questions answered</span></div><div class="card stat"><b>${tot ? pct(cor, tot) + '%' : '-'}</b><span>Program correct</span></div></div>
         ${res.length ? '' : '<div class="card"><p class="muted">No residents have joined yet. Residents choose your program when they sign up, or in Settings, and you approve them under Residents.</p></div>'}
         ${quiet.length ? `<div class="card"><h2>Quiet for two weeks or more</h2><p class="muted">${quiet.length} of ${res.length} resident${res.length === 1 ? '' : 's'} ${quiet.length === 1 ? 'has' : 'have'} not answered anything in 14 days or longer.</p><ul class="reclist">${quiet.slice(0, 8).map(r => `<li>${esc(who(r))} <span class="muted">${r.last_active ? 'last active ' + new Date(r.last_active).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : 'has not started'}</span></li>`).join('')}</ul>${quiet.length > 8 ? `<p class="muted small">and ${quiet.length - 8} more. <a href="#/program${preview ? '/' + esc(pid) : ''}">See everyone</a></p>` : ''}</div>` : ''}
-        ${subjects.length ? `<div class="card"><h2>How the program is doing by subject</h2><p class="muted">Weakest first. Percent correct across all your residents, with how many questions that is. Green is 70% or more, amber 50 to 69, red under 50.</p><div class="scroll" role="region" tabindex="0" aria-label="Program subjects table"><table class="heatmap"><caption class="sr">Program percent correct by subject, weakest first</caption><thead><tr><th scope="col">Subject</th><th scope="col">Questions answered</th><th scope="col">Correct</th></tr></thead><tbody>${subjects.map(x => `<tr><th scope="row">${esc(x.s)}</th><td>${x.n}</td>${heat(x.p)}</tr>`).join('')}</tbody></table></div><p class="small"><a href="#/program/${pre}insights">See the topics and questions behind these, and the lessons that would help most</a></p></div>` : ''}
+        ${subjects.length ? `<div class="card"><h2>How the program is doing by subject</h2><p class="muted">Weakest first. Percent correct across all your residents, with how many questions that is. Green is 70% or more, amber 50 to 69, red under 50.${trend ? ` The last two columns show how each subject is moving: the recent period against the period of the same length just before it.` : ''}</p>
+          ${trend ? `<div class="row" style="margin:6px 0"><label for="tr-days">Compare the last</label><select id="tr-days" style="width:auto">${TREND_CHOICES.map(([d, l]) => `<option value="${d}"${d === trendDays ? ' selected' : ''}>${l}</option>`).join('')}</select><span class="muted">with the ${trendDays} days before that</span></div>` : ''}
+          <div class="scroll" role="region" tabindex="0" aria-label="Program subjects table"><table class="heatmap"><caption class="sr">Program percent correct by subject, weakest first${trend ? ', with the change over time' : ''}</caption><thead><tr><th scope="col">Subject</th><th scope="col" class="qa">Questions answered</th><th scope="col">Correct</th>${trend ? `<th scope="col">Last ${trendDays} days</th><th scope="col">Change</th>` : ''}</tr></thead><tbody>${subjects.map(x => `<tr><th scope="row">${esc(x.s)}</th><td class="qa">${x.n}</td>${heat(x.p)}${trend ? trendCells(x.s) : ''}</tr>`).join('')}</tbody></table></div>
+          ${trend ? `<p class="muted small">A change appears once both periods have at least ${TREND_MIN} answers. Subjects that fewer than three residents answered are left out, so no one resident shows.</p>` : ''}
+          <p class="small"><a href="#/program/${pre}insights">See the topics and questions behind these, and the lessons that would help most</a></p></div>` : ''}
         ${own}`;
       cover(mine.name, 'Your residents at a glance. Your own practice answers are kept separate and are not part of these numbers.', `<a class="btn primary" href="#/program${preview ? '/' + esc(pid) : ''}">Residents</a><a class="btn" href="#/program/${pre}insights">Program insights</a>`,
         !res.length ? 'No residents yet. They find you when they sign up.' : week === res.length ? `All ${res.length} resident${res.length === 1 ? ' was' : 's were'} active this week. Nice.` : `${week} of ${res.length} resident${res.length === 1 ? ' was' : 's were'} active this week.`);
+      const sel = document.getElementById('tr-days'); if (sel) { if (focusTrend) { focusTrend = false; sel.focus(); sel.scrollIntoView({ block: 'center' }); } sel.onchange = () => { trendDays = +sel.value || 30; focusTrend = true; dashboard(pid); }; }
     } catch (e) { $app.innerHTML = `${tabs}<div class="card"><h2>Dashboard</h2><p class="muted">Could not load your program: ${esc(e.offline ? 'you are offline' : e.message)}</p></div>${own}`; }
   }
 
