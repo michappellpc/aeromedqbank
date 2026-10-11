@@ -1,8 +1,1 @@
-{
-  "feedbackUrl": "https://docs.google.com/forms/d/e/1FAIpQLScD189IKDhxyj044dtdK6iX2FZhAHTq_7tzcsBpdf4-w39THg/viewform",
-  "supabase": {
-    "url": "https://bwviyjxwudylovtjqvyf.supabase.co",
-    "anonKey": "sb_publishable_p6VD72SDZXx1SjOlt37LtA_P6unMJmG"
-  },
-  "contactEmail": "michappellpc@gmail.com"
-}
+{"feedbackUrl":"https://docs.google.com/forms/d/e/1FAIpQLScD189IKDhxyj044dtdK6iX2FZhAHTq_7tzcsBpdf4-w39THg/viewform","supabase":{"url":"http://localhost:9998","anonKey":"anon-test-key"},"contactEmail":"michappellpc@gmail.com"}
