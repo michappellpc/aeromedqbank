@@ -128,6 +128,9 @@ On the Score trend chart, "Compare with everyone" (on by default, shown when gro
 ## Repeat a quiz
 Every finished quiz in Test history has a **Repeat** button next to View. It starts a new quiz with the same questions in the same order and the same mode (a timed quiz gets the usual 90 seconds a question). It is scored and listed as a new quiz. Questions that have since been archived or removed are left out, and a message says how many. An unfinished quiz in progress is parked in Test history first, as for any new quiz. No database change.
 
+## Config safety check
+`data/config.json` must point at the real Supabase project. `node tools/test-config.js` (also run on every push by the Validate workflow) fails if the address is not https, is localhost or a private network address, or the key looks like a secret key. As a second guard, `js/cloud.js` ignores a localhost or private-network Supabase address whenever the page itself is not served from localhost, so a stray test setting can never make a member's browser look for apps on their own device.
+
 ## Test history numbering
 
 History lists each quiz as Quiz 1, Quiz 2 and so on, oldest first. The results page shows the same number.
