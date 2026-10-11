@@ -4,7 +4,7 @@
   if (typeof module === 'object' && module.exports) module.exports = factory(); else root.CardValidate = factory();
 })(typeof self !== 'undefined' ? self : this, function () {
   const STATUS = ['draft', 'reviewed'];
-  const FIELDS = ['id', 'status', 'reviewedBy', 'boards', 'subject', 'topic', 'front', 'back', 'lessonId', 'objectives', 'references', 'archived'];
+  const FIELDS = ['id', 'status', 'reviewedBy', 'boards', 'subject', 'topic', 'front', 'back', 'lessonId', 'objectives', 'highYield', 'references', 'archived'];
   const norm = s => String(s).toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
 
   // normalize(raw) -> { clean, dropped }: keeps only known fields and tidies text
@@ -13,6 +13,9 @@
     Object.keys(raw || {}).forEach(k => { if (FIELDS.includes(k)) clean[k] = raw[k]; else dropped.push(k); });
     ['id', 'subject', 'topic', 'front', 'back', 'lessonId'].forEach(k => { if (typeof clean[k] === 'string') clean[k] = clean[k].trim(); });
     if (!clean.status) clean.status = 'draft';
+    if (clean.highYield != null && typeof clean.highYield !== 'boolean') {   // be forgiving: true/false, "yes"/"no", 1/0
+      const s = String(clean.highYield).trim().toLowerCase(); if (['true', 'yes', 'y', '1'].includes(s)) clean.highYield = true; else if (['false', 'no', 'n', '0', ''].includes(s)) clean.highYield = false;
+    }
     if (clean.objectives != null) {              // be forgiving about how a list of outline items is written: a string, objects, "AEM K1.E.1", "aem:K1.E.1 - Hypobaric exposures", or a bare K1.E.1 on a one-board item
       let list = clean.objectives; if (typeof list === 'string') list = list.split(/[,;\n|]+/);
       if (Array.isArray(list)) {
@@ -55,6 +58,7 @@
       else if (back.length > 700) warn('back is long; consider splitting this into two cards');
     }
     if (front && back && norm(front) === norm(back)) err('front and back are the same');
+    if (c.highYield != null && typeof c.highYield !== 'boolean') err('highYield must be true or false');
     if (c.objectives != null) {
       if (!Array.isArray(c.objectives) || c.objectives.length > 12 || c.objectives.some(o => typeof o !== 'string' || !/^(aem|om|pm):[TK][0-9]+(\.[A-Za-z0-9]+)*$/.test(o))) err(`objectives must be a list of at most 12 board outline items such as "aem:K1.E.1"${Array.isArray(c.objectives) ? ' (not understood: ' + c.objectives.filter(o => typeof o !== 'string' || !/^(aem|om|pm):[TK][0-9]+(\\.[A-Za-z0-9]+)*$/.test(o)).slice(0, 3).map(o => JSON.stringify(o)).join(', ') + ')' : ''}`);
       else { c.objectives.forEach(o => { if (ctx.knownObjective && !ctx.knownObjective(o)) warn(`objective "${o}" is not an item in the board outline`); else if (Array.isArray(c.boards) && c.boards.length && !c.boards.includes(o.split(':')[0])) warn(`objective "${o}" is from a board this card is not listed for`); }); }

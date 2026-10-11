@@ -82,19 +82,22 @@ const Lessons = (() => {
   const board = id => (bank.boards.find(b => b.id === id) || { name: id }).name;
   const enc = encodeURIComponent;
   const staff = () => typeof profile !== 'undefined' && profile && (profile.role === 'admin' || profile.role === 'reviewer');
-  const tags = l => l.boards.map(b => `<span class="tag">${X(board(b))}</span>`).join('') + (l.status !== 'reviewed' ? '<span class="tag draft" title="Only admins and reviewers can see drafts">Draft</span>' : '');
+  const tags = l => l.boards.map(b => `<span class="tag">${X(board(b))}</span>`).join('') + (l.highYield ? '<span class="tag hy" title="Marked high yield">High yield</span>' : '') + (l.status !== 'reviewed' ? '<span class="tag draft" title="Only admins and reviewers can see drafts">Draft</span>' : '');
+  const hyList = list => (hyOn() ? list.filter(l => l.highYield) : list);     // High yield only
   const sorted = list => list.slice().sort((a, b) => (a.order ?? 100) - (b.order ?? 100) || a.title.localeCompare(b.title));
   const done = () => { bindZoom(); hydrateImages(); };
 
   function indexPage() {
     pageTitle('Lessons');
-    const all = bank.lessons || [];
+    const full = bank.lessons || [], all = hyList(full), nHy = full.filter(l => l.highYield).length;
     const tile = (subj, n) => n ? `<a class="subjtile" href="#/lessons/${enc(subj)}"><b>${X(subj)}</b><span>${n} lesson${n === 1 ? '' : 's'}</span></a>` : `<div class="subjtile off" aria-disabled="true"><b>${X(subj)}</b><span>No lessons yet</span></div>`;
     $app.innerHTML = `<div class="pagehead"><div><h2 class="pagetitle">Lessons</h2><p class="muted">Short reviews with tables, charts and step-by-step flows. Choose a subject.</p></div>
       <div class="lsearch"><label class="sr" for="lq">Search lessons</label><input id="lq" type="search" placeholder="Search lessons" autocomplete="off"></div></div>
+      <div class="row hybar">${hySwitch('hy', `${nHy} of ${full.length} lesson${full.length === 1 ? ' is' : 's are'} marked high yield`)}</div>
       <div id="lres"></div>
       <div id="lidx">${bank.boards.map(b => `<section class="card"><h2>${X(b.name)}</h2><div class="subjgrid">${(bank.subjects[b.id] || []).map(s => tile(s, all.filter(l => l.boards.includes(b.id) && l.subject === s).length)).join('')}</div></section>`).join('')}
-      ${all.length ? '' : '<p class="muted">Lessons have not been added yet.</p>'}</div>`;
+      ${all.length ? '' : `<p class="muted">${full.length ? 'No lessons are marked high yield yet. Switch off High yield only to see them all.' : 'Lessons have not been added yet.'}</p>`}</div>`;
+    document.getElementById('hy').onchange = e => { setHy(e.target.checked); indexPage(); const again = document.getElementById('hy'); if (again) again.focus(); };
     document.getElementById('lq').addEventListener('input', e => {
       const w = e.target.value.trim().toLowerCase(), res = document.getElementById('lres'), idx = document.getElementById('lidx');
       idx.hidden = !!w; if (!w) { res.innerHTML = ''; return; }
@@ -107,9 +110,11 @@ const Lessons = (() => {
   function subjectPage(subject) {
     subject = decodeURIComponent(subject || '');
     pageTitle(subject || 'Lessons');
-    const list = sorted((bank.lessons || []).filter(l => l.subject === subject));
+    const inSubject = (bank.lessons || []).filter(l => l.subject === subject), list = sorted(hyList(inSubject));
     $app.innerHTML = `<div class="pagehead"><div><p class="crumb"><a href="#/lessons">Lessons</a></p><h2 class="pagetitle">${X(subject)}</h2></div><a class="btn primary" href="#/create/${enc(subject)}">Practice questions in this subject</a></div>
-      <div class="card">${list.length ? list.map(card).join('') : '<p class="muted">No lessons in this subject yet.</p>'}</div>`;
+      <div class="row hybar">${hySwitch('hy', `${inSubject.filter(l => l.highYield).length} of ${inSubject.length} marked high yield`)}</div>
+      <div class="card">${list.length ? list.map(card).join('') : `<p class="muted">${inSubject.length ? 'No lessons here are marked high yield yet. Switch off High yield only to see them all.' : 'No lessons in this subject yet.'}</p>`}</div>`;
+    document.getElementById('hy').onchange = e => { setHy(e.target.checked); subjectPage(encodeURIComponent(subject)); const again = document.getElementById('hy'); if (again) again.focus(); };
   }
 
   function lessonPage(id) {

@@ -207,7 +207,7 @@ const Cloud = (() => {
   const toQuestion = r => ({
     id: r.id, status: r.status, reviewedBy: r.reviewed_by || undefined, boards: r.boards, subject: r.subject, topic: r.topic || '',
     difficulty: r.difficulty || 2, stem: r.stem, image: r.image || undefined, imageAlt: r.image_alt || undefined,
-    options: r.options, answer: r.answer, explanation: r.explanation, optionNotes: r.option_notes || undefined, references: r.refs || [], tier: r.tier, lessonId: r.lesson_id || undefined, objectives: r.objectives && r.objectives.length ? r.objectives : undefined
+    options: r.options, answer: r.answer, explanation: r.explanation, optionNotes: r.option_notes || undefined, references: r.refs || [], tier: r.tier, lessonId: r.lesson_id || undefined, objectives: r.objectives && r.objectives.length ? r.objectives : undefined, highYield: r.high_yield === true ? true : undefined
   });
 
   const toEditorQuestion = r => ({ ...toQuestion(r), archived: !!r.archived, updatedAt: r.updated_at, updatedBy: r.updated_by || '' });
@@ -219,20 +219,21 @@ const Cloud = (() => {
     if (typeof q.archived === 'boolean') row.archived = q.archived;
     if (q.lessonId !== undefined) row.lesson_id = q.lessonId || null;      // only sent when set or cleared, so an older database is not troubled
     if (q.objectives !== undefined) row.objectives = q.objectives || [];     // same: only sent when set or cleared
+    if (q.highYield !== undefined) row.high_yield = !!q.highYield;           // same
     return row;
   };
   let noChosenColumn = false;
   const inList = ids => '(' + ids.map(i => '"' + String(i).replace(/"/g, '') + '"').join(',') + ')';
   // ---- flashcards ----
-  const toCard = r => ({ id: r.id, status: r.status, reviewedBy: r.reviewed_by || undefined, boards: r.boards, subject: r.subject, topic: r.topic || '', front: r.front, back: r.back, lessonId: r.lesson_id || undefined, objectives: r.objectives && r.objectives.length ? r.objectives : undefined, references: r.refs || [] });
+  const toCard = r => ({ id: r.id, status: r.status, reviewedBy: r.reviewed_by || undefined, boards: r.boards, subject: r.subject, topic: r.topic || '', front: r.front, back: r.back, lessonId: r.lesson_id || undefined, objectives: r.objectives && r.objectives.length ? r.objectives : undefined, highYield: r.high_yield === true ? true : undefined, references: r.refs || [] });
   const toEditorCard = r => ({ ...toCard(r), archived: !!r.archived, updatedAt: r.updated_at, updatedBy: r.updated_by || '' });
-  const toCardRow = c => { const row = { id: c.id, status: c.status, boards: c.boards, subject: c.subject, topic: c.topic || null, front: c.front, back: c.back, lesson_id: c.lessonId || null, refs: c.references || [] }; if (typeof c.archived === 'boolean') row.archived = c.archived; if (c.objectives !== undefined) row.objectives = c.objectives || []; return row; };
+  const toCardRow = c => { const row = { id: c.id, status: c.status, boards: c.boards, subject: c.subject, topic: c.topic || null, front: c.front, back: c.back, lesson_id: c.lessonId || null, refs: c.references || [] }; if (typeof c.archived === 'boolean') row.archived = c.archived; if (c.objectives !== undefined) row.objectives = c.objectives || []; if (c.highYield !== undefined) row.high_yield = !!c.highYield; return row; };
   // ---- lessons ----
   const toLesson = r => ({ id: r.id, status: r.status, reviewedBy: r.reviewed_by || undefined, boards: r.boards, subject: r.subject, title: r.title, summary: r.summary || '',
-    order: r.position, blocks: r.blocks || [], references: r.refs || [], tier: r.tier, objectives: r.objectives && r.objectives.length ? r.objectives : undefined });
+    order: r.position, blocks: r.blocks || [], references: r.refs || [], tier: r.tier, objectives: r.objectives && r.objectives.length ? r.objectives : undefined, highYield: r.high_yield === true ? true : undefined });
   const toEditorLesson = r => ({ ...toLesson(r), archived: !!r.archived, updatedAt: r.updated_at, updatedBy: r.updated_by || '' });
   const toLessonRow = l => { const row = { id: l.id, status: l.status, boards: l.boards, subject: l.subject, title: l.title, summary: l.summary || '', position: l.order === undefined ? 100 : l.order,
-    blocks: l.blocks, refs: l.references || [], tier: l.tier || 'pro' }; if (typeof l.archived === 'boolean') row.archived = l.archived; if (l.objectives !== undefined) row.objectives = l.objectives || []; return row; };
+    blocks: l.blocks, refs: l.references || [], tier: l.tier || 'pro' }; if (typeof l.archived === 'boolean') row.archived = l.archived; if (l.objectives !== undefined) row.objectives = l.objectives || []; if (l.highYield !== undefined) row.high_yield = !!l.highYield; return row; };
   const noOwnTable = e => e && (e.status === 404 || e.status === 400) && /highlights|my_cards|schema cache|relation/i.test(e.message || '');
   const hlToRow = h => ({ id: h.id, user_id: uid(), kind: h.k, item_id: h.i, field: h.f, start_pos: h.a, end_pos: h.b, text_hl: h.t });
   const hlFromRow = r => ({ id: r.id, k: r.kind, i: r.item_id, f: r.field, a: r.start_pos, b: r.end_pos, t: r.text_hl });
@@ -496,7 +497,7 @@ const Cloud = (() => {
     queueAttempt(question_id, ok, chosen) { change(q => q.attempts.push({ question_id, ok, ...(chosen ? { chosen: String(chosen).slice(0, 3) } : {}), client_id: cid(), at: new Date().toISOString() })); },
     queueMark(question_id) { change(q => { const s = Store.qstat(question_id) || {}; q.marks[question_id] = { flagged: !!s.flagged, note: s.note || '', updated_at: new Date().toISOString() }; }); },
     queueTest(rec) { change(q => { q.tests[rec.id] = rec; }); },
-    queueSettings() { change(q => { const s = Store.data.settings; q.settings = { data: { theme: s.theme, showDrafts: s.showDrafts !== false, palette: s.palette || 'navy', ...(s.paletteChosen ? { paletteChosen: true } : {}), exam: s.exam || null, quizMascot: s.quizMascot !== false, quizText: +s.quizText || 0, ...(s.dash ? { dash: s.dash } : {}), ...(s.cards ? { cards: s.cards } : {}), ...(s.stressFree !== undefined ? { stressFree: !!s.stressFree } : {}), ...(Array.isArray(s.suspended) ? { suspended: s.suspended } : {}), ...(Store.data.activeAt ? { active: Store.data.active || null, parked: Store.data.parked || [], activeAt: Store.data.activeAt } : {}) }, updated_at: new Date().toISOString() }; }); },
+    queueSettings() { change(q => { const s = Store.data.settings; q.settings = { data: { theme: s.theme, showDrafts: s.showDrafts !== false, palette: s.palette || 'navy', ...(s.paletteChosen ? { paletteChosen: true } : {}), exam: s.exam || null, quizMascot: s.quizMascot !== false, quizText: +s.quizText || 0, ...(s.dash ? { dash: s.dash } : {}), ...(s.cards ? { cards: s.cards } : {}), ...(s.stressFree !== undefined ? { stressFree: !!s.stressFree } : {}), ...(s.highYield !== undefined ? { highYield: !!s.highYield } : {}), ...(Array.isArray(s.suspended) ? { suspended: s.suspended } : {}), ...(Store.data.activeAt ? { active: Store.data.active || null, parked: Store.data.parked || [], activeAt: Store.data.activeAt } : {}) }, updated_at: new Date().toISOString() }; }); },
     queueCard(id, st) { if (String(id).startsWith('my:')) return this.queueMine(String(id).slice(3)); change(q => { (q.cards ||= {})[id] = st; }); },
     queueHl(id) { change(q => { const h = (Store.data.hl || {})[id]; (q.hl ||= {})[id] = h ? hlToRow(h) : null; }); },
     queueMine(id) { change(q => { const c = (Store.data.mine || {})[id]; (q.mine ||= {})[id] = c ? mineToRow(c, (Store.data.cards || {})['my:' + id]) : null; }); },

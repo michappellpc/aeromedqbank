@@ -83,4 +83,15 @@ t('the first message is not repeated inside the conversation', ct.split('How do 
 t('team members\' emails and names are never included', !/admin@private\.example/.test(ct));
 t('a message with no replies, or no thread, has no conversation block', (ct.match(/Conversation so far/g) || []).length === 1);
 t('the reply task tells Claude to read the whole conversation and write the next reply', /read all of it first and write the next reply/.test(ct) && /conversation under it too/.test(H.build('feedback', convo, { task: 'fix' })));
+console.log('High yield');
+{
+  const items = [{ ...mq(1), highYield: true }, mq(2)];
+  const x = H.build('questions', items, { task: 'highyield' });
+  t('every kind offers the high yield task', ['questions', 'lessons', 'cards'].every(k => H.TASKS[k].some(r => r[0] === 'highyield' && /HIGH YIELD/.test(r[2]))));
+  t('it asks Claude to be selective (about a fifth to a third) and to answer with only id and highYield', /20% to 30%/.test(x) && /only "id" \(exactly as given\) and "highYield"/.test(x) && /Do not return the other fields/.test(x));
+  t('it tells Claude that nothing goes back to draft, and does not ask for status draft or the field rules', /nothing goes back to draft/.test(x) && !/Set "status": "draft" on every item/.test(x) && !/Each question needs "stem"/.test(x));
+  t('the items are sent as they are, not forced to draft, and show highYield only where it is true', (() => { const sent = after(x, 'THE QUESTIONS:\n'); return sent.length === 2 && sent[0].highYield === true && !('highYield' in sent[1]) && sent[0].status === undefined; })());
+  t('other tasks do not show a highYield of false, and do keep a true one', (() => { const o = after(H.build('questions', items, { task: 'review' }), 'THE QUESTIONS:\n'); return o[0].highYield === true && !('highYield' in o[1]); })());
+  t('the lesson and card versions work the same way', ['lessons', 'cards'].every(k => { const it = k === 'lessons' ? { id: 'l-1', boards: ['aem'], subject: 'S', title: 'T', summary: 's', blocks: [{ type: 'text', text: 'x' }] } : { id: 'c-1', boards: ['aem'], subject: 'S', front: 'f', back: 'b' }; const out = H.build(k, [{ ...it, highYield: true }, { ...it, id: it.id + 'b' }], { task: 'highyield' }); return /HIGH YIELD/.test(out) && /only "id"/.test(out) && !/Set "status": "draft"/.test(out); }));
+}
 console.log(`\n${pass} passed, ${fail} failed`); process.exit(fail ? 1 : 0);

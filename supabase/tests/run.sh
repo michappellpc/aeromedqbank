@@ -700,4 +700,23 @@ root "insert into attempts (user_id, question_id, ok, client_id) values ('$IF','
 eq  "faculty answers do not move the trend" "S:30,22,0,0" "$(trend 30)"
 root "delete from attempts where client_id like 'fac-trend-%';" >/dev/null
 
+echo; echo "High yield"
+root "insert into questions (id, boards, subject, stem, options, answer, explanation, tier, status) values ('hy-q','{aem}','S','hy stem','[{\"id\":\"A\",\"text\":\"x\"}]','A','why','free','reviewed');
+  insert into lessons (id, boards, subject, title, tier, status, blocks) values ('hy-l','{aem}','S','HY lesson','free','reviewed','[]');
+  insert into flashcards (id, boards, subject, front, back, status) values ('hy-c','{aem}','S','HY front','HY back','reviewed');" >/dev/null
+eq  "high yield starts off, on questions, lessons and flashcards" "false,false,false" "$(root "select (select high_yield from questions where id='hy-q')||','||(select high_yield from lessons where id='hy-l')||','||(select high_yield from flashcards where id='hy-c')")"
+eq  "an admin can mark a live question high yield, and it stays live" "true/reviewed" "$(as admin "update questions set high_yield = true where id='hy-q'; select high_yield||'/'||status from questions where id='hy-q';")"
+eq  "a reviewer can mark a live lesson high yield, and it stays live" "true/reviewed" "$(as rev "update lessons set high_yield = true where id='hy-l'; select high_yield||'/'||status from lessons where id='hy-l';")"
+eq  "a reviewer can mark a live flashcard high yield, and it stays live" "true/reviewed" "$(as rev "update flashcards set high_yield = true where id='hy-c'; select high_yield||'/'||status from flashcards where id='hy-c';")"
+root "update questions set high_yield = true where id='hy-q'; update lessons set high_yield = true where id='hy-l'; update flashcards set high_yield = true where id='hy-c';" >/dev/null
+eq  "a member sees the flag on a live question"  "t" "$(as a "select high_yield from questions where id='hy-q';")"
+eq  "a member sees the flag on a live lesson"    "t" "$(as a "select high_yield from lessons where id='hy-l';")"
+eq  "a member sees the flag on a live flashcard" "t" "$(as a "select high_yield from flashcards where id='hy-c';")"
+eq  "a member cannot change the flag on a question" "t" "$(as a "update questions set high_yield = false where id='hy-q'; select high_yield from questions where id='hy-q';")"
+eq  "a member cannot change the flag on a flashcard" "t" "$(root "select high_yield from flashcards where id='hy-c'")"
+eq  "an editor can take the flag off again" "f" "$(as admin "update questions set high_yield = false where id='hy-q'; select high_yield from questions where id='hy-q';")"
+eq  "changing the wording still sends a live item back to draft (the flag did not weaken that)" "draft" "$(as admin "update lessons set status='reviewed', title='HY changed' where id='hy-l'; select status from lessons where id='hy-l';")"
+eq  "the flag cannot be left empty" "yes" "$(root "update questions set high_yield = null where id='hy-q'" | grep -q 'not-null' && echo yes)"
+root "delete from questions where id='hy-q'; delete from lessons where id='hy-l'; delete from flashcards where id='hy-c';" >/dev/null
+
 echo; echo "$PASS passed, $FAIL failed"; [[ $FAIL -eq 0 ]]

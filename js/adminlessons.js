@@ -7,8 +7,9 @@ const AdminLessons = (() => {
   // Which lessons have at least one question or flashcard linked to them (by a hand-set link or shared board outline tags)
   let iuKey = null, iuSet = null;
   const inUse = () => { if (iuKey !== cache.list || iuSet === null) { iuKey = cache.list; iuSet = Links.lessonsInUse(cache.list, [...(bank.questions || []), ...(bank.cards || [])]); } return iuSet; };
+  const hyOk = x => !view.hy || (view.hy === 'yes') === !!x.highYield;     // the High yield filter
   const tagOk = x => !view.tag || (view.tag === 'nolinks' ? !inUse().has(x.id) : (view.tag === 'none') === !((x.objectives || []).length));
-  const view = { q: '', subject: '', status: '', tag: '', show: 'active', sel: new Set() };
+  const view = { q: '', subject: '', status: '', tag: '', hy: '', show: 'active', sel: new Set() };
   const refresh = () => { cache = null; Admin.changed = true; };
   const slug = s => String(s || '').toLowerCase().replace(/&/g, ' ').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 48) || 'lesson';
   const day = t => (t ? new Date(t).toLocaleDateString() : '-');
@@ -43,7 +44,7 @@ const AdminLessons = (() => {
   // ------------------------------------------------------------------ list
   const filtered = () => {
     const w = view.q.trim().toLowerCase();
-    return cache.list.filter(l => (view.show === 'all' || (view.show === 'archived') === l.archived) && (!view.subject || l.subject === view.subject) && (!view.status || l.status === view.status) && tagOk(l)
+    return cache.list.filter(l => (view.show === 'all' || (view.show === 'archived') === l.archived) && (!view.subject || l.subject === view.subject) && (!view.status || l.status === view.status) && tagOk(l) && hyOk(l)
       && (!w || l.id.includes(w) || l.title.toLowerCase().includes(w)));
   };
   const tag = l => l.archived ? '<span class="tag archived">Archived</span>' : l.status === 'reviewed' ? `<span class="tag reviewed">Live</span>${l.reviewedBy ? ` <span class="muted">${esc(l.reviewedBy)}</span>` : ''}` : '<span class="tag draft">Draft (hidden)</span>';
@@ -55,20 +56,21 @@ const AdminLessons = (() => {
     const subjects = subjectsFor([]);
     $app.innerHTML = `${tabs('lessons')}
       <div class="card"><div class="row spread"><div><h2 style="margin:0">Lessons</h2><p class="muted" style="margin:4px 0 0">${n.live} live for members &middot; ${n.draft} draft (hidden) &middot; ${n.arch} archived</p></div>
-        <div class="row"><a class="btn primary" href="#/admin/lessons/new">Add a lesson</a><a class="btn" href="#/admin/lessons/import">Import from a chat</a><button id="claude" type="button" aria-label="Copy these lessons to paste into a chat" title="Copy the lessons you are looking at, to paste into a chat">Copy</button><button id="backup">Download backup</button></div></div></div>
+        <div class="row"><a class="btn primary" href="#/admin/lessons/new">Add a lesson</a><a class="btn" href="#/admin/lessons/import">Import from a chat</a><button id="claude" type="button" aria-label="Copy these lessons to paste into a chat" title="Copy the lessons you are looking at, to paste into a chat">Copy</button><button id="hyapply" type="button" title="Paste Claude's answer to the Sort by high yield Copy task">Apply high yield list</button><button id="backup">Download backup</button></div></div></div>
       <div class="card"><form id="flt" class="filters" onsubmit="return false" aria-label="Filter lessons">
         <div><label for="fq">Search</label><input id="fq" type="search" value="${esc(view.q)}" placeholder="title or id"></div>
         <div><label for="fs">Subject</label><select id="fs"><option value="">All</option>${subjects.map(s => `<option${s === view.subject ? ' selected' : ''}>${esc(s)}</option>`).join('')}</select></div>
         <div><label for="fst">Status</label><select id="fst"><option value="">All</option><option value="draft">Draft</option><option value="reviewed">Live</option></select></div>
-        <div><label for="fot">Outline tags</label><select id="fot"><option value="">All</option><option value="none">Not tagged yet (${cache.list.filter(x => !x.archived && !(x.objectives || []).length).length})</option><option value="some">Tagged</option><option value="nolinks">Nothing linked to it yet (${cache.list.filter(x => !x.archived && !inUse().has(x.id)).length})</option></select></div><div><label for="fsh">Show</label><select id="fsh"><option value="active">Active</option><option value="archived">Archived</option><option value="all">Both</option></select></div></form></div>
+        <div><label for="fot">Outline tags</label><select id="fot"><option value="">All</option><option value="none">Not tagged yet (${cache.list.filter(x => !x.archived && !(x.objectives || []).length).length})</option><option value="some">Tagged</option><option value="nolinks">Nothing linked to it yet (${cache.list.filter(x => !x.archived && !inUse().has(x.id)).length})</option></select></div><div><label for="fhy">High yield</label><select id="fhy"><option value="">All</option><option value="yes">High yield only (${cache.list.filter(x => !x.archived && x.highYield).length})</option><option value="no">Not marked yet</option></select></div><div><label for="fsh">Show</label><select id="fsh"><option value="active">Active</option><option value="archived">Archived</option><option value="all">Both</option></select></div></form></div>
       <div id="bulk"></div><div class="card" id="lres"></div>`;
-    document.getElementById('fst').value = view.status; document.getElementById('fsh').value = view.show; document.getElementById('fot').value = view.tag;
+    document.getElementById('fst').value = view.status; document.getElementById('fsh').value = view.show; document.getElementById('fot').value = view.tag; document.getElementById('fhy').value = view.hy;
     const on = (id, ev, fn) => document.getElementById(id).addEventListener(ev, fn);
     on('fq', 'input', e => { view.q = e.target.value; paint(); }); on('fs', 'change', e => { view.subject = e.target.value; paint(); });
-    on('fst', 'change', e => { view.status = e.target.value; paint(); }); on('fot', 'change', e => { view.tag = e.target.value; paint(); }); on('fsh', 'change', e => { view.show = e.target.value; paint(); });
+    on('fst', 'change', e => { view.status = e.target.value; paint(); }); on('fot', 'change', e => { view.tag = e.target.value; paint(); }); on('fhy', 'change', e => { view.hy = e.target.value; paint(); }); on('fsh', 'change', e => { view.show = e.target.value; paint(); });
     on('backup', 'click', () => backup(c.list));
+    on('hyapply', 'click', () => Admin.applyHighYield({ noun: 'lesson', items: cache.list, patch: Cloud.patchLessons, after: () => { refresh(); list(); } }));
     on('claude', 'click', () => Handoff.open({ kind: 'lessons', items: lastRows, selected: [...view.sel], importHash: '#/admin/lessons/import',
-      describe: (() => { const p = []; if (view.q) p.push(`search "${view.q}"`); if (view.subject) p.push(view.subject); if (view.status) p.push(view.status === 'reviewed' ? 'live' : 'draft'); if (view.show !== 'active') p.push(view.show === 'all' ? 'including archived' : 'archived'); return p.length ? 'filters: ' + p.join(', ') : 'no filters'; })() }));
+      describe: (() => { const p = []; if (view.q) p.push(`search "${view.q}"`); if (view.subject) p.push(view.subject); if (view.status) p.push(view.status === 'reviewed' ? 'live' : 'draft'); if (view.hy) p.push(view.hy === 'yes' ? 'high yield' : 'not marked high yield'); if (view.show !== 'active') p.push(view.show === 'all' ? 'including archived' : 'archived'); return p.length ? 'filters: ' + p.join(', ') : 'no filters'; })() }));
     paint();
   }
   let lastRows = [];
@@ -76,7 +78,7 @@ const AdminLessons = (() => {
     const rows = filtered(), box = document.getElementById('lres'); lastRows = rows;
     box.innerHTML = rows.length ? `<div class="scroll" role="region" tabindex="0" aria-label="Lessons table"><table class="qtable"><caption class="sr">Lessons, ${rows.length} shown</caption><thead><tr><th scope="col"><input type="checkbox" id="selall" aria-label="Select all shown"></th><th scope="col">Lesson</th><th scope="col">Subject</th><th scope="col">Status</th><th scope="col">Who can see it</th><th scope="col">Updated</th></tr></thead>
       <tbody>${rows.map(l => `<tr${l.archived ? ' class="dim"' : ''}><td><input type="checkbox" data-sel="${esc(l.id)}" aria-label="Select ${esc(l.title)}"${view.sel.has(l.id) ? ' checked' : ''}></td>
-        <td><a href="#/admin/lessons/edit/${esc(l.id)}">${esc(l.title)}</a><div class="muted small">${esc(l.id)}</div></td><td>${esc(l.subject)}</td><td>${tag(l)}</td><td>${l.tier === 'free' ? 'Free members too' : 'Pro members'}</td><td>${day(l.updatedAt)}<div class="muted small">${esc(l.updatedBy)}</div></td></tr>`).join('')}</tbody></table></div>`
+        <td><a href="#/admin/lessons/edit/${esc(l.id)}">${esc(l.title)}</a><div class="muted small">${esc(l.id)}</div></td><td>${esc(l.subject)}</td><td>${tag(l)}${l.highYield ? ' <span class="tag hy" title="Marked high yield">High yield</span>' : ''}</td><td>${l.tier === 'free' ? 'Free members too' : 'Pro members'}</td><td>${day(l.updatedAt)}<div class="muted small">${esc(l.updatedBy)}</div></td></tr>`).join('')}</tbody></table></div>`
       : '<p class="muted">No lessons match. Add one, or import a batch from a chat.</p>';
     const all = document.getElementById('selall');
     if (all) all.onchange = e => { rows.forEach(l => e.target.checked ? view.sel.add(l.id) : view.sel.delete(l.id)); paint(); };
@@ -89,6 +91,7 @@ const AdminLessons = (() => {
     const chosen = cache.list.filter(l => ids.includes(l.id)), allArch = chosen.every(l => l.archived);
     box.innerHTML = `<div class="card bulkbar" role="region" aria-label="Actions for selected lessons"><b>${ids.length} selected</b>
       <button data-b="review">Publish (mark reviewed)</button><button data-b="draft">Hide (mark draft)</button>${allArch ? '<button data-b="restore">Restore</button>' : '<button data-b="archive">Archive</button>'}
+      <button data-b="hy" title="Mark these as worth a member's time first">Mark high yield</button><button data-b="nohy">Remove high yield</button>
       <button data-b="free">Set: free members too</button><button data-b="pro">Set: pro members only</button>${allArch ? '<button data-b="delete" class="danger">Delete permanently</button>' : ''}<button data-b="clear" class="linkish">Clear</button></div>`;
     box.querySelectorAll('[data-b]').forEach(b => b.onclick = () => bulk(b.dataset.b, ids));
   }
@@ -99,12 +102,12 @@ const AdminLessons = (() => {
       if (kind === 'review' && !(await ask(`Publish ${n} ${s}? ${n === 1 ? 'It becomes' : 'They become'} visible to members, and your name (${Cloud.session.email}) is recorded as the reviewer. Only do this if you have read and checked ${n === 1 ? 'it' : 'them'}.`, 'Publish'))) return;
       if (kind === 'archive' && !(await ask(`Archive ${n} ${s}? ${n === 1 ? 'It disappears' : 'They disappear'} from members. You can restore ${n === 1 ? 'it' : 'them'} later.`, 'Archive'))) return;
       if (kind === 'delete') { if (!(await askText(`Permanently delete ${n} ${s}? This cannot be undone.`, 'DELETE', 'Delete permanently'))) return; await Cloud.deleteLessons(ids); }
-      else await Cloud.patchLessons(ids, { review: { status: 'reviewed' }, draft: { status: 'draft' }, archive: { archived: true }, restore: { archived: false }, free: { tier: 'free' }, pro: { tier: 'pro' } }[kind]);
-      view.sel.clear(); refresh(); toast({ review: 'Published.', draft: 'Hidden from members.', archive: 'Archived.', restore: 'Restored.', free: 'Now visible to free members.', pro: 'Now for pro members only.', delete: 'Deleted.' }[kind]); list();
+      else await Cloud.patchLessons(ids, { review: { status: 'reviewed' }, draft: { status: 'draft' }, archive: { archived: true }, restore: { archived: false }, free: { tier: 'free' }, pro: { tier: 'pro' }, hy: { high_yield: true }, nohy: { high_yield: false } }[kind]);
+      view.sel.clear(); refresh(); toast({ review: 'Published.', draft: 'Hidden from members.', archive: 'Archived.', restore: 'Restored.', free: 'Now visible to free members.', pro: 'Now for pro members only.', hy: 'Marked high yield.', nohy: 'High yield removed.', delete: 'Deleted.' }[kind]); list();
     } catch (e) { toast(e.offline ? 'No connection. Nothing was changed.' : 'That did not work: ' + e.message); }
   }
   function backup(all) {
-    const out = all.map(l => { const o = {}; LValidate.FIELDS.forEach(k => { if (l[k] !== undefined && l[k] !== '' && !(Array.isArray(l[k]) && !l[k].length && (k === 'references' || k === 'objectives'))) o[k] = l[k]; }); if (!l.archived) delete o.archived; return o; });
+    const out = all.map(l => { const o = {}; LValidate.FIELDS.forEach(k => { if (l[k] !== undefined && l[k] !== '' && !(Array.isArray(l[k]) && !l[k].length && (k === 'references' || k === 'objectives')) && !(k === 'highYield' && !l[k])) o[k] = l[k]; }); if (!l.archived) delete o.archived; return o; });
     const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(out, null, 2) + '\n'], { type: 'application/json' }));
     a.download = 'aeromedqbank-lessons-' + new Date().toISOString().slice(0, 10) + '.json'; a.click(); toast(`Downloaded ${out.length} lessons.`);
   }
@@ -128,6 +131,7 @@ const AdminLessons = (() => {
           <div><label for="f-id">Lesson id</label><input id="f-id" type="text" value="${esc(l0.id)}"${isNew ? '' : ' readonly'} autocomplete="off"><p class="hint">Lowercase letters, digits and hyphens.${isNew ? ' Suggested from the title.' : ''}</p></div>
           <div><label for="f-status">Status</label><select id="f-status"><option value="draft"${l0.status === 'draft' ? ' selected' : ''}>Draft (hidden from members)</option><option value="reviewed"${l0.status === 'reviewed' ? ' selected' : ''}>Reviewed (live for members)</option></select></div>
           <div><label for="f-tier">Who can see it</label><select id="f-tier"><option value="pro"${l0.tier === 'pro' ? ' selected' : ''}>Pro members</option><option value="free"${l0.tier === 'free' ? ' selected' : ''}>Free members too</option></select></div>
+          <div><label class="chk"><input type="checkbox" id="f-hy"${l0.highYield ? ' checked' : ''}> High yield</label><p class="hint">Marks this lesson as one of the most worth a member's time. Members can switch on High yield only to see just these. It does not change what they see otherwise.</p></div>
           <div><label for="f-order">Order in its subject</label><input id="f-order" type="number" min="0" value="${l0.order ?? 100}"></div>
         </div>
         <fieldset><legend>Board</legend><div class="row">${boardBoxes}</div></fieldset>
@@ -152,7 +156,7 @@ const AdminLessons = (() => {
 
     const parse = () => { try { const v = JSON.parse(el('f-blocks').value); return Array.isArray(v) ? { blocks: v } : { error: 'The content must be a list of blocks, starting with [' }; } catch (e) { return { error: 'The JSON has a mistake: ' + e.message }; } };
     const read = blocks => ({ id: el('f-id').value.trim(), status: el('f-status').value, tier: el('f-tier').value, boards: boardsChecked(), subject: el('f-subject').value, title: el('f-title').value.trim(), summary: el('f-summary').value.trim(),
-      order: parseInt(el('f-order').value, 10) || 0, blocks, references: el('f-refs').value.split('\n').map(x => x.trim()).filter(Boolean), ...(objPick.get().length || (l0.objectives || []).length ? { objectives: objPick.get() } : {}) });
+      order: parseInt(el('f-order').value, 10) || 0, blocks, references: el('f-refs').value.split('\n').map(x => x.trim()).filter(Boolean), ...(objPick.get().length || (l0.objectives || []).length ? { objectives: objPick.get() } : {}), ...(el('f-hy').checked || l0.highYield ? { highYield: el('f-hy').checked } : {}) });
     let timer = null;
     const preview = () => {
       const p = parse(), box = el('lprev');

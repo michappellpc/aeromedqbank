@@ -155,6 +155,7 @@ table select{width:auto;padding:4px}
 fieldset{margin-bottom:14px}.hint{color:var(--muted);font-size:.8rem;margin:4px 0 0}.small{font-size:.8rem}
 .bulkbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;position:sticky;top:calc(56px + env(safe-area-inset-top,0px));z-index:4;border-color:var(--gold)}
 .qtable td,.qtable th{vertical-align:top}.qtable tr.dim{opacity:.65}
+.tag.hy{border:1px solid currentColor;font-weight:700}
 .tag.reviewed{background:#2f5d1a;color:#fff}.tag.archived{background:var(--muted);color:var(--bg)}
 .orow{display:grid;grid-template-columns:auto 1.6em 1fr auto;gap:8px;align-items:start;margin:8px 0}.orow .k{font-weight:700;padding-top:8px}
 .ofields{display:grid;gap:6px}.orow input[type=radio]{margin-top:10px;width:18px;height:18px}
@@ -230,6 +231,16 @@ td,th{padding:10px 10px}tbody tr:hover{background:var(--sel)}
 .chg{white-space:nowrap}
 @media(max-width:600px){.heatmap .qa{display:none}.heatmap th,.heatmap td{padding:8px 5px;font-size:.82rem}.heatmap thead th{font-size:.68rem;letter-spacing:0}}.chg.up{color:var(--good)}.chg.down{color:var(--bad)}.chg.flat{color:var(--muted)}
 .factabs{display:flex;gap:8px;margin:0 0 14px;flex-wrap:wrap}
+/* The High yield only switch on the New Test, Lessons and Flashcards pages */
+.hyswitch,.card label.hyswitch,form label.hyswitch{display:inline-flex;align-items:center;gap:10px;cursor:pointer;font-size:.95rem;margin:0;font-weight:400}
+.hyswitch input{position:absolute;opacity:0;width:1px;height:1px;margin:0}
+.hyswitch .trk{width:42px;height:24px;border-radius:99px;background:#6b7280;position:relative;flex:none;transition:background .2s}
+.hyswitch .trk::after{content:'';position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#fff;transition:transform .2s}
+.hyswitch input:checked + .trk{background:var(--good)}
+.hyswitch input:checked + .trk::after{transform:translateX(18px)}
+.hyswitch input:focus-visible + .trk{outline:3px solid var(--link);outline-offset:2px}
+@media(prefers-reduced-motion:reduce){.hyswitch .trk,.hyswitch .trk::after{transition:none}}
+.hybar{align-items:center;gap:12px;margin:6px 0 12px;flex-wrap:wrap}.hynote{font-size:.85rem}
 .sfswitch{display:inline-flex;align-items:center;gap:10px;cursor:pointer;color:#fff;font-weight:600;padding:8px 14px;border-radius:99px;background:rgba(0,0,0,.4)}
 .sfswitch input{position:absolute;opacity:0;width:1px;height:1px;margin:0}
 .sfswitch .trk{width:42px;height:24px;border-radius:99px;background:#6b7280;position:relative;flex:none;transition:background .2s}

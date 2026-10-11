@@ -6,8 +6,9 @@ const Admin = (() => {
   // Which items have a lesson, by a hand-set pin or by sharing board outline tags (worked out once per list)
   let wlKey = null, wlSet = null;
   const withLesson = () => { if (wlKey !== cache.list || wlSet === null) { wlKey = cache.list; wlSet = Links.withLesson(cache.list, bank.lessons || []); } return wlSet; };
+  const hyOk = x => !view.hy || (view.hy === 'yes') === !!x.highYield;     // the High yield filter
   const tagOk = x => !view.tag || (view.tag === 'nolesson' ? !withLesson().has(x.id) : (view.tag === 'none') === !((x.objectives || []).length));
-  const view = { q: '', board: '', subject: '', status: '', show: 'active', tier: '', check: '', diff: '', sort: '', tag: '', picks: (() => { try { return localStorage.getItem('qbank.picks') === '1'; } catch { return false; } })(), flag: '', data: '', min: '', max: '', page: 0, sel: new Set(), open: new Set() };
+  const view = { q: '', board: '', subject: '', status: '', show: 'active', tier: '', check: '', diff: '', sort: '', tag: '', hy: '', picks: (() => { try { return localStorage.getItem('qbank.picks') === '1'; } catch { return false; } })(), flag: '', data: '', min: '', max: '', page: 0, sel: new Set(), open: new Set() };
   const SIZES = [50, 100, 250, 500, 0];                       // rows per page; 0 shows them all
   let size = 50; try { const raw = localStorage.getItem('qbank.admin.pagesize'); if (raw !== null && SIZES.includes(+raw)) size = +raw; } catch {}
   const sizeBox = () => `<div><label for="fpp">Per page</label><select id="fpp">${SIZES.map(n => `<option value="${n}"${n === size ? ' selected' : ''}>${n || 'All'}</option>`).join('')}</select></div>`;
@@ -36,6 +37,46 @@ const Admin = (() => {
       d.onkeydown = e => { if (e.key === 'Escape') done(false); };
       document.body.appendChild(d); inp.focus();
     });
+  }
+
+  // "Apply high yield list": paste Claude's answer to the Sort by high yield Copy task (a list of { id, highYield }) and change just that mark.
+  // Nothing else is touched, so live items stay live. opts: { noun, items (the loaded list), patch(ids, patch), after() }
+  function applyHighYield({ noun, items, patch, after }) {
+    const d = document.createElement('div'), prev = document.activeElement; d.className = 'modal';
+    d.innerHTML = `<div class="card" role="dialog" aria-modal="true" aria-labelledby="hy-h" style="max-width:640px;width:100%"><h2 id="hy-h" style="margin-top:0">Apply a high yield list</h2>
+      <p class="muted">Paste what Claude returned for <b>Sort by high yield</b>: a list of <code>{ "id": "...", "highYield": true }</code>. Only the high yield mark of each ${esc(noun)} changes. Nothing is unpublished, archived or edited.</p>
+      <label for="hy-text">Claude's list</label><textarea id="hy-text" rows="8" style="font:12px/1.4 ui-monospace,Menlo,Consolas,monospace" placeholder='[{"id": "aem-altitude-001", "highYield": true}, ...]'></textarea>
+      <p id="hy-sum" class="muted" aria-live="polite"></p><p class="notice" id="hy-err" role="alert" hidden></p>
+      <div class="row"><button class="primary" id="hy-go" type="button" disabled>Apply</button><button id="hy-x" type="button">Cancel</button></div></div>`;
+    const E = id => d.querySelector('#' + id), close = () => { d.remove(); document.removeEventListener('keydown', onKey, true); if (prev && document.body.contains(prev)) prev.focus(); };
+    const onKey = e => { if (e.key === 'Escape') { e.stopPropagation(); close(); } };
+    document.addEventListener('keydown', onKey, true); d.onclick = e => { if (e.target === d) close(); }; E('hy-x').onclick = close;
+    const byId = new Map(items.map(x => [x.id, x])); let plan = null;
+    const read = () => {
+      const raw = E('hy-text').value.trim(); plan = null; E('hy-go').disabled = true; E('hy-err').hidden = true; E('hy-sum').textContent = '';
+      if (!raw) return;
+      let list; try { const a = raw.indexOf('['), b = raw.lastIndexOf(']'); list = JSON.parse(a >= 0 && b > a ? raw.slice(a, b + 1) : raw); } catch { E('hy-err').textContent = 'That is not a list I can read yet. Paste the JSON array Claude returned, starting with [ and ending with ].'; E('hy-err').hidden = false; return; }
+      if (!Array.isArray(list)) { E('hy-err').textContent = 'Expected a list (a JSON array) of items.'; E('hy-err').hidden = false; return; }
+      const mark = [], unmark = [], unknown = [], bad = []; let same = 0;
+      list.forEach(r => {
+        const id = r && typeof r.id === 'string' ? r.id.trim() : '', v = r && r.highYield;
+        if (!id || typeof v !== 'boolean') return bad.push(id || '(no id)');
+        const cur = byId.get(id); if (!cur) return unknown.push(id);
+        if (v && !cur.highYield) mark.push(id); else if (!v && cur.highYield) unmark.push(id); else same++;
+      });
+      plan = { mark, unmark };
+      E('hy-sum').textContent = `${list.length} in the list: ${mark.length} to mark high yield, ${unmark.length} to take off, ${same} already right${unknown.length ? `, ${unknown.length} not found here (skipped)` : ''}${bad.length ? `, ${bad.length} skipped because they are missing an id or a true/false` : ''}.`;
+      E('hy-go').disabled = !(mark.length || unmark.length);
+    };
+    E('hy-text').oninput = read;
+    E('hy-go').onclick = async () => {
+      if (!plan) return; E('hy-go').disabled = true;
+      try {
+        for (const [ids, v] of [[plan.mark, true], [plan.unmark, false]]) for (let i = 0; i < ids.length; i += 80) await patch(ids.slice(i, i + 80), { high_yield: v });
+        const n = plan.mark.length + plan.unmark.length; close(); toast(`High yield updated on ${n} ${noun}${n === 1 ? '' : 's'}.`); if (after) await after();
+      } catch (e) { E('hy-err').textContent = e.offline ? 'No connection. Nothing was changed.' : 'That did not work: ' + e.message; E('hy-err').hidden = false; E('hy-go').disabled = false; }
+    };
+    document.body.appendChild(d); E('hy-text').focus();
   }
 
   // Loads (or reuses) every question plus its statistics. Returns null after showing a message if this page cannot be used.
@@ -67,7 +108,7 @@ const Admin = (() => {
     $app.innerHTML = `${tabs('questions')}
       <div class="card"><div class="row spread"><div><h2 style="margin:0">Questions</h2>
         <p class="muted" style="margin:4px 0 0">${n.rev} live for members &middot; ${n.all - n.arch - n.rev} draft (hidden) &middot; ${n.arch} archived</p></div>
-        <div class="row"><a class="btn primary" href="#/admin/questions/new">Add a question</a><a class="btn" href="#/admin/questions/import">Import from a chat</a><button id="claude" type="button" aria-label="Copy every question the filters show, to paste into a chat" title="Copy every question the filters show, to paste into a chat">Copy</button><button id="backup">Download backup</button></div></div></div>
+        <div class="row"><a class="btn primary" href="#/admin/questions/new">Add a question</a><a class="btn" href="#/admin/questions/import">Import from a chat</a><button id="claude" type="button" aria-label="Copy every question the filters show, to paste into a chat" title="Copy every question the filters show, to paste into a chat">Copy</button><button id="hyapply" type="button" title="Paste Claude's answer to the Sort by high yield Copy task">Apply high yield list</button><button id="backup">Download backup</button></div></div></div>
       <details class="card" id="secsum"${secOpen() ? ' open' : ''}><summary><h2 style="display:inline;margin:0">Sections by difficulty</h2> <span class="muted small" id="secline"></span><span class="collapser"><span class="c-open">Minimize &#9650;</span><span class="c-closed">Show table &#9660;</span></span></summary>${AdminItems.missing ? '<p class="muted small">The percent correct appears after the latest <code>supabase/schema.sql</code> is run in Supabase.</p>' : ''}<div id="secbody" style="margin-top:8px"></div></details>
       <div class="card"><form id="flt" class="filters" onsubmit="return false" aria-label="Filter questions">
         <div><label for="fq">Search</label><input id="fq" type="search" value="${esc(view.q)}" placeholder="id, topic, or words in the question"></div>
@@ -76,7 +117,7 @@ const Admin = (() => {
         <div><label for="fst">Status</label><select id="fst"><option value="">All</option><option value="draft">Draft</option><option value="reviewed">Reviewed</option></select></div>
         <div><label for="fsh">Show</label><select id="fsh"><option value="active">Active</option><option value="archived">Archived</option><option value="all">Both</option></select></div>
         <div><label for="ft">Tier</label><select id="ft"><option value="">All</option><option value="free">Free</option><option value="pro">Pro</option></select></div>
-        <div><label for="fot">Outline tags</label><select id="fot"><option value="">All</option><option value="none">Not tagged yet (${cache.list.filter(x => !x.archived && !(x.objectives || []).length).length})</option><option value="some">Tagged</option><option value="nolesson">No lesson linked yet (${cache.list.filter(x => !x.archived && !withLesson().has(x.id)).length})</option></select></div><div><label for="fd">Difficulty</label><select id="fd"><option value="">All</option><option value="1">Easy</option><option value="2">Medium</option><option value="3">Hard</option></select></div>
+        <div><label for="fot">Outline tags</label><select id="fot"><option value="">All</option><option value="none">Not tagged yet (${cache.list.filter(x => !x.archived && !(x.objectives || []).length).length})</option><option value="some">Tagged</option><option value="nolesson">No lesson linked yet (${cache.list.filter(x => !x.archived && !withLesson().has(x.id)).length})</option></select></div><div><label for="fhy">High yield</label><select id="fhy"><option value="">All</option><option value="yes">High yield only (${cache.list.filter(x => !x.archived && x.highYield).length})</option><option value="no">Not marked yet</option></select></div><div><label for="fd">Difficulty</label><select id="fd"><option value="">All</option><option value="1">Easy</option><option value="2">Medium</option><option value="3">Hard</option></select></div>
         <div><label for="fo">Sort by</label><select id="fo"><option value="">ID</option><option value="hard">Label: hardest first</option><option value="easy">Label: easiest first</option><option value="pc-low">% correct: lowest first</option><option value="pc-high">% correct: highest first</option><option value="n-most">Answered by the most people</option><option value="n-least">Answered by the fewest people</option>${AdminItems.SORTS.map(([v, t]) => `<option value="${v}">${t}</option>`).join('')}</select></div>
         <div><label for="fl">Checks</label><select id="fl"><option value="">All questions</option><option value="long">Correct answer much longer</option></select></div>
         <div><label for="ffl">Flag</label><select id="ffl"><option value="">Any</option><option value="any">Has any flag</option>${AdminItems.FLAGS.map(f => `<option value="${f}">${esc(ItemStats.FLAG_TEXT[f][0])}</option>`).join('')}</select></div>
@@ -85,7 +126,7 @@ const Admin = (() => {
       <div id="bulk"></div><div class="card" id="qres"></div>`;
     const set = (id, v) => { document.getElementById(id).value = v; };
     const fillSubjects = () => { const s = document.getElementById('fs'); s.innerHTML = '<option value="">All</option>' + subjectsFor(view.board ? [view.board] : []).map(x => `<option${x === view.subject ? ' selected' : ''}>${esc(x)}</option>`).join(''); };
-    fillSubjects(); set('ffl', view.flag); set('fdt', view.data); set('fst', view.status); set('fsh', view.show); set('ft', view.tier); set('fl', view.check || ''); set('fd', view.diff); set('fo', view.sort); set('fot', view.tag);
+    fillSubjects(); set('ffl', view.flag); set('fdt', view.data); set('fst', view.status); set('fsh', view.show); set('ft', view.tier); set('fl', view.check || ''); set('fd', view.diff); set('fo', view.sort); set('fot', view.tag); set('fhy', view.hy);
     const on = (id, ev, fn) => document.getElementById(id).addEventListener(ev, fn);
     on('fq', 'input', e => { view.q = e.target.value; view.page = 0; paint(); });
     on('fb', 'change', e => { view.board = e.target.value; view.subject = ''; view.page = 0; fillSubjects(); paint(); });
@@ -95,6 +136,7 @@ const Admin = (() => {
     on('ft', 'change', e => { view.tier = e.target.value; view.page = 0; paint(); });
     on('fd', 'change', e => { view.diff = e.target.value; view.page = 0; paint(); });
     on('fot', 'change', e => { view.tag = e.target.value; view.page = 0; paint(); });
+    on('fhy', 'change', e => { view.hy = e.target.value; view.page = 0; paint(); });
     on('fo', 'change', e => { view.sort = e.target.value; view.page = 0; paint(); });
     on('fl', 'change', e => { view.check = e.target.value; view.page = 0; paint(); });
     on('ffl', 'change', e => { view.flag = e.target.value; view.page = 0; paint(); }); on('fdt', 'change', e => { view.data = e.target.value; view.page = 0; paint(); });
@@ -108,6 +150,7 @@ const Admin = (() => {
       view.board = ''; set('fb', ''); fillSubjects(); view.subject = b.dataset.sec; set('fs', view.subject); view.diff = b.dataset.lab || ''; set('fd', view.diff); view.status = ''; set('fst', ''); view.show = 'active'; set('fsh', 'active'); view.page = 0; paint(); document.getElementById('flt').scrollIntoView({ block: 'start' });
     });
     on('backup', 'click', () => backup(c.list));
+    on('hyapply', 'click', () => applyHighYield({ noun: 'question', items: cache.list, patch: Cloud.patchQuestions, after: () => { refresh(); list(); } }));
     on('claude', 'click', () => Handoff.open({ kind: 'questions', items: lastRows, selected: [], importHash: '#/admin/questions/import', describe: describeView(),
       stats: AdminItems.ready() ? q => ItemStats.statLine(AdminItems.get(q.id)) : null, lessons: bank.lessons || [], currentLesson: lessonLinkFor }));
     paint();
@@ -117,7 +160,7 @@ const Admin = (() => {
   const describeView = () => {
     const bn = id => (bank.boards.find(b => b.id === id) || {}).name || id, p = [];
     if (view.q) p.push(`search "${view.q}"`); if (view.board) p.push(bn(view.board)); if (view.subject) p.push(view.subject); if (view.diff) p.push(['', 'Easy', 'Medium', 'Hard'][view.diff]);
-    if (view.status) p.push(view.status === 'reviewed' ? 'live' : view.status); if (view.show !== 'active') p.push(view.show === 'all' ? 'including archived' : 'archived'); if (view.tier) p.push(view.tier + ' tier'); if (view.tag) p.push(view.tag === 'none' ? 'no outline tags yet' : view.tag === 'nolesson' ? 'no lesson linked yet' : 'has outline tags');
+    if (view.status) p.push(view.status === 'reviewed' ? 'live' : view.status); if (view.show !== 'active') p.push(view.show === 'all' ? 'including archived' : 'archived'); if (view.tier) p.push(view.tier + ' tier'); if (view.hy) p.push(view.hy === 'yes' ? 'high yield' : 'not marked high yield'); if (view.tag) p.push(view.tag === 'none' ? 'no outline tags yet' : view.tag === 'nolesson' ? 'no lesson linked yet' : 'has outline tags');
     if (view.flag) p.push(view.flag === 'any' ? 'has a flag' : 'flag: ' + ItemStats.FLAG_TEXT[view.flag][0]); if (view.data) p.push(view.data === 'judged' ? 'enough answers' : 'too few answers'); if (view.min !== '' || view.max !== '') p.push(`${view.min || 0}% to ${view.max || 100}% correct`);
     return p.length ? 'filters: ' + p.join(', ') : 'no filters';
   };
@@ -137,7 +180,7 @@ const Admin = (() => {
     const w = view.q.trim().toLowerCase();
     return cache.list.filter(q =>
       (view.show === 'all' || (view.show === 'archived') === q.archived) && (!view.board || q.boards.includes(view.board)) && (!view.subject || q.subject === view.subject) &&
-      (!view.status || q.status === view.status) && (!view.tier || q.tier === view.tier) && (view.check !== 'long' || QValidate.lengthTell(q)) && (!view.diff || (q.difficulty || 2) === +view.diff) && tagOk(q) && measured(q) &&
+      (!view.status || q.status === view.status) && (!view.tier || q.tier === view.tier) && (view.check !== 'long' || QValidate.lengthTell(q)) && (!view.diff || (q.difficulty || 2) === +view.diff) && tagOk(q) && hyOk(q) && measured(q) &&
       (!w || q.id.includes(w) || (q.topic || '').toLowerCase().includes(w) || q.stem.toLowerCase().includes(w)));
   };
 
@@ -156,7 +199,7 @@ const Admin = (() => {
       const s = cache.stats.get(q.id);
       return `<tr${q.archived ? ' class="dim"' : ''}><td><input type="checkbox" data-sel="${esc(q.id)}" aria-label="Select ${esc(q.id)}"${view.sel.has(q.id) ? ' checked' : ''}></td>
         <td><a href="#/admin/questions/edit/${esc(q.id)}">${esc(q.id)}</a><div class="muted small">${esc((q.stem || '').slice(0, 70))}${q.stem && q.stem.length > 70 ? '...' : ''}</div>${view.picks ? picksLine(q) : ''}</td>
-        <td>${esc(q.subject)}<div class="muted small">${esc(q.topic || '')}</div></td><td>${tag(q)}${QValidate.lengthTell(q) ? ' <span class="tag" title="The correct answer is much longer than the other choices">Long answer</span>' : ''}</td><td>${['', 'Easy', 'Medium', 'Hard'][q.difficulty || 2]}</td><td>${esc(q.tier)}</td>
+        <td>${esc(q.subject)}<div class="muted small">${esc(q.topic || '')}</div></td><td>${tag(q)}${q.highYield ? ' <span class="tag hy" title="Marked high yield">High yield</span>' : ''}${QValidate.lengthTell(q) ? ' <span class="tag" title="The correct answer is much longer than the other choices">Long answer</span>' : ''}</td><td>${['', 'Easy', 'Medium', 'Hard'][q.difficulty || 2]}</td><td>${esc(q.tier)}</td>
         <td>${s && s.attempts ? `${s.attempts} &middot; ${Math.round(s.pct)}%` : '-'}</td><td>${day(q.updatedAt)}<div class="muted small">${esc(q.updatedBy)}</div></td>${extra ? `<td><button type="button" data-open="${esc(q.id)}" aria-expanded="${view.open.has(q.id)}" aria-label="${view.open.has(q.id) ? 'Hide' : 'Show'} the numbers for ${esc(q.id)}">${view.open.has(q.id) ? 'Hide' : 'Details'}</button></td>` : ''}</tr>${extra && view.open.has(q.id) ? `<tr class="detailrow"><td></td><td colspan="8">${AdminItems.detail(AdminItems.get(q.id))}</td></tr>` : ''}`;
     }).join('')}</tbody></table></div>
       <div class="row spread" style="margin-top:10px"><span class="muted" aria-live="polite">${rows.length} question${rows.length === 1 ? '' : 's'}${pages > 1 ? `, page ${view.page + 1} of ${pages}` : ''}</span>
@@ -178,6 +221,7 @@ const Admin = (() => {
     const chosen = cache.list.filter(q => ids.includes(q.id)), allArch = chosen.every(q => q.archived), anyArch = chosen.some(q => q.archived);
     box.innerHTML = `<div class="card bulkbar" role="region" aria-label="Actions for selected questions"><b>${ids.length} selected</b>
       <button data-b="review">Mark reviewed (publish)</button><button data-b="draft">Mark draft (hide)</button>${allArch ? '<button data-b="restore">Restore</button>' : '<button data-b="archive">Archive</button>'}
+      <button data-b="hy" title="Mark these as worth a member's time first">Mark high yield</button><button data-b="nohy">Remove high yield</button>
       <button data-b="free">Set tier: free</button><button data-b="pro">Set tier: pro</button>${AdminItems.ready() ? `<button data-b="relabel" title="Change each label to the difficulty members actually find">Set label from data</button>` : ''}${AdminItems.ready() ? '<button data-b="csv">CSV of selected</button>' : ''}<button data-b="copy" title="Copy the selected questions to paste into a chat">Copy selected</button>${allArch ? '<button data-b="delete" class="danger">Delete permanently</button>' : ''}<button data-b="clear" class="linkish">Clear</button></div>`;
     box.querySelectorAll('[data-b]').forEach(b => b.onclick = () => bulk(b.dataset.b, ids, anyArch));
   }
@@ -198,23 +242,23 @@ const Admin = (() => {
         if (!(await askText(`Permanently delete ${n} ${s}? This also erases every member's answer history for ${n === 1 ? 'it' : 'them'} and cannot be undone. Download a backup first if you are unsure.`, 'DELETE', 'Delete permanently'))) return;
         await Cloud.deleteQuestions(ids);
       } else {
-        const patch = { review: { status: 'reviewed' }, draft: { status: 'draft' }, archive: { archived: true }, restore: { archived: false }, free: { tier: 'free' }, pro: { tier: 'pro' } }[kind];
+        const patch = { review: { status: 'reviewed' }, draft: { status: 'draft' }, archive: { archived: true }, restore: { archived: false }, free: { tier: 'free' }, pro: { tier: 'pro' }, hy: { high_yield: true }, nohy: { high_yield: false } }[kind];
         await Cloud.patchQuestions(ids, patch);
       }
-      view.sel.clear(); refresh(); toast(({ review: 'Marked reviewed.', draft: 'Marked draft.', archive: 'Archived.', restore: 'Restored.', free: 'Tier set to free.', pro: 'Tier set to pro.', delete: 'Deleted.' })[kind]);
+      view.sel.clear(); refresh(); toast(({ review: 'Marked reviewed.', draft: 'Marked draft.', archive: 'Archived.', restore: 'Restored.', free: 'Tier set to free.', pro: 'Tier set to pro.', hy: 'Marked high yield.', nohy: 'High yield removed.', delete: 'Deleted.' })[kind]);
       list();
     } catch (e) { toast(e.offline ? 'No connection. Nothing was changed.' : 'That did not work: ' + e.message); }
   }
 
   // ------------------------------------------------------------------ backup
   function backup(listAll) {
-    const out = listAll.map(q => { const o = {}; QValidate.FIELDS.forEach(k => { if (q[k] !== undefined && q[k] !== '' && !(Array.isArray(q[k]) && !q[k].length && (k === 'references' || k === 'objectives'))) o[k] = q[k]; }); if (!q.archived) delete o.archived; return o; });
+    const out = listAll.map(q => { const o = {}; QValidate.FIELDS.forEach(k => { if (q[k] !== undefined && q[k] !== '' && !(Array.isArray(q[k]) && !q[k].length && (k === 'references' || k === 'objectives')) && !(k === 'highYield' && !q[k])) o[k] = q[k]; }); if (!q.archived) delete o.archived; return o; });
     const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(out, null, 2) + '\n'], { type: 'application/json' }));
     a.download = 'ramqbank-questions-' + new Date().toISOString().slice(0, 10) + '.json'; a.click();
     toast(`Downloaded ${out.length} questions. Keep this file somewhere safe.`);
   }
 
-  return { tabs, askText, ensure, refresh, list, view, subjectsFor, LETTERS, note, myEmail, isEditor, role, get cache() { return cache; },
+  return { tabs, askText, applyHighYield, ensure, refresh, list, view, subjectsFor, LETTERS, note, myEmail, isEditor, role, get cache() { return cache; },
     route(a, b, c) {
       if (!a) return role() === 'admin' ? adminPage() : (location.hash = '#/admin/questions');
       if (a === 'lessons' && typeof AdminLessons !== 'undefined') return AdminLessons.route(b, c);
@@ -286,6 +330,7 @@ const Admin = (() => {
           <div><label for="f-status">Status</label><select id="f-status"><option value="draft"${q0.status === 'draft' ? ' selected' : ''}>Draft (hidden from members)</option><option value="reviewed"${q0.status === 'reviewed' ? ' selected' : ''}>Reviewed (live for members)</option></select>
             <p class="hint"><b>Draft</b> questions are visible only to admins and reviewers. <b>Reviewed</b> questions are live for members, and choosing it records you as the reviewer. Changing the wording of a reviewed question hides it again until it is reviewed.</p></div>
           <div><label for="f-tier">Who can see it</label><select id="f-tier"><option value="pro"${q0.tier === 'pro' ? ' selected' : ''}>Pro members</option><option value="free"${q0.tier === 'free' ? ' selected' : ''}>Free members too</option></select></div>
+          <div><label class="chk"><input type="checkbox" id="f-hy"${q0.highYield ? ' checked' : ''}> High yield</label><p class="hint">Marks this as one of the questions most worth a member's time. Members can switch on High yield only to practice just these. It does not change what they see otherwise.</p></div>
           <div><label for="f-lesson">Lesson to study (optional)</label><select id="f-lesson"><option value="">Choose the best match automatically</option>${lessonOptions(q0)}</select><p class="hint">Normally the app picks the best lesson itself and improves as you add lessons. Choose one here only to override it.</p></div>
           <div><label for="f-diff">Difficulty</label><select id="f-diff">${[1, 2, 3].map(n => `<option value="${n}"${(q0.difficulty || 2) === n ? ' selected' : ''}>${['', 'Easy', 'Medium', 'Hard'][n]}</option>`).join('')}</select></div>
         </div>
@@ -347,7 +392,7 @@ const Admin = (() => {
       const o = readOpts(), a = readAns(), boards = [...document.querySelectorAll('input[name=board]:checked')].map(e => e.value);
       const notes = {}; o.forEach((x, i) => { if (x.note.trim()) notes[LETTERS[i]] = x.note.trim(); });
       const keepImg = !removeImage && (pendingFile || q0.image);
-      return { id: el('f-id').value.trim(), status: el('f-status').value, boards, subject: el('f-subject').value, topic: el('f-topic').value.trim(), difficulty: +el('f-diff').value, tier: el('f-tier').value, ...(el('f-lesson').value || q0.lessonId ? { lessonId: el('f-lesson').value } : {}), ...(objPick.get().length || (q0.objectives || []).length ? { objectives: objPick.get() } : {}),
+      return { id: el('f-id').value.trim(), status: el('f-status').value, boards, subject: el('f-subject').value, topic: el('f-topic').value.trim(), difficulty: +el('f-diff').value, tier: el('f-tier').value, ...(el('f-lesson').value || q0.lessonId ? { lessonId: el('f-lesson').value } : {}), ...(el('f-hy').checked || q0.highYield ? { highYield: el('f-hy').checked } : {}), ...(objPick.get().length || (q0.objectives || []).length ? { objectives: objPick.get() } : {}),
         stem: el('f-stem').value, options: o.map((x, i) => ({ id: LETTERS[i], text: x.text })), answer: LETTERS[a], explanation: el('f-expl').value, optionNotes: Object.keys(notes).length ? notes : undefined,
         references: el('f-refs').value.split('\n'), image: keepImg ? (pendingFile ? 'private:pending.png' : q0.image) : null, imageAlt: keepImg ? el('f-alt').value.trim() : '' };
     }
