@@ -748,8 +748,9 @@ function bindTest(t, q) {
   const go = i => {
     const from = t.idx; t.idx = Math.min(t.qids.length - 1, Math.max(0, i)); persist(t); renderTest();
     if (t.idx !== from) {                         // a different question: start at its top, not wherever the last explanation left the page
-      window.scrollTo(0, 0);
       const st = document.getElementById('stem'); if (st) { st.setAttribute('tabindex', '-1'); st.focus({ preventScroll: true }); }
+      const top = () => { window.scrollTo({ top: 0, left: 0, behavior: 'instant' }); document.documentElement.scrollTop = 0; document.body.scrollTop = 0; };
+      top(); requestAnimationFrame(() => { top(); setTimeout(top, 120); });   // again once the new page has laid out, in case the browser puts the old scroll position back
     }
   };
   const opts = [...$app.querySelectorAll('[data-opt]')];
