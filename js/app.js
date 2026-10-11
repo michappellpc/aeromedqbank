@@ -734,7 +734,13 @@ function persist(t) { t.elapsed = elapsed(t); t.started = Date.now(); Store.save
 
 function bindTest(t, q) {
   const id = q.id, tutor = t.mode === 'tutor', locked = tutor && t.revealed[id];
-  const go = i => { t.idx = Math.min(t.qids.length - 1, Math.max(0, i)); persist(t); renderTest(); };
+  const go = i => {
+    const from = t.idx; t.idx = Math.min(t.qids.length - 1, Math.max(0, i)); persist(t); renderTest();
+    if (t.idx !== from) {                         // a different question: start at its top, not wherever the last explanation left the page
+      window.scrollTo(0, 0);
+      const st = document.getElementById('stem'); if (st) { st.setAttribute('tabindex', '-1'); st.focus({ preventScroll: true }); }
+    }
+  };
   const opts = [...$app.querySelectorAll('[data-opt]')];
   opts.forEach((el, i) => {
     const pick = (keyboard, target = el) => { if (locked) return; t.answers[id] = target.dataset.opt; refocus = keyboard ? target.dataset.opt : null; persist(t); renderTest(); };
