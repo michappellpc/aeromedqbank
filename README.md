@@ -125,6 +125,9 @@ From October 1 through November 1 the dashboard banner is a harvest moon with a 
 
 On the Score trend chart, "Compare with everyone" (on by default, shown when group averages exist) adds a dotted line: the first-try average of all members on the same questions the member answered. In Recent mode it is test by test; in Overall and Both it runs across the same tests. Questions without enough members to show an average (the Admin peer minimum) are left out, and a test with none shows a gap. The choice syncs with the account. Logic: `Perf.trendGroup`.
 
+## Repeat a quiz
+Every finished quiz in Test history has a **Repeat** button next to View. It starts a new quiz with the same questions in the same order and the same mode (a timed quiz gets the usual 90 seconds a question). It is scored and listed as a new quiz. Questions that have since been archived or removed are left out, and a message says how many. An unfinished quiz in progress is parked in Test history first, as for any new quiz. No database change.
+
 ## Test history numbering
 
 History lists each quiz as Quiz 1, Quiz 2 and so on, oldest first. The results page shows the same number.
