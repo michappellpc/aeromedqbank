@@ -127,6 +127,17 @@ function parkActive() {
   Store.data.parked = [t, ...(Store.data.parked || [])].slice(0, MAX_PARKED);
   return true;
 }
+// Repeat a finished quiz: the same questions in the same order and the same mode, as a fresh quiz. Questions that are no longer in the bank are left out.
+function repeatTest(id) {
+  const r = Store.data.tests.find(x => x.id === id); if (!r) return;
+  const qids = r.qids.filter(q => bank.byId[q]), left = r.qids.length - qids.length;
+  if (!qids.length) return toast('None of this quiz\'s questions are available any more.');
+  if (parkActive()) toast('Your unfinished quiz is saved in Test history.');
+  Store.data.active = { id: uid(), mode: r.mode, qids, answers: {}, struck: {}, marks: {}, revealed: {}, idx: 0, started: Date.now(), at: Date.now(), elapsed: 0, limit: r.mode === 'timed' ? qids.length * 90 : 0 }; Store.touchActive();
+  Store.save(); location.hash = '#/test';
+  if (left) toast(left + ' question' + (left === 1 ? ' is' : 's are') + ' no longer available and ' + (left === 1 ? 'was' : 'were') + ' left out.');
+}
+
 function resumeUnfinished(id) {
   const list = Store.data.parked || [], t = list.find(x => x.id === id); if (!t) return;
   Store.data.parked = list.filter(x => x.id !== id);
@@ -866,9 +877,10 @@ function historyPage() {
   const uRow = (t, k) => `<tr class="unfin"><td><span class="tag draft">${t.paused ? 'Paused' : 'In progress'}</span></td><td>${t.at ? new Date(t.at).toLocaleString() : '-'}</td><td>${esc(t.mode === 'timed' ? 'timed' : 'tutor')}</td><td>${Object.keys(t.answers).length} of ${t.qids.length} answered</td><td>${fmt(t.paused ? t.elapsed : elapsed(t))}</td>
     <td>${k === 0 && Store.data.active ? `<a class="btn primary" href="#/test" aria-label="Resume the ${t.paused ? 'paused' : 'unfinished'} quiz">Resume</a>` : `<button type="button" class="primary" data-resume="${esc(t.id)}" aria-label="Resume this unfinished quiz">Resume</button>`} <button type="button" data-drop="${esc(t.id)}" aria-label="Discard this unfinished quiz">Discard</button></td></tr>`;
   const rows = unfinished.map(uRow).join('') + T.map((r, i) =>
-    `<tr><td>Quiz ${T.length - i}</td><td>${new Date(r.date).toLocaleString()}</td><td>${r.mode}</td><td>${r.correct}/${r.total} (${pct(r.correct, r.total)}%)</td><td>${fmt(r.seconds)}</td><td><a href="#/results/${r.id}" aria-label="View Quiz ${T.length - i}">View</a></td></tr>`).join('');
+    `<tr><td>Quiz ${T.length - i}</td><td>${new Date(r.date).toLocaleString()}</td><td>${r.mode}</td><td>${r.correct}/${r.total} (${pct(r.correct, r.total)}%)</td><td>${fmt(r.seconds)}</td><td><a href="#/results/${r.id}" aria-label="View Quiz ${T.length - i}">View</a> <button type="button" data-repeat="${esc(r.id)}" aria-label="Repeat Quiz ${T.length - i}">Repeat</button></td></tr>`).join('');
   $app.innerHTML = `<div class="card"><h2>Test history</h2>${rows ? `<table><thead><tr><th>Quiz</th><th>Date</th><th>Mode</th><th>Score</th><th>Time</th><th><span class="sr">Details</span></th></tr></thead><tbody>${rows}</tbody></table>${unfinished.length ? '<p class="muted small">Unfinished quizzes count here once you finish them.</p>' : ''}` : '<p class="muted">No completed tests yet.</p>'}</div>`;
   $app.querySelectorAll('[data-resume]').forEach(b => b.onclick = () => resumeUnfinished(b.dataset.resume));
+  $app.querySelectorAll('[data-repeat]').forEach(b => b.onclick = () => repeatTest(b.dataset.repeat));
   $app.querySelectorAll('[data-drop]').forEach(b => b.onclick = async () => {
     if (!(await ask('Discard this unfinished quiz? It will not be scored or kept in your history. Answers you already revealed in a tutor quiz stay in your question statistics.', 'Discard quiz'))) return;
     const id = b.dataset.drop;
