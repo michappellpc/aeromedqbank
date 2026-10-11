@@ -42,5 +42,10 @@ t('objectives: good tags pass, tidied, bad ones are errors', () => {
   if (!errs({ ...base(), objectives: ['nope'] }).some(m => /objectives/.test(m))) throw new Error('bad tag accepted');
   if (!LV.FIELDS.includes('objectives')) throw new Error('not a field');
 });
+t('highYield on a lesson: true/false pass, other values are errors, lenient words are read', () => {
+  eq(errs({ ...base(), highYield: true }).length, 0); eq(errs({ ...base(), highYield: false }).length, 0);
+  eq(errs({ ...base(), highYield: 'maybe' }).some(m => /highYield must be true or false/.test(m)), true);
+  eq(LV.normalize({ ...base(), highYield: 'yes' }).clean.highYield, true); eq(LV.FIELDS.includes('highYield'), true);
+});
 console.log(`${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

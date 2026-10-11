@@ -46,6 +46,10 @@ let peerAt = 0;
 function refreshPeer() { if (!Cloud.enabled || Date.now() - peerAt < 300000) return; peerAt = Date.now(); Cloud.peerStats().then(m => { bank.peer = m; paintTrend(); }); Cloud.peerChoices().then(m => { bank.choices = m; }); }
 const mascotOn = () => Store.data.settings.mascot !== false;
 const quizMascotOn = () => mascotOn() && Store.data.settings.quizMascot !== false;   // the ram while taking a test can be turned off on its own
+// High yield only: one switch, shared by the New Test, Lessons and Flashcards pages and saved to the account. It only narrows what those pages offer.
+const hyOn = () => !!Store.data.settings.highYield;
+const setHy = on => { Store.data.settings.highYield = !!on; Store.touchSettings(); };
+const hySwitch = (id, note) => `<label class="hyswitch" title="Show just the items marked most worth your time"><input type="checkbox" role="switch" id="${id}"${hyOn() ? ' checked' : ''}><span class="trk" aria-hidden="true"></span><b>High yield only</b></label>${note ? `<span class="muted small hynote">${note}</span>` : ''}`;
 const quizBubbleOff = new Set();   // questions where the member tapped the ram's speech bubble away (on a phone)
 const showDrafts = () => Store.data.settings.showDrafts !== false;
 // A link under an explanation to the most relevant lesson, or to the subject's lessons if none fits well.
@@ -538,6 +542,7 @@ function create(preSubject, preStatus) {
   <form id="f" class="newlayout"><div class="newmain">
     <fieldset class="card"><legend>Mode</legend><div class="choices">
       ${choice('mode', 'tutor', 'Tutor', 'Feedback after each question', true)}${choice('mode', 'timed', 'Timed', 'Feedback at the end, about 90 s per question', false)}</div></fieldset>
+    <fieldset class="card"><legend>High yield</legend><div class="row">${hySwitch('hy', '<span id="hy-n"></span>')}</div><p class="muted small" style="margin:6px 0 0">Practice just the questions marked as most worth your time. This also applies to Lessons and Flashcards.</p></fieldset>
     <fieldset class="card"><legend>Board</legend><div class="chips">${boardBoxes}</div></fieldset>
     <fieldset class="card"><legend>Subjects</legend><div class="row"><button type="button" id="all">Select all</button><button type="button" id="none">Clear</button><span class="muted small" id="subjsum" aria-live="polite"></span></div>${subjGroups}</fieldset>
     <fieldset class="card"><legend>Question status</legend><div class="chips">
@@ -561,8 +566,9 @@ function create(preSubject, preStatus) {
   const vals = n => [...f.querySelectorAll(`[name=${n}]:checked`)].map(e => e.value);
   // Does a question fit the current choices? Anything passed as null is left out of the check, so each checkbox
   // can show how many questions would apply to it given everything else that is selected.
-  const fits = (q, bs, ss, stt, ds) => {
+  const fits = (q, bs, ss, stt, ds, hy = hyOn()) => {
     if (isDraft(q) && !showDrafts()) return false;
+    if (hy && !q.highYield) return false;
     if (ds && !ds.includes(String(q.difficulty || 2))) return false;
     if (bs && !q.boards.some(b => bs.includes(b))) return false;
     if (ss && !ss.includes(q.subject)) return false;
@@ -578,6 +584,7 @@ function create(preSubject, preStatus) {
     const p = pool().length, bs = vals('board'), ss = vals('subj'), stt = vals('status'), ds = vals('diff');
     document.getElementById('avail').textContent = `${p} available`; document.getElementById('availn').textContent = p; document.getElementById('go').disabled = !p;
     document.getElementById('subjsum').textContent = `${ss.length} of ${subjects.length} selected`;
+    const nh = bank.questions.filter(q => q.highYield && fits(q, bs, ss, stt, ds, false)).length; document.getElementById('hy-n').textContent = `${nh} high yield with the choices below`;
     f.querySelectorAll('[data-sg]').forEach(e => { const l = e.dataset.sg.split('|'); e.textContent = `${l.filter(x => ss.includes(x)).length} of ${l.length}`; });
     f.querySelectorAll('[data-cnt]').forEach(span => {
       const [kind, key] = span.dataset.cnt.split(/:(.*)/s);
@@ -588,6 +595,7 @@ function create(preSubject, preStatus) {
       span.textContent = `(${n})`; span.closest('label').classList.toggle('zero', n === 0);
     });
   };
+  document.getElementById('hy').onchange = e => { setHy(e.target.checked); upd(); };
   f.addEventListener('change', upd); upd();
   f.querySelectorAll('[data-q]').forEach(b => b.onclick = () => { const p = pool().length; document.getElementById('n').value = b.dataset.q === 'all' ? Math.max(1, p) : Math.min(+b.dataset.q, Math.max(1, p)); });
   document.getElementById('all').onclick = () => { f.querySelectorAll('[name=subj]').forEach(e => e.checked = true); upd(); };
@@ -630,7 +638,7 @@ function renderTest() {
   const wide = matchMedia('(min-width: 861px)').matches, toolsHtml = `<div class="marktools" role="group" aria-label="Mark up the question"><button type="button" id="mk-h" title="Highlight the selected text">Highlight</button><button type="button" id="mk-s" title="Strike out the selected text">Strike out</button><button type="button" id="mk-c" title="Remove your highlights and strikes from this question">Clear marks</button><button type="button" id="calc" aria-haspopup="dialog" aria-expanded="${CalcUI.isOpen()}" title="Open the calculator">Calculator</button><span class="sr">Select text in the question, then choose a tool. Marks last for this test.</span><span style="flex:1"></span><span class="textsize" role="group" aria-label="Text size"><button type="button" id="tx-minus" aria-label="Smaller text" title="Smaller text"${txt <= 0 ? ' disabled' : ''}>A&minus;</button><button type="button" id="tx-plus" aria-label="Larger text" title="Larger text"${txt >= 3 ? ' disabled' : ''}>A+</button></span></div>`;
   $app.innerHTML = `<div class="testlayout"><div class="testmain">
   <div class="card qcard" data-size="${txt}">
-    <div class="row spread"><div>${q.boards.map(b => `<span class="tag">${esc(boardName(b))}</span>`).join('')}${isDraft(q) ? '<span class="tag draft" title="Not yet reviewed by a physician">Draft</span>' : ''}<span class="tag hltag" data-hlq="${esc(id)}" title="You have highlighted text in this question"${Store.hlIn('q', id).length ? '' : ' hidden'}>&#9998; Highlighted</span><span class="muted">${esc(q.subject)}${q.topic && shown ? ' · ' + esc(q.topic) : ''}</span></div>
+    <div class="row spread"><div>${q.boards.map(b => `<span class="tag">${esc(boardName(b))}</span>`).join('')}${q.highYield ? '<span class="tag hy" title="Marked high yield">High yield</span>' : ''}${isDraft(q) ? '<span class="tag draft" title="Not yet reviewed by a physician">Draft</span>' : ''}<span class="tag hltag" data-hlq="${esc(id)}" title="You have highlighted text in this question"${Store.hlIn('q', id).length ? '' : ' hidden'}>&#9998; Highlighted</span><span class="muted">${esc(q.subject)}${q.topic && shown ? ' · ' + esc(q.topic) : ''}</span></div>
       <div class="muted">Question ${t.idx + 1} of ${t.qids.length}</div></div>
     ${wide ? '' : toolsHtml}
 

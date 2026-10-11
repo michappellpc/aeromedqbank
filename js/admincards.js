@@ -7,8 +7,9 @@ const AdminCards = (() => {
   // Which cards have a lesson, by a hand-set link or by sharing board outline tags (worked out once per list)
   let wlKey = null, wlSet = null;
   const withLesson = () => { if (wlKey !== cache.list || wlSet === null) { wlKey = cache.list; wlSet = Links.withLesson(cache.list, bank.lessons || []); } return wlSet; };
+  const hyOk = x => !view.hy || (view.hy === 'yes') === !!x.highYield;     // the High yield filter
   const tagOk = x => !view.tag || (view.tag === 'nolesson' ? !withLesson().has(x.id) : (view.tag === 'none') === !((x.objectives || []).length));
-  const view = { q: '', subject: '', status: '', tag: '', show: 'active', sel: new Set(), page: 0 };
+  const view = { q: '', subject: '', status: '', tag: '', hy: '', show: 'active', sel: new Set(), page: 0 };
   const SIZES = [50, 100, 250, 500, 0];                       // rows per page; 0 shows them all
   let size = 50; try { const raw = localStorage.getItem('qbank.admin.pagesize'); if (raw !== null && SIZES.includes(+raw)) size = +raw; } catch {}
   const sizeBox = () => `<div><label for="fpp">Per page</label><select id="fpp">${SIZES.map(n => `<option value="${n}"${n === size ? ' selected' : ''}>${n || 'All'}</option>`).join('')}</select></div>`;
@@ -36,7 +37,7 @@ const AdminCards = (() => {
   // ------------------------------------------------------------------ list
   const filtered = () => {
     const w = view.q.trim().toLowerCase();
-    return cache.list.filter(c => (view.show === 'all' || (view.show === 'archived') === c.archived) && (!view.subject || c.subject === view.subject) && (!view.status || c.status === view.status) && tagOk(c)
+    return cache.list.filter(c => (view.show === 'all' || (view.show === 'archived') === c.archived) && (!view.subject || c.subject === view.subject) && (!view.status || c.status === view.status) && tagOk(c) && hyOk(c)
       && (!w || c.id.includes(w) || c.front.toLowerCase().includes(w) || c.back.toLowerCase().includes(w) || (c.topic || '').toLowerCase().includes(w)));
   };
   const tag = c => c.archived ? '<span class="tag archived">Archived</span>' : c.status === 'reviewed' ? `<span class="tag reviewed">Live</span>${c.reviewedBy ? ` <span class="muted">${esc(c.reviewedBy)}</span>` : ''}` : '<span class="tag draft">Draft (hidden)</span>';
@@ -49,25 +50,27 @@ const AdminCards = (() => {
     $app.innerHTML = `${tabs('cards')}
       <div class="card"><div class="row spread"><div><h2 style="margin:0">Flashcards</h2>
         <p class="muted" style="margin:4px 0 0">${n.live} live for everyone &middot; ${n.draft} draft (hidden) &middot; ${n.arch} archived</p></div>
-        <div class="row"><a class="btn primary" href="#/admin/cards/new">Add a card</a><a class="btn" href="#/admin/cards/import">Import from a chat</a><button id="claude" type="button" aria-label="Copy these flashcards to paste into a chat" title="Copy the flashcards you are looking at, to paste into a chat">Copy</button><button id="backup">Download backup</button></div></div></div>
+        <div class="row"><a class="btn primary" href="#/admin/cards/new">Add a card</a><a class="btn" href="#/admin/cards/import">Import from a chat</a><button id="claude" type="button" aria-label="Copy these flashcards to paste into a chat" title="Copy the flashcards you are looking at, to paste into a chat">Copy</button><button id="hyapply" type="button" title="Paste Claude's answer to the Sort by high yield Copy task">Apply high yield list</button><button id="backup">Download backup</button></div></div></div>
       <div class="card"><form id="flt" class="filters" onsubmit="return false" aria-label="Filter flashcards">
         <div><label for="fq">Search</label><input id="fq" type="search" value="${esc(view.q)}" placeholder="id, topic, or words on the card"></div>
         <div><label for="fs">Subject</label><select id="fs"><option value="">All</option>${subjects.map(s => `<option${s === view.subject ? ' selected' : ''}>${esc(s)}</option>`).join('')}</select></div>
         <div><label for="fst">Status</label><select id="fst"><option value="">All</option><option value="draft">Draft</option><option value="reviewed">Reviewed</option></select></div>
-        <div><label for="fot">Outline tags</label><select id="fot"><option value="">All</option><option value="none">Not tagged yet (${cache.list.filter(x => !x.archived && !(x.objectives || []).length).length})</option><option value="some">Tagged</option><option value="nolesson">No lesson linked yet (${cache.list.filter(x => !x.archived && !withLesson().has(x.id)).length})</option></select></div><div><label for="fsh">Show</label><select id="fsh"><option value="active">Active</option><option value="archived">Archived</option><option value="all">Both</option></select></div>${sizeBox()}</form></div>
+        <div><label for="fot">Outline tags</label><select id="fot"><option value="">All</option><option value="none">Not tagged yet (${cache.list.filter(x => !x.archived && !(x.objectives || []).length).length})</option><option value="some">Tagged</option><option value="nolesson">No lesson linked yet (${cache.list.filter(x => !x.archived && !withLesson().has(x.id)).length})</option></select></div><div><label for="fhy">High yield</label><select id="fhy"><option value="">All</option><option value="yes">High yield only (${cache.list.filter(x => !x.archived && x.highYield).length})</option><option value="no">Not marked yet</option></select></div><div><label for="fsh">Show</label><select id="fsh"><option value="active">Active</option><option value="archived">Archived</option><option value="all">Both</option></select></div>${sizeBox()}</form></div>
       <div id="bulk"></div><div class="card" id="cres"></div>`;
     const el = id => document.getElementById(id);
-    el('fst').value = view.status; el('fsh').value = view.show; el('fot').value = view.tag;
+    el('fst').value = view.status; el('fsh').value = view.show; el('fot').value = view.tag; el('fhy').value = view.hy;
     el('fq').oninput = e => { view.q = e.target.value; view.page = 0; paint(); };
     el('fs').onchange = e => { view.subject = e.target.value; view.page = 0; paint(); };
     el('fst').onchange = e => { view.status = e.target.value; view.page = 0; paint(); };
     el('fot').onchange = e => { view.tag = e.target.value; view.page = 0; paint(); };
+    el('fhy').onchange = e => { view.hy = e.target.value; view.page = 0; paint(); };
     el('fpp').onchange = e => { setSize(e.target.value); view.page = 0; paint(); };
     el('fsh').onchange = e => { view.show = e.target.value; view.page = 0; paint(); };
-    el('claude').onclick = () => Handoff.open({ kind: 'cards', items: lastRows, selected: [...view.sel], importHash: '#/admin/cards/import',
-      describe: (() => { const p = []; if (view.q) p.push(`search "${view.q}"`); if (view.subject) p.push(view.subject); if (view.status) p.push(view.status === 'reviewed' ? 'live' : 'draft'); if (view.show !== 'active') p.push(view.show === 'all' ? 'including archived' : 'archived'); return p.length ? 'filters: ' + p.join(', ') : 'no filters'; })() });
+    el('hyapply').onclick = () => Admin.applyHighYield({ noun: 'flashcard', items: cache.list, patch: Cloud.patchCards, after: async () => { await ensure(true); list(); } });
+    el('claude').onclick = () => Handoff.open({ kind: 'cards', coverage: Links.coverage(cache.list.filter(x => !x.archived)), items: lastRows, selected: [...view.sel], importHash: '#/admin/cards/import',
+      describe: (() => { const p = []; if (view.q) p.push(`search "${view.q}"`); if (view.subject) p.push(view.subject); if (view.status) p.push(view.status === 'reviewed' ? 'live' : 'draft'); if (view.hy) p.push(view.hy === 'yes' ? 'high yield' : 'not marked high yield'); if (view.show !== 'active') p.push(view.show === 'all' ? 'including archived' : 'archived'); return p.length ? 'filters: ' + p.join(', ') : 'no filters'; })() });
     el('backup').onclick = () => {
-      const out = cache.list.map(x => ({ id: x.id, status: x.status, boards: x.boards, subject: x.subject, topic: x.topic || undefined, front: x.front, back: x.back, lessonId: x.lessonId, objectives: x.objectives, references: x.references, archived: x.archived }));
+      const out = cache.list.map(x => ({ id: x.id, status: x.status, boards: x.boards, subject: x.subject, topic: x.topic || undefined, front: x.front, back: x.back, lessonId: x.lessonId, objectives: x.objectives, ...(x.highYield ? { highYield: true } : {}), references: x.references, archived: x.archived }));
       const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(out, null, 1)], { type: 'application/json' }));
       a.download = 'aeromedqbank-flashcards-' + new Date().toISOString().slice(0, 10) + '.json'; a.click(); toast(`Downloaded ${out.length} flashcards.`);
     };
@@ -82,7 +85,7 @@ const AdminCards = (() => {
       <th scope="col"><input type="checkbox" id="selall" aria-label="Select all shown"${all ? ' checked' : ''}></th><th scope="col">Card</th><th scope="col">Subject</th><th scope="col">Status</th><th scope="col">Updated</th></tr></thead><tbody>${slice.map(c => `<tr${c.archived ? ' class="dim"' : ''}>
         <td><input type="checkbox" data-sel="${esc(c.id)}" aria-label="Select ${esc(c.id)}"${view.sel.has(c.id) ? ' checked' : ''}></td>
         <td><a href="#/admin/cards/edit/${esc(c.id)}">${esc(c.id)}</a><div class="small">${esc(c.front.slice(0, 90))}${c.front.length > 90 ? '...' : ''}</div><div class="muted small">${esc(c.back.slice(0, 90))}${c.back.length > 90 ? '...' : ''}</div></td>
-        <td>${esc(c.subject)}<div class="muted small">${esc(c.topic || '')}</div></td><td>${tag(c)}</td><td>${day(c.updatedAt)}<div class="muted small">${esc(c.updatedBy)}</div></td></tr>`).join('')}</tbody></table></div>
+        <td>${esc(c.subject)}<div class="muted small">${esc(c.topic || '')}</div></td><td>${tag(c)}${c.highYield ? ' <span class="tag hy" title="Marked high yield">High yield</span>' : ''}</td><td>${day(c.updatedAt)}<div class="muted small">${esc(c.updatedBy)}</div></td></tr>`).join('')}</tbody></table></div>
       <div class="row spread" style="margin-top:10px"><span class="muted" aria-live="polite">${rows.length} card${rows.length === 1 ? '' : 's'}${pages > 1 ? `, page ${view.page + 1} of ${pages}` : ''}</span>
         ${pages > 1 ? `<span class="row"><button id="pv"${view.page ? '' : ' disabled'}>Previous</button><button id="nx"${view.page < pages - 1 ? '' : ' disabled'}>Next</button></span>` : ''}</div>`
       : '<p class="muted">No flashcards match. Add one, or import a batch from a chat.</p>';
@@ -98,7 +101,7 @@ const AdminCards = (() => {
     if (!ids.length) { box.innerHTML = ''; return; }
     const chosen = cache.list.filter(c => ids.includes(c.id)), allArch = chosen.every(c => c.archived), n = ids.length, s = n === 1 ? 'card' : 'cards';
     box.innerHTML = `<div class="card bulkbar" role="region" aria-label="Actions for selected cards"><b>${n} selected</b>
-      <button data-b="review">Mark reviewed (publish)</button><button data-b="draft">Mark draft (hide)</button>${allArch ? '<button data-b="restore">Restore</button>' : '<button data-b="archive">Archive</button>'}${allArch ? '<button data-b="delete" class="danger">Delete permanently</button>' : ''}<button data-b="clear" class="linkish">Clear</button></div>`;
+      <button data-b="review">Mark reviewed (publish)</button><button data-b="draft">Mark draft (hide)</button>${allArch ? '<button data-b="restore">Restore</button>' : '<button data-b="archive">Archive</button>'}${allArch ? '<button data-b="delete" class="danger">Delete permanently</button>' : ''}<button data-b="hy" title="Mark these as worth a member's time first">Mark high yield</button><button data-b="nohy">Remove high yield</button><button data-b="clear" class="linkish">Clear</button></div>`;
     box.querySelectorAll('[data-b]').forEach(b => b.onclick = async () => {
       const kind = b.dataset.b;
       if (kind === 'clear') { view.sel.clear(); return paint(); }
@@ -107,7 +110,7 @@ const AdminCards = (() => {
       if (kind === 'delete' && !(await askText(`Permanently delete ${n} ${s}? This also erases every member's schedule for ${n === 1 ? 'it' : 'them'} and cannot be undone. Download a backup first if you are unsure.`, 'DELETE', 'Delete permanently'))) return;
       try {
         if (kind === 'delete') await Cloud.deleteCards(ids);
-        else await Cloud.patchCards(ids, kind === 'review' ? { status: 'reviewed' } : kind === 'draft' ? { status: 'draft' } : { archived: kind === 'archive' });
+        else await Cloud.patchCards(ids, kind === 'review' ? { status: 'reviewed' } : kind === 'draft' ? { status: 'draft' } : kind === 'hy' || kind === 'nohy' ? { high_yield: kind === 'hy' } : { archived: kind === 'archive' });
         view.sel.clear(); await ensure(true); toast('Done.'); list();
       } catch (e) { toast(e.offline ? 'No connection. Nothing was changed.' : 'That did not work: ' + e.message); }
     });
@@ -130,7 +133,8 @@ const AdminCards = (() => {
         <div><label for="f-topic">Topic (optional)</label><input id="f-topic" type="text" value="${esc(q0.topic || '')}" autocomplete="off"></div>
         <div style="grid-column:1/-1"><label for="f-front">Front (the prompt, up to 600 characters)</label><textarea id="f-front" rows="3" maxlength="600">${esc(q0.front)}</textarea></div>
         <div style="grid-column:1/-1"><label for="f-back">Back (the answer, up to 1500 characters)</label><textarea id="f-back" rows="5" maxlength="1500">${esc(q0.back)}</textarea></div>
-        <div><label for="f-lesson">Linked lesson (optional)</label><select id="f-lesson"><option value="">Choose automatically</option>${lessons.map(l => `<option value="${esc(l.id)}"${l.id === q0.lessonId ? ' selected' : ''}>${esc(l.title)}</option>`).join('')}</select></div>
+        <div><label class="chk"><input type="checkbox" id="f-hy"${q0.highYield ? ' checked' : ''}> High yield</label><p class="hint">Marks this card as one of the most worth a member's time. Members can switch on High yield only to see just these. It does not change what they see otherwise.</p></div>
+          <div><label for="f-lesson">Linked lesson (optional)</label><select id="f-lesson"><option value="">Choose automatically</option>${lessons.map(l => `<option value="${esc(l.id)}"${l.id === q0.lessonId ? ' selected' : ''}>${esc(l.title)}</option>`).join('')}</select></div>
         <div><label for="f-refs">References (one per line)</label><textarea id="f-refs" rows="2">${esc((q0.references || []).join('\n'))}</textarea></div>
         <div style="grid-column:1/-1"><fieldset><legend>Board outline items (optional)</legend><p class="hint">The ABPM outline items this card covers. Members see them with the back, and Program insights uses them instead of guessing. Changing them never sends a live card back to Draft.</p><div id="f-obj"></div></fieldset></div>
         <div><label for="f-status">Status</label><select id="f-status"><option value="draft"${q0.status !== 'reviewed' ? ' selected' : ''}>Draft (hidden)</option><option value="reviewed"${q0.status === 'reviewed' ? ' selected' : ''}>Reviewed (live)</option></select></div>
@@ -144,7 +148,7 @@ const AdminCards = (() => {
     fillSubjects();
     const objPick = ObjPicker.mount(el('f-obj'), { value: q0.objectives || [], boards, subject: () => el('f-subject').value, topic: () => el('f-topic').value.trim(), text: () => el('f-front').value + ' ' + el('f-back').value });
     const read = () => CardValidate.normalize({ id: el('f-id').value, status: el('f-status').value, boards: boards(), subject: el('f-subject').value, topic: el('f-topic').value || undefined, front: el('f-front').value, back: el('f-back').value,
-      lessonId: el('f-lesson').value || undefined, ...(objPick.get().length || (q0.objectives || []).length ? { objectives: objPick.get() } : {}), references: el('f-refs').value.split('\n').map(x => x.trim()).filter(Boolean), ...(c0 ? { archived: !!c0.archived } : {}) }).clean;
+      lessonId: el('f-lesson').value || undefined, ...(el('f-hy').checked || q0.highYield ? { highYield: el('f-hy').checked } : {}), ...(objPick.get().length || (q0.objectives || []).length ? { objectives: objPick.get() } : {}), references: el('f-refs').value.split('\n').map(x => x.trim()).filter(Boolean), ...(c0 ? { archived: !!c0.archived } : {}) }).clean;
     const preview = () => { const x = read(); el('prev').innerHTML = `<h3>Preview, as a member sees it</h3><div class="card flash"><p class="flash-side">${esc(x.front || '(front)')}</p><div class="flash-back">${esc(x.back || '(back)').replace(/\n/g, '<br>')}</div></div>`; };
     preview(); el('cf').addEventListener('input', preview); el('cf').addEventListener('change', e => { if (e.target.name === 'board') fillSubjects(); preview(); });
     if (!id) el('f-subject').addEventListener('change', () => { if (!el('f-id').value) { const n = cache.list.filter(x => x.id.startsWith(slug(el('f-subject').value) + '-card-')).length + 1; el('f-id').value = `${slug(el('f-subject').value)}-card-${String(n).padStart(3, '0')}`; } });

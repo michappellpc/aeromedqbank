@@ -174,6 +174,11 @@ alter table public.questions add column if not exists lesson_id text references 
 alter table public.questions  add column if not exists objectives text[] not null default '{}';
 alter table public.lessons    add column if not exists objectives text[] not null default '{}';
 alter table public.flashcards add column if not exists objectives text[] not null default '{}';
+-- High yield: an editor marks the questions, lessons and flashcards most worth a member's time; members can filter to just those.
+-- It is a label, not wording, so changing it never sends a live item back to Draft (the guards above only watch the content columns).
+alter table public.questions  add column if not exists high_yield boolean not null default false;
+alter table public.lessons    add column if not exists high_yield boolean not null default false;
+alter table public.flashcards add column if not exists high_yield boolean not null default false;
 do $$ declare t text; begin
   foreach t in array array['questions','lessons','flashcards'] loop
     if not exists (select 1 from pg_constraint where conname = t || '_objectives_ok') then

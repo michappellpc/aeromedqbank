@@ -6,7 +6,7 @@
 })(typeof self !== 'undefined' ? self : this, function () {
   const STATUS = ['draft', 'reviewed'], TIERS = ['free', 'pro'];
   // The only fields a question may have; anything else is dropped on save.
-  const FIELDS = ['id', 'status', 'reviewedBy', 'boards', 'subject', 'topic', 'difficulty', 'stem', 'image', 'imageAlt', 'options', 'answer', 'explanation', 'optionNotes', 'references', 'tier', 'lessonId', 'objectives', 'archived'];
+  const FIELDS = ['id', 'status', 'reviewedBy', 'boards', 'subject', 'topic', 'difficulty', 'stem', 'image', 'imageAlt', 'options', 'answer', 'explanation', 'optionNotes', 'references', 'tier', 'lessonId', 'objectives', 'highYield', 'archived'];
   const norm = s => String(s).toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
 
   // The "length tell": the correct answer is the longest choice and clearly longer than the rest, which gives it away.
@@ -58,6 +58,7 @@
     if (q.archived != null && typeof q.archived !== 'boolean') err('archived must be true or false');
     if (q.lessonId != null && q.lessonId !== '' && (typeof q.lessonId !== 'string' || !/^[a-z0-9][a-z0-9-]*$/.test(q.lessonId))) err('lessonId must be a lesson id');
     else if (q.lessonId && ctx.lessonIds && !ctx.lessonIds.has(q.lessonId)) warn(`lessonId "${q.lessonId}" does not match any lesson`);
+    if (q.highYield != null && typeof q.highYield !== 'boolean') err('highYield must be true or false');
     if (q.objectives != null) {
       if (!Array.isArray(q.objectives) || q.objectives.length > 12 || q.objectives.some(o => typeof o !== 'string' || !/^(aem|om|pm):[TK][0-9]+(\.[A-Za-z0-9]+)*$/.test(o))) err(`objectives must be a list of at most 12 board outline items such as "aem:K1.E.1"${Array.isArray(q.objectives) ? ' (not understood: ' + q.objectives.filter(o => typeof o !== 'string' || !/^(aem|om|pm):[TK][0-9]+(\\.[A-Za-z0-9]+)*$/.test(o)).slice(0, 3).map(o => JSON.stringify(o)).join(', ') + ')' : ''}`);
       else { q.objectives.forEach(o => { if (ctx.knownObjective && !ctx.knownObjective(o)) warn(`objective "${o}" is not an item in the board outline`); else if (Array.isArray(q.boards) && q.boards.length && !q.boards.includes(o.split(':')[0])) warn(`objective "${o}" is from a board this question is not listed for`); }); }
@@ -103,6 +104,9 @@
     for (const k of ['id', 'topic', 'stem', 'explanation', 'imageAlt', 'reviewedBy', 'lessonId']) if (typeof clean[k] === 'string') clean[k] = clean[k].trim();
     if (Array.isArray(clean.options)) clean.options = clean.options.map(o => ({ id: o && o.id, text: typeof (o && o.text) === 'string' ? o.text.trim() : o && o.text }));
     if (Array.isArray(clean.references)) clean.references = clean.references.map(r => String(r).trim()).filter(Boolean);
+    if (clean.highYield != null && typeof clean.highYield !== 'boolean') {   // be forgiving: true/false, "yes"/"no", 1/0
+      const s = String(clean.highYield).trim().toLowerCase(); if (['true', 'yes', 'y', '1'].includes(s)) clean.highYield = true; else if (['false', 'no', 'n', '0', ''].includes(s)) clean.highYield = false;
+    }
     if (clean.objectives != null) {              // be forgiving about how a list of outline items is written: a string, objects, "AEM K1.E.1", "aem:K1.E.1 - Hypobaric exposures", or a bare K1.E.1 on a one-board item
       let list = clean.objectives; if (typeof list === 'string') list = list.split(/[,;\n|]+/);
       if (Array.isArray(list)) {
