@@ -298,7 +298,7 @@ a.subjtile:hover{border-color:var(--accent);background:var(--sel)}.subjtile span
 .ltable{margin:12px 0;font-size:.95rem}.ltable caption{text-align:left;font-weight:650;padding:0 0 8px;caption-side:top}
 .ltable th,.ltable td{vertical-align:top;padding:9px 12px;border:1px solid var(--line);line-height:1.5}
 .ltable thead th{background:var(--hdr);color:#fff;border-color:var(--hdr);text-transform:none;letter-spacing:0;font-size:.85rem}
-.ltable tbody th{background:var(--sel);text-align:left;font-weight:650;white-space:nowrap}
+.ltable tbody th{background:var(--sel);text-align:left;font-weight:650;white-space:normal;overflow-wrap:break-word;min-width:7em;max-width:13em}
 .ltable tbody tr:nth-child(even) td{background:color-mix(in srgb,var(--sel) 45%,var(--card))}
 .lcallout{margin:16px 0;padding:12px 16px;border-left:5px solid var(--lc-key);background:var(--sel);border-radius:0 8px 8px 0}
 .lcallout b{display:block;font-size:.8rem;text-transform:uppercase;letter-spacing:.06em;color:var(--lc-key)}.lcallout p{margin:4px 0 0}
