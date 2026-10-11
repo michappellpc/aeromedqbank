@@ -128,6 +128,12 @@ On the Score trend chart, "Compare with everyone" (on by default, shown when gro
 ## Repeat a quiz
 Every finished quiz in Test history has a **Repeat** button next to View. It starts a new quiz with the same questions in the same order and the same mode (a timed quiz gets the usual 90 seconds a question). It is scored and listed as a new quiz. Questions that have since been archived or removed are left out, and a message says how many. An unfinished quiz in progress is parked in Test history first, as for any new quiz. No database change.
 
+## Content Security Policy
+`index.html`, `privacy.html` and `terms.html` carry a Content-Security-Policy meta tag: scripts only from the app itself (no inline scripts, no `eval`), connections only to the app and the Supabase project, images from the app, `blob:` and `data:`, fonts and the service worker from the app, no plugins, no frames, `base` and forms locked to the app. Styles allow inline (`style-src 'unsafe-inline'`) because the pages build many inline style attributes. GitHub Pages cannot send HTTP headers, so the policy is a meta tag, and `frame-ancestors` (clickjacking) cannot be set that way. Anything that needs a new outside host must be added to the policy deliberately. To keep the policy true, inline `onsubmit` handlers were replaced with one delegated listener in `js/app.js`, and the inline script on the legal pages moved to `js/legal.js`. `tools/test-config.js` (run on every push) checks every page has the policy, that `script-src` is `'self'` only, that `connect-src` matches the Supabase address in `data/config.json`, and that no page has an inline script or inline handler. If the Supabase project ever moves, change the address in `data/config.json` and in the three policies together.
+
+## Config safety check
+`data/config.json` must point at the real Supabase project. `node tools/test-config.js` (also run on every push by the Validate workflow) fails if the address is not https, is localhost or a private network address, or the key looks like a secret key. As a second guard, `js/cloud.js` ignores a localhost or private-network Supabase address whenever the page itself is not served from localhost, so a stray test setting can never make a member's browser look for apps on their own device.
+
 ## Test history numbering
 
 History lists each quiz as Quiz 1, Quiz 2 and so on, oldest first. The results page shows the same number.

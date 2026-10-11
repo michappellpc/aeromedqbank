@@ -158,7 +158,7 @@ const Cards = (() => {
     $app.innerHTML = `<p class="crumb"><a href="#/cards">Back to flashcards</a></p><div class="card"><h2 style="margin:0">Browse flashcards</h2>
       <p class="muted">Read through the cards at your own pace. Nothing here is rated or scheduled, so it does not change your reviews.</p>
       ${fm ? `<p class="notice" role="status">${fItem ? `Showing the ${only.size} card${only.size === 1 ? '' : 's'} that cover ${fm[1] === 'q' ? 'this question' : 'the lesson <b>' + esc(fItem.title) + '</b>'}.` : 'That item is no longer available, so every card is shown.'} <a href="#/cards/browse">Show all cards</a></p>` : ''}
-      <form class="filters" onsubmit="return false" aria-label="Filter flashcards" style="margin-top:12px">
+      <form class="filters" aria-label="Filter flashcards" style="margin-top:12px">
         <div><label for="bq">Search</label><input id="bq" type="search" placeholder="words on the card or topic" autocomplete="off"></div>
         <div><label for="bs">Subject</label><select id="bs"><option value="">All subjects</option>${subjects.map(s => `<option${s === v.subject ? ' selected' : ''}>${esc(s)}</option>`).join('')}</select></div>
         <div style="align-self:end"><label class="chk"><input type="checkbox" id="ball"> Show all answers</label></div>

@@ -51,7 +51,7 @@ const AdminCards = (() => {
       <div class="card"><div class="row spread"><div><h2 style="margin:0">Flashcards</h2>
         <p class="muted" style="margin:4px 0 0">${n.live} live for everyone &middot; ${n.draft} draft (hidden) &middot; ${n.arch} archived</p></div>
         <div class="row"><a class="btn primary" href="#/admin/cards/new">Add a card</a><a class="btn" href="#/admin/cards/import">Import from a chat</a><button id="claude" type="button" aria-label="Copy these flashcards to paste into a chat" title="Copy the flashcards you are looking at, to paste into a chat">Copy</button><button id="hyapply" type="button" title="Paste Claude's answer to the Sort by high yield Copy task">Apply high yield list</button><button id="backup">Download backup</button></div></div></div>
-      <div class="card"><form id="flt" class="filters" onsubmit="return false" aria-label="Filter flashcards">
+      <div class="card"><form id="flt" class="filters" aria-label="Filter flashcards">
         <div><label for="fq">Search</label><input id="fq" type="search" value="${esc(view.q)}" placeholder="id, topic, or words on the card"></div>
         <div><label for="fs">Subject</label><select id="fs"><option value="">All</option>${subjects.map(s => `<option${s === view.subject ? ' selected' : ''}>${esc(s)}</option>`).join('')}</select></div>
         <div><label for="fst">Status</label><select id="fst"><option value="">All</option><option value="draft">Draft</option><option value="reviewed">Reviewed</option></select></div>

@@ -266,6 +266,7 @@ const Cloud = (() => {
     get session() { return session; },
     init(c) {
       cfg = c && c.url && c.anonKey ? { url: String(c.url).replace(/\/+$/, ''), key: c.anonKey } : null;
+      if (cfg && /^https?:\/\/(localhost|127\.|\[::1\]|0\.0\.0\.0|10\.|192\.168\.)/i.test(cfg.url) && !/^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname)) cfg = null;   // a test address in the live site's config must never make a browser look for apps on a member's own device
       session = cfg ? jget(S_KEY) : null;
       window.addEventListener('online', () => schedule(500));
     },
