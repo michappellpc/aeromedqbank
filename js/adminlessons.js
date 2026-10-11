@@ -69,7 +69,7 @@ const AdminLessons = (() => {
     on('fst', 'change', e => { view.status = e.target.value; paint(); }); on('fot', 'change', e => { view.tag = e.target.value; paint(); }); on('fhy', 'change', e => { view.hy = e.target.value; paint(); }); on('fsh', 'change', e => { view.show = e.target.value; paint(); });
     on('backup', 'click', () => backup(c.list));
     on('hyapply', 'click', () => Admin.applyHighYield({ noun: 'lesson', items: cache.list, patch: Cloud.patchLessons, after: () => { refresh(); list(); } }));
-    on('claude', 'click', () => Handoff.open({ kind: 'lessons', items: lastRows, selected: [...view.sel], importHash: '#/admin/lessons/import',
+    on('claude', 'click', () => Handoff.open({ kind: 'lessons', coverage: Links.coverage(cache.list.filter(x => !x.archived)), items: lastRows, selected: [...view.sel], importHash: '#/admin/lessons/import',
       describe: (() => { const p = []; if (view.q) p.push(`search "${view.q}"`); if (view.subject) p.push(view.subject); if (view.status) p.push(view.status === 'reviewed' ? 'live' : 'draft'); if (view.hy) p.push(view.hy === 'yes' ? 'high yield' : 'not marked high yield'); if (view.show !== 'active') p.push(view.show === 'all' ? 'including archived' : 'archived'); return p.length ? 'filters: ' + p.join(', ') : 'no filters'; })() }));
     paint();
   }

@@ -55,4 +55,12 @@ t('questions for a card: best few by tags', L.questionsForCard(cards[0], [{ id: 
 console.log('Admin lists');
 t('items with a lesson: by pin or by tags', (() => { const s = L.withLesson([q, { id: 'p', lessonId: 'l-none' }, { id: 'gone', lessonId: 'zzz' }, { id: 'n', objectives: ['aem:K9.Z'] }, { id: 'u' }], lessons); return [...s].sort().join() === 'p,q1'; })());
 t('lessons in use: by a pin or by a tag match', (() => { const s = L.lessonsInUse(lessons, [q, { id: 'p', lessonId: 'l-none' }]); return [...s].sort().join() === 'l-exact,l-none'; })());
+console.log('Coverage for the high yield task');
+{
+  const bank = [{ id: 'a', objectives: ['aem:K1.E.1'] }, { id: 'b', objectives: ['aem:K1.E.1', 'aem:K2.A'] }, { id: 'c', objectives: ['aem:K2.A'] }, { id: 'd', objectives: ['aem:K9.Z'] }, { id: 'e' }];
+  const cov = L.coverage(bank);
+  t('an item is counted against the others that share its outline items (a shares with b)', cov(bank[0]) === 1);
+  t('b shares with a (K1.E.1) and with c (K2.A), so 2', cov(bank[1]) === 2);
+  t('an item nobody else shares is 0, and an untagged item is null (no signal)', cov(bank[3]) === 0 && cov(bank[4]) === null);
+}
 console.log(`\n${pass} passed, ${fail} failed`); process.exit(fail ? 1 : 0);

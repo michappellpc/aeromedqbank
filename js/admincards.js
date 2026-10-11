@@ -67,7 +67,7 @@ const AdminCards = (() => {
     el('fpp').onchange = e => { setSize(e.target.value); view.page = 0; paint(); };
     el('fsh').onchange = e => { view.show = e.target.value; view.page = 0; paint(); };
     el('hyapply').onclick = () => Admin.applyHighYield({ noun: 'flashcard', items: cache.list, patch: Cloud.patchCards, after: async () => { await ensure(true); list(); } });
-    el('claude').onclick = () => Handoff.open({ kind: 'cards', items: lastRows, selected: [...view.sel], importHash: '#/admin/cards/import',
+    el('claude').onclick = () => Handoff.open({ kind: 'cards', coverage: Links.coverage(cache.list.filter(x => !x.archived)), items: lastRows, selected: [...view.sel], importHash: '#/admin/cards/import',
       describe: (() => { const p = []; if (view.q) p.push(`search "${view.q}"`); if (view.subject) p.push(view.subject); if (view.status) p.push(view.status === 'reviewed' ? 'live' : 'draft'); if (view.hy) p.push(view.hy === 'yes' ? 'high yield' : 'not marked high yield'); if (view.show !== 'active') p.push(view.show === 'all' ? 'including archived' : 'archived'); return p.length ? 'filters: ' + p.join(', ') : 'no filters'; })() });
     el('backup').onclick = () => {
       const out = cache.list.map(x => ({ id: x.id, status: x.status, boards: x.boards, subject: x.subject, topic: x.topic || undefined, front: x.front, back: x.back, lessonId: x.lessonId, objectives: x.objectives, ...(x.highYield ? { highYield: true } : {}), references: x.references, archived: x.archived }));

@@ -94,4 +94,13 @@ console.log('High yield');
   t('other tasks do not show a highYield of false, and do keep a true one', (() => { const o = after(H.build('questions', items, { task: 'review' }), 'THE QUESTIONS:\n'); return o[0].highYield === true && !('highYield' in o[1]); })());
   t('the lesson and card versions work the same way', ['lessons', 'cards'].every(k => { const it = k === 'lessons' ? { id: 'l-1', boards: ['aem'], subject: 'S', title: 'T', summary: 's', blocks: [{ type: 'text', text: 'x' }] } : { id: 'c-1', boards: ['aem'], subject: 'S', front: 'f', back: 'b' }; const out = H.build(k, [{ ...it, highYield: true }, { ...it, id: it.id + 'b' }], { task: 'highyield' }); return /HIGH YIELD/.test(out) && /only "id"/.test(out) && !/Set "status": "draft"/.test(out); }));
 }
+{
+  const items = [mq(1), mq(2), mq(3)];
+  const x = H.build('questions', items, { task: 'highyield', coverage: { 'q-1': 3, 'q-2': 0, 'q-3': null } });
+  t('the instruction separates core concepts from trivia, with the vestibular illusions example and the three questions to ask', /vestibular illusions/.test(x) && /LEAVE IT UNMARKED/.test(x) && /what a particular code or signal means/.test(x) && /how likely is a board exam to ask this/.test(x) && /a hard question about trivia is low yield/.test(x));
+  t('it says to judge the topic, to follow the note, and to ask for a reason', /Judge the TOPIC/.test(x) && /follow it/.test(x) && /roughly 20% to 30%/.test(x));
+  t('the coverage hint lists how many other items share each item\'s outline items', /HOW MUCH OF MY BANK COVERS THE SAME BOARD OUTLINE ITEMS AS EACH QUESTION/.test(x) && /- q-1: 3 other items share its outline items/.test(x) && /- q-2: no other items share its outline items/.test(x) && /- q-3: not tagged with outline items yet/.test(x));
+  t('without coverage there is no hint block, and other tasks never get one', !/HOW MUCH OF MY BANK/.test(H.build('questions', items, { task: 'highyield' })) && !/HOW MUCH OF MY BANK/.test(H.build('questions', items, { task: 'review', coverage: { 'q-1': 1 } })));
+  t('lessons and cards say what one of them covers, in their own words', /Judge the TOPIC each lesson covers/.test(H.TASKS.lessons.find(r => r[0] === 'highyield')[2]) && /Judge the TOPIC each card covers/.test(H.TASKS.cards.find(r => r[0] === 'highyield')[2]));
+}
 console.log(`\n${pass} passed, ${fail} failed`); process.exit(fail ? 1 : 0);

@@ -76,5 +76,10 @@
     for (const it of items) { if (it.lessonId) out.add(it.lessonId); rank(it, lessons, { index: ix }).forEach(h => out.add(h.item.id)); }
     return out;
   }
-  return { MIN, tagsOf, score, rank, index, lesson, cardsForQuestion, cardsForLesson, questionsForLesson, questionsForCard, withLesson, lessonsInUse };
+  // For the high yield Copy task: how many OTHER items in the list share each item's outline items (null if it has no tags yet)
+  function coverage(list) {
+    const ix = index(list);
+    return item => (tagsOf(item).length ? rank(item, list, { index: ix }).length : null);
+  }
+  return { MIN, coverage, tagsOf, score, rank, index, lesson, cardsForQuestion, cardsForLesson, questionsForLesson, questionsForCard, withLesson, lessonsInUse };
 });
