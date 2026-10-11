@@ -275,6 +275,7 @@ async function route() {
   ({ '': () => (profile && profile.role === 'faculty' ? Program.dashboard() : dashboard()), mine: dashboard, create: () => create(arg, arg2), flagged: flaggedPage, program: () => (arg === 'insights' ? Program.insightsPage('') : arg2 === 'insights' ? Program.insightsPage(arg) : arg2 === 'dashboard' ? Program.dashboard(arg) : Program.facultyPage(arg)), cards: () => Cards.page(arg, arg2), support: () => Support.page(arg), lessons: () => (arg ? Lessons.subjectPage(arg) : Lessons.indexPage()), lesson: () => Lessons.lessonPage(arg), history: historyPage, settings, admin: () => Admin.route(arg, arg2, arg3), results: () => results(arg), review: () => review(arg), highlights: Notebook.page, question: () => Notebook.question(arg) }[p] || dashboard)();
   window.scrollTo(0, 0);
 }
+document.addEventListener('submit', e => { if (e.target.matches && e.target.matches('form.filters')) e.preventDefault(); });   // filter forms never submit (this replaces inline onsubmit handlers, which the Content-Security-Policy does not allow)
 window.addEventListener('hashchange', route);
 matchMedia('(min-width: 861px)').addEventListener('change', () => { if (location.hash === '#/test' && Store.data.active && !Store.data.active.paused) renderTest(); });
 { // On phones the less-used links live behind a More button
