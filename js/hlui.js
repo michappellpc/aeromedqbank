@@ -64,9 +64,10 @@ const HlUI = (() => {
     const res = Hl.covered(text, list, a, b) ? Hl.sub(text, list, a, b) : Hl.add(text, list, a, b); if (!res) return false;
     res.remove.forEach(id => Store.delHl(id));
     [].concat(res.put || []).forEach(p => Store.putHl({ id: newId(), k, i, f, a: p.a, b: p.b, t: p.t, at: Date.now() }));
+    last = null;                                   // the selection is used up: pressing Highlight again with nothing new selected must not undo this one
     paint(z); changed(); return true;
   }
-  function removeIds(z, ids) { ids.forEach(id => Store.delHl(id)); paint(z); changed(); }
+  function removeIds(z, ids) { ids.forEach(id => Store.delHl(id)); last = null; paint(z); changed(); }
   function changed() {                            // the little marker on questions that have highlights
     document.querySelectorAll('[data-hlq]').forEach(el => el.classList.toggle('hl', Store.hlIn('q', el.dataset.hlq).length > 0));
     document.querySelectorAll('.hltag[data-hlq]').forEach(el => { el.hidden = !Store.hlIn('q', el.dataset.hlq).length; });
