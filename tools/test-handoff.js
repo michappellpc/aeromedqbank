@@ -121,4 +121,18 @@ console.log('High yield');
   t('flashcards get the short version of the rules, and only for tasks that change wording', /WRITING RULES: \(1\)/.test(H.build('cards', [card], { task: 'review' })) && !/WRITING RULES/.test(H.build('cards', [card], { task: 'outline' })));
   t('the questions are still sent as a JSON array after the rules, with their ids', (() => { const arr = JSON.parse(rules.slice(rules.indexOf('THE QUESTIONS:') + 14)); return Array.isArray(arr) && arr[0].id === 'q-1' && arr[0].status === 'draft'; })());
 }
+
+{
+  const a = mq(1), b = { ...mq(2), topic: 'Hypoxia and altitude' }, vocab = [a, b];
+  const x = H.build('questions', [a, b], { task: 'topics', topics: H.topicVocab(vocab, [a, b]) });
+  const arr = JSON.parse(x.slice(x.indexOf('THE QUESTIONS:') + 14));
+  t('Tidy topic names sends only id, subject, topic and the start of the text, never the answers', arr.length === 2 && arr.every(i => Object.keys(i).sort().join() === 'id,stem,subject,topic') && !/"options"/.test(x.split('THE QUESTIONS:')[1]));
+  t('it asks for id and topic back, from the topics in use, merging near-duplicates, naming the real examples', /each with only "id" \(exactly as given\) and "topic"/.test(x) && /already in use for that subject/.test(x) && /Cardiovascular conditions and aeromedical disposition/.test(x) && /space radiation/.test(x));
+  t('the topics in use are listed with how many items use each', /TOPICS ALREADY IN USE/.test(x) && /Hypoxia and altitude/.test(x) && /how many items use it/.test(x));
+  t('it does not carry the writing rules or ask for status draft', !/WRITING RULES/.test(x) && !/"status": "draft"/.test(x.split('RULES:')[1].split('THE QUESTIONS')[0]));
+  const card = { id: 'c-1', boards: ['aem'], subject: 'Altitude & Decompression', topic: 'Hypoxia', front: 'Front text', back: 'b' };
+  const y = H.build('cards', [card], { task: 'topics', topics: H.topicVocab([card], [card]) });
+  t('flashcards have the task too, sending the front', /"front": "Front text"/.test(y) && !/"back"/.test(y.split('THE FLASHCARDS:')[1]));
+  t('lessons do not have it', !H.TASKS.lessons.some(r => r[0] === 'topics'));
+}
 console.log(`\n${pass} passed, ${fail} failed`); process.exit(fail ? 1 : 0);

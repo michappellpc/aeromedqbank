@@ -50,7 +50,7 @@ const AdminCards = (() => {
     $app.innerHTML = `${tabs('cards')}
       <div class="card"><div class="row spread"><div><h2 style="margin:0">Flashcards</h2>
         <p class="muted" style="margin:4px 0 0">${n.live} live for everyone &middot; ${n.draft} draft (hidden) &middot; ${n.arch} archived</p></div>
-        <div class="row"><a class="btn primary" href="#/admin/cards/new">Add a card</a><a class="btn" href="#/admin/cards/import">Import from a chat</a><button id="claude" type="button" aria-label="Copy these flashcards to paste into a chat" title="Copy the flashcards you are looking at, to paste into a chat">Copy</button><button id="hyapply" type="button" title="Paste Claude's answer to the Sort by high yield Copy task">Apply high yield list</button><button id="backup">Download backup</button></div></div></div>
+        <div class="row"><a class="btn primary" href="#/admin/cards/new">Add a card</a><a class="btn" href="#/admin/cards/import">Import from a chat</a><button id="claude" type="button" aria-label="Copy these flashcards to paste into a chat" title="Copy the flashcards you are looking at, to paste into a chat">Copy</button><button id="hyapply" type="button" title="Paste Claude's answer to the Sort by high yield Copy task">Apply high yield list</button><button id="tpapply" type="button" title="Paste Claude's answer to the Tidy topic names Copy task">Apply topic list</button><button id="backup">Download backup</button></div></div></div>
       <div class="card"><form id="flt" class="filters" aria-label="Filter flashcards">
         <div><label for="fq">Search</label><input id="fq" type="search" value="${esc(view.q)}" placeholder="id, topic, or words on the card"></div>
         <div><label for="fs">Subject</label><select id="fs"><option value="">All</option>${subjects.map(s => `<option${s === view.subject ? ' selected' : ''}>${esc(s)}</option>`).join('')}</select></div>
@@ -66,6 +66,7 @@ const AdminCards = (() => {
     el('fhy').onchange = e => { view.hy = e.target.value; view.page = 0; paint(); };
     el('fpp').onchange = e => { setSize(e.target.value); view.page = 0; paint(); };
     el('fsh').onchange = e => { view.show = e.target.value; view.page = 0; paint(); };
+    el('tpapply').onclick = () => Admin.applyTopics({ noun: 'flashcard', items: cache.list, patch: Cloud.patchCards, after: async () => { await ensure(true); list(); } });
     el('hyapply').onclick = () => Admin.applyHighYield({ noun: 'flashcard', items: cache.list, patch: Cloud.patchCards, after: async () => { await ensure(true); list(); } });
     el('claude').onclick = () => Handoff.open({ kind: 'cards', coverage: Links.coverage(cache.list.filter(x => !x.archived)), vocab: cache.list.filter(x => !x.archived), items: lastRows, selected: [...view.sel], importHash: '#/admin/cards/import',
       describe: (() => { const p = []; if (view.q) p.push(`search "${view.q}"`); if (view.subject) p.push(view.subject); if (view.status) p.push(view.status === 'reviewed' ? 'live' : 'draft'); if (view.hy) p.push(view.hy === 'yes' ? 'high yield' : 'not marked high yield'); if (view.show !== 'active') p.push(view.show === 'all' ? 'including archived' : 'archived'); return p.length ? 'filters: ' + p.join(', ') : 'no filters'; })() });

@@ -79,6 +79,49 @@ const Admin = (() => {
     document.body.appendChild(d); E('hy-text').focus();
   }
 
+  // Applies the answer to the "Tidy topic names" Copy task: a list of { id, topic }. Only the topic label of each item changes (the database does not
+  // send a live item back to draft for that), so nothing is unpublished.
+  function applyTopics({ noun, items, patch, after }) {
+    const d = document.createElement('div'), prev = document.activeElement; d.className = 'modal';
+    d.innerHTML = `<div class="card" role="dialog" aria-modal="true" aria-labelledby="tp-h" style="max-width:640px;width:100%;max-height:92vh;overflow:auto"><h2 id="tp-h" style="margin-top:0">Apply a topic list</h2>
+      <p class="muted">Paste what Claude returned for <b>Tidy topic names</b>: a list of <code>{ "id": "...", "topic": "..." }</code>. Only the topic of each ${esc(noun)} changes. Nothing is unpublished, archived or edited.</p>
+      <label for="tp-text">Claude's list</label><textarea id="tp-text" rows="8" style="font:12px/1.4 ui-monospace,Menlo,Consolas,monospace" placeholder='[{"id": "aem-altitude-001", "topic": "Hypoxia"}, ...]'></textarea>
+      <div id="tp-sum" class="muted" aria-live="polite"></div><p class="notice" id="tp-err" role="alert" hidden></p>
+      <div class="row"><button class="primary" id="tp-go" type="button" disabled>Apply</button><button id="tp-x" type="button">Cancel</button></div></div>`;
+    const E = id => d.querySelector('#' + id), close = () => { d.remove(); document.removeEventListener('keydown', onKey, true); if (prev && document.body.contains(prev)) prev.focus(); };
+    const onKey = e => { if (e.key === 'Escape') { e.stopPropagation(); close(); } };
+    document.addEventListener('keydown', onKey, true); d.onclick = e => { if (e.target === d) close(); }; E('tp-x').onclick = close;
+    const byId = new Map(items.map(x => [x.id, x])); let plan = null;
+    const read = () => {
+      const raw = E('tp-text').value.trim(); plan = null; E('tp-go').disabled = true; E('tp-err').hidden = true; E('tp-sum').textContent = '';
+      if (!raw) return;
+      let list; try { const a = raw.indexOf('['), b = raw.lastIndexOf(']'); list = JSON.parse(a >= 0 && b > a ? raw.slice(a, b + 1) : raw); } catch { E('tp-err').textContent = 'That is not a list I can read yet. Paste the JSON array Claude returned, starting with [ and ending with ].'; E('tp-err').hidden = false; return; }
+      if (!Array.isArray(list)) { E('tp-err').textContent = 'Expected a list (a JSON array) of items.'; E('tp-err').hidden = false; return; }
+      const moves = new Map(), unknown = [], bad = []; let same = 0;      // "subject | old -> new" => ids
+      list.forEach(r => {
+        const id = r && typeof r.id === 'string' ? r.id.trim() : '', t = r && typeof r.topic === 'string' ? r.topic.replace(/\s+/g, ' ').trim() : '';
+        if (!id || !t || t.length > 120) return bad.push(id || '(no id)');
+        const cur = byId.get(id); if (!cur) return unknown.push(id);
+        const old = String(cur.topic || '').trim(); if (old === t) return same++;
+        const k = JSON.stringify([cur.subject, old, t]); (moves.get(k) || moves.set(k, []).get(k)).push(id);
+      });
+      plan = [...moves].map(([k, ids]) => ({ subject: JSON.parse(k)[0], from: JSON.parse(k)[1], to: JSON.parse(k)[2], ids }));
+      const n = plan.reduce((a, m) => a + m.ids.length, 0);
+      E('tp-sum').innerHTML = `<p>${list.length} in the list: ${n} to change, ${same} already right${unknown.length ? `, ${unknown.length} not found here (skipped)` : ''}${bad.length ? `, ${bad.length} skipped because they were not valid` : ''}.</p>`
+        + (plan.length ? `<ul class="small" style="max-height:200px;overflow:auto">${plan.slice(0, 60).map(m => `<li>${esc(m.subject || '')}: <b>${esc(m.from || '(none)')}</b> &rarr; <b>${esc(m.to)}</b> (${m.ids.length})</li>`).join('')}${plan.length > 60 ? `<li>and ${plan.length - 60} more</li>` : ''}</ul>` : '');
+      E('tp-go').disabled = !n;
+    };
+    E('tp-text').oninput = read;
+    E('tp-go').onclick = async () => {
+      if (!plan) return; E('tp-go').disabled = true;
+      try {
+        for (const m of plan) for (let i = 0; i < m.ids.length; i += 80) await patch(m.ids.slice(i, i + 80), { topic: m.to });
+        const n = plan.reduce((a, m) => a + m.ids.length, 0); close(); toast(`Topic updated on ${n} ${noun}${n === 1 ? '' : 's'}.`); if (after) await after();
+      } catch (e) { E('tp-err').textContent = e.offline ? 'No connection. Nothing was changed.' : 'That did not work: ' + e.message; E('tp-err').hidden = false; E('tp-go').disabled = false; }
+    };
+    document.body.appendChild(d); E('tp-text').focus();
+  }
+
   // Loads (or reuses) every question plus its statistics. Returns null after showing a message if this page cannot be used.
   async function ensure(force) {
     if (!isEditor()) { $app.innerHTML = note('This page is for administrators and reviewers.', 'muted'); return null; }
@@ -108,7 +151,7 @@ const Admin = (() => {
     $app.innerHTML = `${tabs('questions')}
       <div class="card"><div class="row spread"><div><h2 style="margin:0">Questions</h2>
         <p class="muted" style="margin:4px 0 0">${n.rev} live for members &middot; ${n.all - n.arch - n.rev} draft (hidden) &middot; ${n.arch} archived</p></div>
-        <div class="row"><a class="btn primary" href="#/admin/questions/new">Add a question</a><a class="btn" href="#/admin/questions/import">Import from a chat</a><button id="claude" type="button" aria-label="Copy every question the filters show, to paste into a chat" title="Copy every question the filters show, to paste into a chat">Copy</button><button id="hyapply" type="button" title="Paste Claude's answer to the Sort by high yield Copy task">Apply high yield list</button><button id="backup">Download backup</button></div></div></div>
+        <div class="row"><a class="btn primary" href="#/admin/questions/new">Add a question</a><a class="btn" href="#/admin/questions/import">Import from a chat</a><button id="claude" type="button" aria-label="Copy every question the filters show, to paste into a chat" title="Copy every question the filters show, to paste into a chat">Copy</button><button id="hyapply" type="button" title="Paste Claude's answer to the Sort by high yield Copy task">Apply high yield list</button><button id="tpapply" type="button" title="Paste Claude's answer to the Tidy topic names Copy task">Apply topic list</button><button id="backup">Download backup</button></div></div></div>
       <details class="card" id="secsum"${secOpen() ? ' open' : ''}><summary><h2 style="display:inline;margin:0">Sections by difficulty</h2> <span class="muted small" id="secline"></span><span class="collapser"><span class="c-open">Minimize &#9650;</span><span class="c-closed">Show table &#9660;</span></span></summary>${AdminItems.missing ? '<p class="muted small">The percent correct appears after the latest <code>supabase/schema.sql</code> is run in Supabase.</p>' : ''}<div id="secbody" style="margin-top:8px"></div></details>
       <div class="card"><form id="flt" class="filters" aria-label="Filter questions">
         <div><label for="fq">Search</label><input id="fq" type="search" value="${esc(view.q)}" placeholder="id, topic, or words in the question"></div>
@@ -150,6 +193,7 @@ const Admin = (() => {
       view.board = ''; set('fb', ''); fillSubjects(); view.subject = b.dataset.sec; set('fs', view.subject); view.diff = b.dataset.lab || ''; set('fd', view.diff); view.status = ''; set('fst', ''); view.show = 'active'; set('fsh', 'active'); view.page = 0; paint(); document.getElementById('flt').scrollIntoView({ block: 'start' });
     });
     on('backup', 'click', () => backup(c.list));
+    on('tpapply', 'click', () => applyTopics({ noun: 'question', items: cache.list, patch: Cloud.patchQuestions, after: () => { refresh(); list(); } }));
     on('hyapply', 'click', () => applyHighYield({ noun: 'question', items: cache.list, patch: Cloud.patchQuestions, after: () => { refresh(); list(); } }));
     on('claude', 'click', () => Handoff.open({ kind: 'questions', coverage: Links.coverage(cache.list.filter(x => !x.archived)), vocab: cache.list.filter(x => !x.archived), items: lastRows, selected: [], importHash: '#/admin/questions/import', describe: describeView(),
       stats: AdminItems.ready() ? q => ItemStats.statLine(AdminItems.get(q.id)) : null, lessons: bank.lessons || [], currentLesson: lessonLinkFor }));
@@ -258,7 +302,7 @@ const Admin = (() => {
     toast(`Downloaded ${out.length} questions. Keep this file somewhere safe.`);
   }
 
-  return { tabs, askText, applyHighYield, ensure, refresh, list, view, subjectsFor, LETTERS, note, myEmail, isEditor, role, get cache() { return cache; },
+  return { tabs, askText, applyHighYield, applyTopics, ensure, refresh, list, view, subjectsFor, LETTERS, note, myEmail, isEditor, role, get cache() { return cache; },
     route(a, b, c) {
       if (!a) return role() === 'admin' ? adminPage() : (location.hash = '#/admin/questions');
       if (a === 'lessons' && typeof AdminLessons !== 'undefined') return AdminLessons.route(b, c);

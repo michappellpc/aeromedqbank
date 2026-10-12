@@ -495,9 +495,9 @@ begin
   select email into who from public.profiles where id = auth.uid();
   new.updated_by := who;
   if tg_op = 'UPDATE' and old.status = 'reviewed' and new.status = 'reviewed'
-     and (new.stem, new.options, new.answer, new.explanation, new.option_notes, new.refs, new.image, new.image_alt, new.subject, new.boards, new.topic)
-         is distinct from (old.stem, old.options, old.answer, old.explanation, old.option_notes, old.refs, old.image, old.image_alt, old.subject, old.boards, old.topic)
-  then new.status := 'draft'; end if;      -- (the difficulty label is advice, not wording, so changing it keeps a question live)
+     and (new.stem, new.options, new.answer, new.explanation, new.option_notes, new.refs, new.image, new.image_alt, new.subject, new.boards)
+         is distinct from (old.stem, old.options, old.answer, old.explanation, old.option_notes, old.refs, old.image, old.image_alt, old.subject, old.boards)
+  then new.status := 'draft'; end if;      -- (the difficulty and topic labels are advice and filing, not wording, so changing them keeps a question live)
   if new.status <> 'reviewed' then new.reviewed_by := null;
   elsif tg_op = 'INSERT' or old.status <> 'reviewed' then new.reviewed_by := who;      -- whoever marks it reviewed
   else new.reviewed_by := old.reviewed_by; end if;                                      -- nobody can rewrite it later
@@ -547,9 +547,9 @@ begin
   select email into who from public.profiles where id = auth.uid();
   new.updated_by := who;
   if tg_op = 'UPDATE' and old.status = 'reviewed' and new.status = 'reviewed'
-     and (new.front, new.back, new.refs, new.subject, new.boards, new.topic, new.lesson_id)
-         is distinct from (old.front, old.back, old.refs, old.subject, old.boards, old.topic, old.lesson_id)
-  then new.status := 'draft'; end if;
+     and (new.front, new.back, new.refs, new.subject, new.boards, new.lesson_id)
+         is distinct from (old.front, old.back, old.refs, old.subject, old.boards, old.lesson_id)
+  then new.status := 'draft'; end if;      -- (the topic label is filing, not wording, so changing it keeps a card live)
   if new.status <> 'reviewed' then new.reviewed_by := null;
   elsif tg_op = 'INSERT' or old.status <> 'reviewed' then new.reviewed_by := who;
   else new.reviewed_by := old.reviewed_by; end if;
