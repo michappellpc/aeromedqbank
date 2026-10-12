@@ -151,7 +151,7 @@ const Admin = (() => {
     });
     on('backup', 'click', () => backup(c.list));
     on('hyapply', 'click', () => applyHighYield({ noun: 'question', items: cache.list, patch: Cloud.patchQuestions, after: () => { refresh(); list(); } }));
-    on('claude', 'click', () => Handoff.open({ kind: 'questions', coverage: Links.coverage(cache.list.filter(x => !x.archived)), items: lastRows, selected: [], importHash: '#/admin/questions/import', describe: describeView(),
+    on('claude', 'click', () => Handoff.open({ kind: 'questions', coverage: Links.coverage(cache.list.filter(x => !x.archived)), vocab: cache.list.filter(x => !x.archived), items: lastRows, selected: [], importHash: '#/admin/questions/import', describe: describeView(),
       stats: AdminItems.ready() ? q => ItemStats.statLine(AdminItems.get(q.id)) : null, lessons: bank.lessons || [], currentLesson: lessonLinkFor }));
     paint();
   }
@@ -230,7 +230,7 @@ const Admin = (() => {
     if (kind === 'clear') { view.sel.clear(); return paint(); }
     if (kind === 'copy') {
       const chosen = cache.list.filter(q => ids.includes(q.id)); if (!chosen.length) return;
-      return Handoff.open({ kind: 'questions', coverage: Links.coverage(cache.list.filter(x => !x.archived)), items: chosen, selected: [], importHash: '#/admin/questions/import', describe: `${chosen.length} selected question${chosen.length === 1 ? '' : 's'}`,
+      return Handoff.open({ kind: 'questions', coverage: Links.coverage(cache.list.filter(x => !x.archived)), vocab: cache.list.filter(x => !x.archived), items: chosen, selected: [], importHash: '#/admin/questions/import', describe: `${chosen.length} selected question${chosen.length === 1 ? '' : 's'}`,
         stats: AdminItems.ready() ? q => ItemStats.statLine(AdminItems.get(q.id)) : null, lessons: bank.lessons || [], currentLesson: lessonLinkFor });
     }
     if (['relabel', 'csv'].includes(kind)) { try { if (await AdminItems.act(kind, ids)) { view.sel.clear(); refresh(); AdminItems.reset(); list(); } } catch (e) { toast(e.offline ? 'No connection. Nothing was changed.' : 'That did not work: ' + e.message); } return; }

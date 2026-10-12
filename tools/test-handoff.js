@@ -103,4 +103,22 @@ console.log('High yield');
   t('without coverage there is no hint block, and other tasks never get one', !/HOW MUCH OF MY BANK/.test(H.build('questions', items, { task: 'highyield' })) && !/HOW MUCH OF MY BANK/.test(H.build('questions', items, { task: 'review', coverage: { 'q-1': 1 } })));
   t('lessons and cards say what one of them covers, in their own words', /Judge the TOPIC each lesson covers/.test(H.TASKS.lessons.find(r => r[0] === 'highyield')[2]) && /Judge the TOPIC each card covers/.test(H.TASKS.cards.find(r => r[0] === 'highyield')[2]));
 }
+
+{
+  const a = mq(1), b = { ...mq(2), topic: 'Hypoxia', stem: 'Another hypoxia question about time of useful consciousness.' }, c = { ...mq(3), topic: 'Hypoxia and altitude' };
+  const vocab = [a, b, c, { ...mq(4), subject: 'Space Medicine', topic: 'Space radiation' }];
+  const rules = H.build('questions', [a], { task: 'rules', topics: H.topicVocab(vocab, [a]), siblings: H.siblingsOf(vocab, [a]) });
+  t('the audit task asks for every rule to be checked and fixed, not just flagged', /Audit each question against every one of the WRITING RULES/.test(rules) && /never just flag/.test(rules));
+  t('the rules name the real failures: named events, changed guidelines, unsourced numbers, silence, borrowed mechanisms', /never from recall of one named event/.test(rules) && /fact that a guideline, score or regulation changed/.test(rules) && /find the sentence in the source/.test(rules) && /When the governing document is silent/.test(rules) && /not a plausible mechanism/.test(rules));
+  t('and the format rules: every table row, conjunctions, the 0.80 to 1.20 length check, duplicate keyed facts, exact topic', /every row of the table/.test(rules) && /Conjunctions in a source/.test(rules) && /0\.80 and 1\.20/.test(rules) && /keyed fact is the same/.test(rules) && /exactly match a topic already in use/.test(rules));
+  t('and the self-check list', /SELF-CHECK before you reply/.test(rules) && /traceable to a sentence/.test(rules) && /second key/.test(rules));
+  t('the rules go to every task that writes question content', ['review', 'harder', 'easier', 'match', 'explain', 'facts', 'custom'].every(k => /WRITING RULES/.test(H.build('questions', [a], { task: k }))));
+  t('but not to tagging or sorting tasks', ['outline', 'highyield', 'lessons'].every(k => !/WRITING RULES/.test(H.build('questions', [a], { task: k }))));
+  t('the topics already in use are listed for the subject being sent, most used first, and other subjects stay out', /TOPICS ALREADY IN USE, BY SUBJECT/.test(rules) && /- Altitude & Decompression: Hypoxia \(2\); Hypoxia and altitude/.test(rules) && !/Space radiation/.test(rules));
+  t('similar questions on the same topic are listed so a repeated keyed fact can be caught', /OTHER QUESTIONS ALREADY IN MY BANK/.test(rules) && /q-2 \| Another hypoxia question/.test(rules) && !/q-3 \|/.test(rules.split('OTHER QUESTIONS')[1]));
+  t('without a bank list there are no topic or sibling blocks, and the message is still valid', !/TOPICS ALREADY IN USE/.test(H.build('questions', [a], { task: 'rules' })));
+  const card = { id: 'c-1', status: 'reviewed', boards: ['aem'], subject: 'Altitude & Decompression', topic: 'Hypoxia', front: 'f', back: 'b' };
+  t('flashcards get the short version of the rules, and only for tasks that change wording', /WRITING RULES: \(1\)/.test(H.build('cards', [card], { task: 'review' })) && !/WRITING RULES/.test(H.build('cards', [card], { task: 'outline' })));
+  t('the questions are still sent as a JSON array after the rules, with their ids', (() => { const arr = JSON.parse(rules.slice(rules.indexOf('THE QUESTIONS:') + 14)); return Array.isArray(arr) && arr[0].id === 'q-1' && arr[0].status === 'draft'; })());
+}
 console.log(`\n${pass} passed, ${fail} failed`); process.exit(fail ? 1 : 0);
