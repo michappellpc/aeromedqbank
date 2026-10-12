@@ -719,4 +719,10 @@ eq  "changing the wording still sends a live item back to draft (the flag did no
 eq  "the flag cannot be left empty" "yes" "$(root "update questions set high_yield = null where id='hy-q'" | grep -q 'not-null' && echo yes)"
 root "delete from questions where id='hy-q'; delete from lessons where id='hy-l'; delete from flashcards where id='hy-c';" >/dev/null
 
+eq  "changing only the topic keeps a live question live" "reviewed/admin@x/Tidy" "$(as admin "insert into questions (id,boards,subject,topic,stem,options,answer,explanation,status) values ('tp-q','{aem}','S','Old topic','s','[]','A','e','reviewed'); update questions set topic='Tidy' where id='tp-q'; select status||'/'||reviewed_by||'/'||topic from questions where id='tp-q';")"
+eq  "changing the topic and the wording still sends it back to draft" "draft" "$(as admin "insert into questions (id,boards,subject,topic,stem,options,answer,explanation,status) values ('tp-q3','{aem}','S','Old topic','s','[]','A','e','reviewed'); update questions set topic='Other', stem='edited again' where id='tp-q3'; select status from questions where id='tp-q3';")"
+eq  "changing the subject still sends a live question back to draft" "draft" "$(as admin "insert into questions (id,boards,subject,topic,stem,options,answer,explanation,status) values ('tp-q2','{aem}','S','T','s','[]','A','e','reviewed'); update questions set subject='S2' where id='tp-q2'; select status from questions where id='tp-q2';")"
+eq  "changing only a card's topic keeps a live card live" "reviewed/Tidy" "$(as rev "insert into flashcards (id, boards, subject, topic, front, back, status) values ('tp-c','{aem}','S','Old','f','b','draft'); update flashcards set status = 'reviewed' where id = 'tp-c'; update flashcards set topic = 'Tidy' where id = 'tp-c'; select status||'/'||topic from flashcards where id='tp-c';")"
+root "delete from questions where id in ('tp-q','tp-q2','tp-q3'); delete from flashcards where id='tp-c';" >/dev/null
+
 echo; echo "$PASS passed, $FAIL failed"; [[ $FAIL -eq 0 ]]

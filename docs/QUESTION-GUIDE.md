@@ -58,6 +58,17 @@ Question style
 - Make every answer choice about the same length and level of detail. The correct answer must not be the longest or the most carefully worded; a choice that is obviously longer gives the answer away.
 - Vary the correct letter across the set. Vary difficulty (1 easy, 2 medium, 3 hard).
 - All patients and cases are invented. No real patient details.
+- Answerable from a principle, never from recall of one named event, report or inquiry. An accident or study may be context, but the key must be a mechanism, disposition, classification or management decision a resident could reason to without having read that report.
+- Never key a question to the fact that a guideline, score or regulation changed ("what was removed", "what replaced X", "what year"). Ask why it changed, or ask the current rule.
+- For any threshold, interval, dose, percentage or list, find the sentence in a source that states it and make the key what that sentence says. If you cannot find it, do not infer it from a neighbouring rule, a different agency or a similar condition; rewrite the question so it does not depend on it.
+- Where the governing document is silent, the question is about the silence: the answer is the general rule (consult the certification authority, apply the catch-all row), never an interval borrowed from a similar condition. Never imply a rule exists where none does.
+- Give the source's own stated reason, not a plausible mechanism you believe to be true.
+- Disposition questions: read every row of the table, and decide which row each wrong choice falls into. A wrong choice in the same row as the key, or in a row the stem does not exclude, is a second correct answer.
+- Copy the conjunctions in a source's criteria exactly ("or" is not "and").
+- Check length numerically: correct option length divided by the mean distractor length must be 0.80 to 1.20, and the correct option must not be the longest. Fix it by editing option text, never the key.
+- Do not write two questions whose keyed fact is the same, even in different subjects. Search the bank for the fact, not just the topic.
+- "topic" must exactly match a topic already in use for that subject. Do not invent a variant.
+- Before replying, check: could a resident who never read the cited report still answer? Is every number traceable to a sentence in a source? For each wrong choice, what makes it wrong under the same source? Does anything depend on a rule the source does not state?
 - Use standard units and values. Only state numbers you are certain of; if unsure, rewrite the question so it does not depend on the number.
 
 For each question also write
