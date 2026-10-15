@@ -151,7 +151,7 @@ const Admin = (() => {
     $app.innerHTML = `${tabs('questions')}
       <div class="card"><div class="row spread"><div><h2 style="margin:0">Questions</h2>
         <p class="muted" style="margin:4px 0 0">${n.rev} live for members &middot; ${n.all - n.arch - n.rev} draft (hidden) &middot; ${n.arch} archived</p></div>
-        <div class="row"><a class="btn primary" href="#/admin/questions/new">Add a question</a><a class="btn" href="#/admin/questions/import">Import from a chat</a><button id="aicopy" type="button" aria-label="Copy every question the filters show, to paste into a chat" title="Copy every question the filters show, to paste into a chat">Copy</button><button id="hyapply" type="button" title="Paste your AI assistant's answer to the Sort by high yield Copy task">Apply high yield list</button><button id="tpapply" type="button" title="Paste your AI assistant's answer to the Tidy topic names Copy task">Apply topic list</button><button id="backup">Download backup</button></div></div></div>
+        <div class="row"><a class="btn primary" href="#/admin/questions/new">Add a question</a><a class="btn" href="#/admin/questions/import">Import from a chat</a><button id="aicopy" type="button" aria-label="Copy every question the filters show, to paste into a chat" title="Copy every question the filters show, to paste into a chat">Copy</button><button id="hyapply" type="button" title="Paste your AI assistant's answer to the Sort by high yield Copy task">Apply high yield list</button><button id="tpapply" type="button" title="Paste your AI assistant's answer to the Tidy topic names Copy task">Apply topic list</button><button id="backup">Download backup</button><button id="bankmap" type="button" title="Every question reduced to its categories and tags, with how the bank covers the board outline against the exam weights">Bank map</button></div></div></div>
       <details class="card" id="secsum"${secOpen() ? ' open' : ''}><summary><h2 style="display:inline;margin:0">Sections by difficulty</h2> <span class="muted small" id="secline"></span><span class="collapser"><span class="c-open">Minimize &#9650;</span><span class="c-closed">Show table &#9660;</span></span></summary>${AdminItems.missing ? '<p class="muted small">The percent correct appears after the latest <code>supabase/schema.sql</code> is run in Supabase.</p>' : ''}<div id="secbody" style="margin-top:8px"></div></details>
       <div class="card"><form id="flt" class="filters" aria-label="Filter questions">
         <div><label for="fq">Search</label><input id="fq" type="search" value="${esc(view.q)}" placeholder="id, topic, or words in the question"></div>
@@ -193,6 +193,7 @@ const Admin = (() => {
       view.board = ''; set('fb', ''); fillSubjects(); view.subject = b.dataset.sec; set('fs', view.subject); view.diff = b.dataset.lab || ''; set('fd', view.diff); view.status = ''; set('fst', ''); view.show = 'active'; set('fsh', 'active'); view.page = 0; paint(); document.getElementById('flt').scrollIntoView({ block: 'start' });
     });
     on('backup', 'click', () => backup(c.list));
+    on('bankmap', 'click', () => bankMap(c.list));
     on('tpapply', 'click', () => applyTopics({ noun: 'question', items: cache.list, patch: Cloud.patchQuestions, after: () => { refresh(); list(); } }));
     on('hyapply', 'click', () => applyHighYield({ noun: 'question', items: cache.list, patch: Cloud.patchQuestions, after: () => { refresh(); list(); } }));
     on('aicopy', 'click', () => Handoff.open({ kind: 'questions', coverage: Links.coverage(cache.list.filter(x => !x.archived)), vocab: cache.list.filter(x => !x.archived), items: lastRows, selected: [], importHash: '#/admin/questions/import', describe: describeView(),
@@ -292,6 +293,29 @@ const Admin = (() => {
       view.sel.clear(); refresh(); toast(({ review: 'Marked reviewed.', draft: 'Marked draft.', archive: 'Archived.', restore: 'Restored.', free: 'Tier set to free.', pro: 'Tier set to pro.', hy: 'Marked high yield.', nohy: 'High yield removed.', delete: 'Deleted.' })[kind]);
       list();
     } catch (e) { toast(e.offline ? 'No connection. Nothing was changed.' : 'That did not work: ' + e.message); }
+  }
+
+  // ------------------------------------------------------------------ bank map
+  // The whole bank at a glance: each question's categorization and tags only (no choices, answer or explanation) and the coverage of the board outline
+  // against the exam weights. JSON is the easiest to give to an AI; the two spreadsheets open in Excel.
+  function bankMap(listAll) {
+    const stats = AdminItems.ready() ? Object.fromEntries(listAll.map(q => { const i = AdminItems.get(q.id); return [q.id, i && i.attempts ? { attempts: i.attempts, pct: i.pct } : null]; }).filter(x => x[1])) : null;
+    const map = BankMap.build(listAll, { stats }), day = new Date().toISOString().slice(0, 10);
+    const d = document.createElement('div'), prev = document.activeElement; d.className = 'modal';
+    const cov = Object.values(map.coverage).filter(c => c.tagged_questions > 0);
+    d.innerHTML = `<div class="card" role="dialog" aria-modal="true" aria-labelledby="bm-h" style="max-width:640px;width:100%;max-height:92vh;overflow:auto"><h2 id="bm-h" style="margin-top:0">Bank map</h2>
+      <p class="muted">Every question reduced to its subject, topic, difficulty, status, high yield mark, lesson and board outline tags, with a short start of the question to recognize it by. No answer choices, answer key or explanations. It also compares each outline domain's share of the exam with its share of your tagged questions, and lists the outline statements no question is tagged to.</p>
+      <p><b>${map.counts.questions}</b> question${map.counts.questions === 1 ? '' : 's'} (${map.counts.archived} archived): <b>${map.counts.tagged}</b> tagged to the outline, <b>${map.counts.untagged}</b> not tagged yet.${cov.length ? ' ' + cov.map(c => `${esc(c.name)}: ${c.tagged_questions} tagged, ${c.statements_without_questions.length} statements with no question.`).join(' ') : ''}</p>
+      <div class="row"><button class="primary" id="bm-json" type="button">Download JSON (best for an AI)</button><button id="bm-q" type="button">Questions as a spreadsheet (CSV)</button><button id="bm-c" type="button">Outline coverage as a spreadsheet (CSV)</button><button id="bm-x" type="button">Close</button></div>
+      <p class="muted small">The JSON has everything: the questions, the counts and the coverage. The two spreadsheets (CSV) open in Excel: one has a row per question, the other a row per outline domain and statement.</p></div>`;
+    const E = id => d.querySelector('#' + id), close = () => { d.remove(); document.removeEventListener('keydown', onKey, true); if (prev && document.body.contains(prev)) prev.focus(); };
+    const onKey = e => { if (e.key === 'Escape') { e.stopPropagation(); close(); } };
+    document.addEventListener('keydown', onKey, true); d.onclick = e => { if (e.target === d) close(); }; E('bm-x').onclick = close;
+    const save = (text, type, name, msg) => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], { type })); a.download = name; a.click(); toast(msg); };
+    E('bm-json').onclick = () => save(JSON.stringify(map, null, 1) + '\n', 'application/json', `bank-map-${day}.json`, `Downloaded the bank map (${map.counts.questions} questions).`);
+    E('bm-q').onclick = () => save(BankMap.questionsCsv(map), 'text/csv', `bank-questions-${day}.csv`, 'Downloaded the questions spreadsheet.');
+    E('bm-c').onclick = () => save(BankMap.coverageCsv(map), 'text/csv', `bank-outline-coverage-${day}.csv`, 'Downloaded the outline coverage spreadsheet.');
+    document.body.appendChild(d); E('bm-json').focus();
   }
 
   // ------------------------------------------------------------------ backup
