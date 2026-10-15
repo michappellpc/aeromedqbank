@@ -37,6 +37,8 @@ jobs:
         run: node tools/test-related.js
       - name: Test the board outline chart and the exam weights
         run: node tools/test-outlinechart.js
+      - name: Test the bank map
+        run: node tools/test-bankmap.js
       - name: Test linking by board outline tags
         run: node tools/test-links.js
       - name: Test the lesson rules and sample lessons
