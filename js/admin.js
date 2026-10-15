@@ -39,13 +39,13 @@ const Admin = (() => {
     });
   }
 
-  // "Apply high yield list": paste Claude's answer to the Sort by high yield Copy task (a list of { id, highYield }) and change just that mark.
+  // "Apply high yield list": paste the AI's answer to the Sort by high yield Copy task (a list of { id, highYield }) and change just that mark.
   // Nothing else is touched, so live items stay live. opts: { noun, items (the loaded list), patch(ids, patch), after() }
   function applyHighYield({ noun, items, patch, after }) {
     const d = document.createElement('div'), prev = document.activeElement; d.className = 'modal';
     d.innerHTML = `<div class="card" role="dialog" aria-modal="true" aria-labelledby="hy-h" style="max-width:640px;width:100%"><h2 id="hy-h" style="margin-top:0">Apply a high yield list</h2>
-      <p class="muted">Paste what Claude returned for <b>Sort by high yield</b>: a list of <code>{ "id": "...", "highYield": true }</code>. Only the high yield mark of each ${esc(noun)} changes. Nothing is unpublished, archived or edited.</p>
-      <label for="hy-text">Claude's list</label><textarea id="hy-text" rows="8" style="font:12px/1.4 ui-monospace,Menlo,Consolas,monospace" placeholder='[{"id": "aem-altitude-001", "highYield": true}, ...]'></textarea>
+      <p class="muted">Paste what your AI assistant returned for <b>Sort by high yield</b>: a list of <code>{ "id": "...", "highYield": true }</code>. Only the high yield mark of each ${esc(noun)} changes. Nothing is unpublished, archived or edited.</p>
+      <label for="hy-text">Your AI assistant's list</label><textarea id="hy-text" rows="8" style="font:12px/1.4 ui-monospace,Menlo,Consolas,monospace" placeholder='[{"id": "aem-altitude-001", "highYield": true}, ...]'></textarea>
       <p id="hy-sum" class="muted" aria-live="polite"></p><p class="notice" id="hy-err" role="alert" hidden></p>
       <div class="row"><button class="primary" id="hy-go" type="button" disabled>Apply</button><button id="hy-x" type="button">Cancel</button></div></div>`;
     const E = id => d.querySelector('#' + id), close = () => { d.remove(); document.removeEventListener('keydown', onKey, true); if (prev && document.body.contains(prev)) prev.focus(); };
@@ -55,7 +55,7 @@ const Admin = (() => {
     const read = () => {
       const raw = E('hy-text').value.trim(); plan = null; E('hy-go').disabled = true; E('hy-err').hidden = true; E('hy-sum').textContent = '';
       if (!raw) return;
-      let list; try { const a = raw.indexOf('['), b = raw.lastIndexOf(']'); list = JSON.parse(a >= 0 && b > a ? raw.slice(a, b + 1) : raw); } catch { E('hy-err').textContent = 'That is not a list I can read yet. Paste the JSON array Claude returned, starting with [ and ending with ].'; E('hy-err').hidden = false; return; }
+      let list; try { const a = raw.indexOf('['), b = raw.lastIndexOf(']'); list = JSON.parse(a >= 0 && b > a ? raw.slice(a, b + 1) : raw); } catch { E('hy-err').textContent = 'That is not a list I can read yet. Paste the JSON array your AI assistant returned, starting with [ and ending with ].'; E('hy-err').hidden = false; return; }
       if (!Array.isArray(list)) { E('hy-err').textContent = 'Expected a list (a JSON array) of items.'; E('hy-err').hidden = false; return; }
       const mark = [], unmark = [], unknown = [], bad = []; let same = 0;
       list.forEach(r => {
@@ -84,8 +84,8 @@ const Admin = (() => {
   function applyTopics({ noun, items, patch, after }) {
     const d = document.createElement('div'), prev = document.activeElement; d.className = 'modal';
     d.innerHTML = `<div class="card" role="dialog" aria-modal="true" aria-labelledby="tp-h" style="max-width:640px;width:100%;max-height:92vh;overflow:auto"><h2 id="tp-h" style="margin-top:0">Apply a topic list</h2>
-      <p class="muted">Paste what Claude returned for <b>Tidy topic names</b>: a list of <code>{ "id": "...", "topic": "..." }</code>. Only the topic of each ${esc(noun)} changes. Nothing is unpublished, archived or edited.</p>
-      <label for="tp-text">Claude's list</label><textarea id="tp-text" rows="8" style="font:12px/1.4 ui-monospace,Menlo,Consolas,monospace" placeholder='[{"id": "aem-altitude-001", "topic": "Hypoxia"}, ...]'></textarea>
+      <p class="muted">Paste what your AI assistant returned for <b>Tidy topic names</b>: a list of <code>{ "id": "...", "topic": "..." }</code>. Only the topic of each ${esc(noun)} changes. Nothing is unpublished, archived or edited.</p>
+      <label for="tp-text">Your AI assistant's list</label><textarea id="tp-text" rows="8" style="font:12px/1.4 ui-monospace,Menlo,Consolas,monospace" placeholder='[{"id": "aem-altitude-001", "topic": "Hypoxia"}, ...]'></textarea>
       <div id="tp-sum" class="muted" aria-live="polite"></div><p class="notice" id="tp-err" role="alert" hidden></p>
       <div class="row"><button class="primary" id="tp-go" type="button" disabled>Apply</button><button id="tp-x" type="button">Cancel</button></div></div>`;
     const E = id => d.querySelector('#' + id), close = () => { d.remove(); document.removeEventListener('keydown', onKey, true); if (prev && document.body.contains(prev)) prev.focus(); };
@@ -95,7 +95,7 @@ const Admin = (() => {
     const read = () => {
       const raw = E('tp-text').value.trim(); plan = null; E('tp-go').disabled = true; E('tp-err').hidden = true; E('tp-sum').textContent = '';
       if (!raw) return;
-      let list; try { const a = raw.indexOf('['), b = raw.lastIndexOf(']'); list = JSON.parse(a >= 0 && b > a ? raw.slice(a, b + 1) : raw); } catch { E('tp-err').textContent = 'That is not a list I can read yet. Paste the JSON array Claude returned, starting with [ and ending with ].'; E('tp-err').hidden = false; return; }
+      let list; try { const a = raw.indexOf('['), b = raw.lastIndexOf(']'); list = JSON.parse(a >= 0 && b > a ? raw.slice(a, b + 1) : raw); } catch { E('tp-err').textContent = 'That is not a list I can read yet. Paste the JSON array your AI assistant returned, starting with [ and ending with ].'; E('tp-err').hidden = false; return; }
       if (!Array.isArray(list)) { E('tp-err').textContent = 'Expected a list (a JSON array) of items.'; E('tp-err').hidden = false; return; }
       const moves = new Map(), unknown = [], bad = []; let same = 0;      // "subject | old -> new" => ids
       list.forEach(r => {
@@ -151,7 +151,7 @@ const Admin = (() => {
     $app.innerHTML = `${tabs('questions')}
       <div class="card"><div class="row spread"><div><h2 style="margin:0">Questions</h2>
         <p class="muted" style="margin:4px 0 0">${n.rev} live for members &middot; ${n.all - n.arch - n.rev} draft (hidden) &middot; ${n.arch} archived</p></div>
-        <div class="row"><a class="btn primary" href="#/admin/questions/new">Add a question</a><a class="btn" href="#/admin/questions/import">Import from a chat</a><button id="claude" type="button" aria-label="Copy every question the filters show, to paste into a chat" title="Copy every question the filters show, to paste into a chat">Copy</button><button id="hyapply" type="button" title="Paste Claude's answer to the Sort by high yield Copy task">Apply high yield list</button><button id="tpapply" type="button" title="Paste Claude's answer to the Tidy topic names Copy task">Apply topic list</button><button id="backup">Download backup</button></div></div></div>
+        <div class="row"><a class="btn primary" href="#/admin/questions/new">Add a question</a><a class="btn" href="#/admin/questions/import">Import from a chat</a><button id="aicopy" type="button" aria-label="Copy every question the filters show, to paste into a chat" title="Copy every question the filters show, to paste into a chat">Copy</button><button id="hyapply" type="button" title="Paste your AI assistant's answer to the Sort by high yield Copy task">Apply high yield list</button><button id="tpapply" type="button" title="Paste your AI assistant's answer to the Tidy topic names Copy task">Apply topic list</button><button id="backup">Download backup</button></div></div></div>
       <details class="card" id="secsum"${secOpen() ? ' open' : ''}><summary><h2 style="display:inline;margin:0">Sections by difficulty</h2> <span class="muted small" id="secline"></span><span class="collapser"><span class="c-open">Minimize &#9650;</span><span class="c-closed">Show table &#9660;</span></span></summary>${AdminItems.missing ? '<p class="muted small">The percent correct appears after the latest <code>supabase/schema.sql</code> is run in Supabase.</p>' : ''}<div id="secbody" style="margin-top:8px"></div></details>
       <div class="card"><form id="flt" class="filters" aria-label="Filter questions">
         <div><label for="fq">Search</label><input id="fq" type="search" value="${esc(view.q)}" placeholder="id, topic, or words in the question"></div>
@@ -195,7 +195,7 @@ const Admin = (() => {
     on('backup', 'click', () => backup(c.list));
     on('tpapply', 'click', () => applyTopics({ noun: 'question', items: cache.list, patch: Cloud.patchQuestions, after: () => { refresh(); list(); } }));
     on('hyapply', 'click', () => applyHighYield({ noun: 'question', items: cache.list, patch: Cloud.patchQuestions, after: () => { refresh(); list(); } }));
-    on('claude', 'click', () => Handoff.open({ kind: 'questions', coverage: Links.coverage(cache.list.filter(x => !x.archived)), vocab: cache.list.filter(x => !x.archived), items: lastRows, selected: [], importHash: '#/admin/questions/import', describe: describeView(),
+    on('aicopy', 'click', () => Handoff.open({ kind: 'questions', coverage: Links.coverage(cache.list.filter(x => !x.archived)), vocab: cache.list.filter(x => !x.archived), items: lastRows, selected: [], importHash: '#/admin/questions/import', describe: describeView(),
       stats: AdminItems.ready() ? q => ItemStats.statLine(AdminItems.get(q.id)) : null, lessons: bank.lessons || [], currentLesson: lessonLinkFor }));
     paint();
   }
@@ -493,7 +493,7 @@ const Admin = (() => {
     pageTitle('Import questions');
     const c = await ensure(); if (!c) return;
     $app.innerHTML = `${tabs('questions')}<div class="card"><div class="row spread"><h2 style="margin:0">Import questions</h2><a href="#/admin/questions">Back to the list</a></div>
-      <p>Paste the whole reply you got from Claude, or choose the file. The questions are checked first, and nothing is saved until you press Save.</p>
+      <p>Paste the whole reply you got from your AI assistant, or choose the file. The questions are checked first, and nothing is saved until you press Save.</p>
       <label for="paste">Pasted questions</label><textarea id="paste" rows="10" spellcheck="false" placeholder="Paste here"></textarea>
       <label for="pfile">Or choose a JSON file</label><input id="pfile" type="file" accept=".json,application/json,text/plain">
       <label class="chk" style="margin-top:10px"><input type="checkbox" id="keep"> Keep review status and archived flags from the file (only for restoring a backup)</label></div>
@@ -532,7 +532,7 @@ const Admin = (() => {
       out.innerHTML = `<div class="card"><h3 style="margin-top:0">Check results</h3>
         <p><b>${good.length}</b> ready to save (${good.length - repl.length} new, ${repl.length} replacing existing)${bad ? `, <b>${bad}</b> need fixes and will be skipped` : ''}.${keep ? '' : ' Everything is saved as Draft, hidden from members until a reviewer marks it Reviewed.'}</p>
         ${copies ? `<p class="notice">${copies} of these ${copies === 1 ? 'reads' : 'read'} like a reworded copy of a question you already have. Check the notes below before saving, so you do not end up with duplicates.</p>` : ''}
-        ${skew ? `<p class="notice">The correct answer is ${esc(top[0])} for ${top[1]} of ${good.length} questions. Ask Claude to vary the answer key.</p>` : ''}
+        ${skew ? `<p class="notice">The correct answer is ${esc(top[0])} for ${top[1]} of ${good.length} questions. Ask your AI assistant to vary the answer key.</p>` : ''}
         <div class="scroll" role="region" tabindex="0" aria-label="Import check results"><table><caption class="sr">Result for each question</caption><thead><tr><th scope="col">Question</th><th scope="col">Result</th><th scope="col">Details</th></tr></thead><tbody>${items.map(x => `<tr>
           <td>${esc(x.clean.id || '(no id)')}<div class="muted small">${esc(x.clean.subject || '')}${x.clean.topic ? ' &middot; ' + esc(x.clean.topic) : ''}</div></td>
           <td>${x.errors.length ? '<span class="tag archived">Needs fixes</span>' : x.replaces ? `<span class="tag draft">Replaces existing</span>${x.replaces.status === 'reviewed' && !keep ? '<div class="muted small">It was reviewed and will return to Draft</div>' : ''}` : '<span class="tag reviewed">New</span>'}</td>
