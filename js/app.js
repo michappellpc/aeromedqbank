@@ -195,8 +195,8 @@ function ask(msg, yes = 'OK', no = 'Cancel') {
 }
 
 // ---------- question feedback ----------
-// The Feedback button opens the team's Google Form (data/config.json -> feedbackUrl) in a new tab.
-const formUrl = () => { const u = String(bank.config.feedbackUrl || ''); return /^https:\/\/(docs\.google\.com\/forms\/|forms\.gle\/)/.test(u) ? u : ''; };
+// Without accounts, the Feedback button opens the member's own email app addressed to the team (data/config.json -> contactEmail).
+const feedbackMail = ref => { const e = String(bank.config.contactEmail || ''); return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e) ? `mailto:${e}?subject=${encodeURIComponent('Question feedback: ' + ref)}&body=${encodeURIComponent('About question ' + ref + ':\n\n')}` : ''; };
 function toast(msg) {
   const t = document.createElement('div'); t.className = 'toast'; t.setAttribute('role', 'status'); t.textContent = msg;
   document.body.appendChild(t); setTimeout(() => t.remove(), 3200);
@@ -229,17 +229,16 @@ function feedbackInApp(q) {
 const FB_CATEGORIES = [['wrong-answer', 'The answer or explanation looks wrong'], ['unclear', 'The question is unclear'], ['typo', 'Typo or wording'], ['picture', 'Picture problem'], ['other', 'Something else']];
 function feedbackDialog(q) {
   if (Cloud.enabled) return feedbackInApp(q);
-  const url = formUrl(), ref = `${q.id} (${q.subject}${q.topic ? ' / ' + q.topic : ''})`;
+  const ref = `${q.id} (${q.subject}${q.topic ? ' / ' + q.topic : ''})`, url = feedbackMail(ref);
   const d = document.createElement('div'); d.className = 'modal';
   d.innerHTML = `<div class="card fb" role="dialog" aria-label="Question feedback">
     <h2>Question feedback</h2>
-    ${url ? `<p>Found a mistake or have a suggestion? Tell the team using a short form. It opens in a new tab.</p>
-    <p class="muted">1. Copy this question's reference and paste it into the form:</p>
+    ${url ? `<p>Found a mistake or have a suggestion? Email the team. This question's reference is already in the message.</p>
+    <p class="muted">The reference, in case you want to paste it elsewhere:</p>
     <div class="row" style="flex-wrap:nowrap"><input id="fb-ref" type="text" readonly value="${esc(ref)}" aria-label="Question reference"><button id="fb-copy" type="button">Copy</button></div>
-    <p class="muted">2. Open the form:</p>
-    <div class="row"><a class="btn primary" href="${esc(url)}" target="_blank" rel="noopener noreferrer">Open feedback form &#8599;</a><button type="button" data-cancel>Close</button></div>
+    <div class="row"><a class="btn primary" href="${esc(url)}">Email the team</a><button type="button" data-cancel>Close</button></div>
     <p class="muted">Do not include patient information.</p>`
-    : `<p class="muted">The feedback form has not been set up yet.</p><button type="button" data-cancel>Close</button>`}</div>`;
+    : `<p class="muted">Feedback is not set up yet.</p><button type="button" data-cancel>Close</button>`}</div>`;
   const close = () => { d.remove(); document.removeEventListener('keydown', onKey, true); };
   const onKey = e => { if (e.key === 'Escape') close(); };
   document.addEventListener('keydown', onKey, true);

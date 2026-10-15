@@ -4,7 +4,7 @@ Flashcards are short prompts a resident flips and rates ("Again, Hard, Good, Eas
 
 ## Workflow
 
-1. **Draft** cards with Claude (prompt below), or write them yourself.
+1. **Draft** cards with the AI (prompt below), or write them yourself.
 2. **Import** them in **Admin > Flashcards > Import from a chat**. Paste the whole reply. The checker reports problems and near-copies of cards you already have, and nothing is saved until you press Save. Everything arrives as **Draft**, hidden from members.
 3. **Review** each card yourself. Check the facts against a real source.
 4. **Publish** in the list: tick the cards and press **Mark reviewed (publish)**. Your name is recorded on each one.
@@ -50,7 +50,7 @@ Cards are JSON, the same shape the importer and `data/cards/*.json` use:
 
 `node tools/validate.js` checks `data/cards/*.json` (listed under `"cards"` in the manifest) with the same rules as the editor.
 
-## Prompt for Claude
+## Prompt for the AI
 
 ````text
 You are helping write flashcards for physician residents studying for the
