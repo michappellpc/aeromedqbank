@@ -555,6 +555,7 @@ function create(preSubject, preStatus) {
       ${choice('mode', 'tutor', 'Tutor', 'Feedback after each question', true)}${choice('mode', 'timed', 'Timed', 'Feedback at the end, about 90 s per question', false)}</div></fieldset>
     <fieldset class="card"><legend>High yield</legend><div class="row">${hySwitch('hy', '<span id="hy-n"></span>')}</div><p class="muted small" style="margin:6px 0 0">Practice just the questions marked as most worth your time. This also applies to Lessons and Flashcards.</p></fieldset>
     <fieldset class="card"><legend>Board</legend><div class="chips">${boardBoxes}</div></fieldset>
+    ${ObjTest.html()}
     <fieldset class="card"><legend>Subjects</legend><div class="row"><button type="button" id="all">Select all</button><button type="button" id="none">Clear</button><span class="muted small" id="subjsum" aria-live="polite"></span></div>${subjGroups}</fieldset>
     <fieldset class="card"><legend>Question status</legend><div class="chips">
       ${[['unused', 'Unused'], ['incorrect', 'Previously incorrect'], ['flagged', 'Flagged'], ['all', 'All']].map(([v, l], i) => `<label class="chk"><input type="checkbox" name="status" value="${v}" ${i == 0 ? 'checked' : ''}> ${l} <span class="cnt" data-cnt="status:${v}"></span></label>`).join('')}</div></fieldset>
@@ -575,10 +576,12 @@ function create(preSubject, preStatus) {
   }
   if (preStatus === 'incorrect') f.querySelectorAll('[name=status]').forEach(e => { e.checked = e.value === 'incorrect'; });   // arrived from Focus areas: just the missed questions
   const vals = n => [...f.querySelectorAll(`[name=${n}]:checked`)].map(e => e.value);
+  const objCard = f.querySelector('#objcard'), osel = () => (objCard ? ObjTest.selected() : new Set());
   // Does a question fit the current choices? Anything passed as null is left out of the check, so each checkbox
   // can show how many questions would apply to it given everything else that is selected.
-  const fits = (q, bs, ss, stt, ds, hy = hyOn()) => {
+  const fits = (q, bs, ss, stt, ds, hy = hyOn(), os = osel()) => {
     if (isDraft(q) && !showDrafts()) return false;
+    if (os && os.size && !ObjTest.matches(q, os)) return false;
     if (hy && !q.highYield) return false;
     if (ds && !ds.includes(String(q.difficulty || 2))) return false;
     if (bs && !q.boards.some(b => bs.includes(b))) return false;
@@ -596,6 +599,11 @@ function create(preSubject, preStatus) {
     document.getElementById('avail').textContent = `${p} available`; document.getElementById('availn').textContent = p; document.getElementById('go').disabled = !p;
     document.getElementById('subjsum').textContent = `${ss.length} of ${subjects.length} selected`;
     const nh = bank.questions.filter(q => q.highYield && fits(q, bs, ss, stt, ds, false)).length; document.getElementById('hy-n').textContent = `${nh} high yield with the choices below`;
+    if (objCard) {
+      ObjTest.showBoards(bs);
+      const oc = ObjTest.counts(bank.questions.filter(q => fits(q, bs, ss, stt, ds, hyOn(), null)));
+      objCard.querySelectorAll('[data-ocnt]').forEach(sp => { const k = sp.dataset.ocnt, n = oc[k] || 0; sp.textContent = n ? `(${n})` : ''; });
+    }
     f.querySelectorAll('[data-sg]').forEach(e => { const l = e.dataset.sg.split('|'); e.textContent = `${l.filter(x => ss.includes(x)).length} of ${l.length}`; });
     f.querySelectorAll('[data-cnt]').forEach(span => {
       const [kind, key] = span.dataset.cnt.split(/:(.*)/s);
@@ -607,6 +615,7 @@ function create(preSubject, preStatus) {
     });
   };
   document.getElementById('hy').onchange = e => { setHy(e.target.checked); upd(); };
+  if (objCard) ObjTest.bind(objCard, upd);
   f.addEventListener('change', upd); upd();
   f.querySelectorAll('[data-q]').forEach(b => b.onclick = () => { const p = pool().length; document.getElementById('n').value = b.dataset.q === 'all' ? Math.max(1, p) : Math.min(+b.dataset.q, Math.max(1, p)); });
   document.getElementById('all').onclick = () => { f.querySelectorAll('[name=subj]').forEach(e => e.checked = true); upd(); };
