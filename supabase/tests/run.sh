@@ -569,6 +569,21 @@ eq  "an admin who is not faculty cannot either"              "yes" "$(as admin "
 eq  "nobody signed out can call it"                          "yes" "$(as anon "select * from faculty_topics(0);" 2>&1 | grep -q 'permission denied' && echo yes)"
 eq  "an admin can preview the same analysis"                 "2,qi-1" "$(as admin "select (select count(*) from preview_topics('prog-ins', 0))||','||(select question_id from preview_questions('prog-ins', 0) limit 1);")"
 eq  "faculty cannot use the preview, even for their own program" "yes" "$(asfac "select * from preview_topics('prog-ins', 0);" | grep -q 'admins only' && echo yes)"
+eq  "faculty get per-question totals for the outline chart (a question needs 3 residents and 5 answers)" "qi-1,15,7,3|qi-2,27,15,3" "$(asfac "select string_agg(question_id||','||attempts||','||correct||','||residents, '|' order by question_id) from faculty_question_totals(0);")"
+eq  "the time window applies to them too"                    "qi-2,15,15,3" "$(asfac "select question_id||','||attempts||','||correct||','||residents from faculty_question_totals(90) where question_id='qi-2';")"
+eq  "there is no 30-question limit (unlike the hardest-questions list)" "42" "$(root "insert into questions (id, boards, subject, topic, stem, options, answer, explanation, tier, status) select 'qt-' || g, '{aem}', 'S', 'Many', 'stem', '[{\"id\":\"A\",\"text\":\"x\"}]', 'A', 'why', 'free', 'reviewed' from generate_series(1, 40) g; insert into attempts (user_id, question_id, ok, client_id) select u, 'qt-' || g, true, 'qt-' || u || g || k from unnest(array['$I1'::uuid,'$I2'::uuid,'$I3'::uuid]) u, generate_series(1, 40) g, generate_series(1, 2) k;" >/dev/null; asfac "select count(*) from faculty_question_totals(0);")"
+eq  "an archived or unreviewed question is left out"          "41" "$(root "update questions set archived = true where id = 'qt-1';" >/dev/null; asfac "select count(*) from faculty_question_totals(0);")"
+root "delete from attempts where question_id like 'qt-%'; delete from questions where id like 'qt-%';" >/dev/null
+eq  "another program's faculty see no totals of this one"    "0" "$(psql -X -q -t -A -d $DB <<SQL
+begin; set local role authenticated; select set_config('request.jwt.claims','{"sub":"00000000-0000-0000-0002-000000000002"}',true) \gset
+select count(*) from faculty_question_totals(0);
+SQL
+)"
+eq  "a member cannot open the totals"                        "yes" "$(as a "select * from faculty_question_totals(0);" 2>&1 | grep -q 'faculty only' && echo yes)"
+eq  "nobody signed out can call them"                        "yes" "$(as anon "select * from faculty_question_totals(0);" 2>&1 | grep -q 'permission denied' && echo yes)"
+eq  "an admin can preview the totals"                        "2" "$(as admin "select count(*) from preview_question_totals('prog-ins', 0);")"
+eq  "faculty cannot use the totals preview"                  "yes" "$(asfac "select * from preview_question_totals('prog-ins', 0);" | grep -q 'admins only' && echo yes)"
+eq  "the internal totals helper cannot be called directly"   "yes" "$(as a "select * from _program_question_totals('prog-ins', 0);" 2>&1 | grep -q 'permission denied' && echo yes)"
 eq  "the internal helpers cannot be called directly"         "yes" "$(as a "select * from _program_topics('prog-ins', 0);" 2>&1 | grep -q 'permission denied' && echo yes)"
 echo; echo "Question analytics"
 root "insert into allowed_emails (email, role, plan) select 'ia' || g || '@site.com', 'member', 'pro' from generate_series(1, 24) g;
