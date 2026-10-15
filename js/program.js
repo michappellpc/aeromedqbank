@@ -51,6 +51,9 @@ const Program = (() => {
   // ------------------------------------------------------------------ faculty: their dashboard
   // What faculty see on opening the app: how their residents are doing, not their own scores. Their own answers (they try questions to see
   // and test them) are kept out of every program and group figure, so nothing here or in the residents' numbers includes them.
+  // The one page faculty need. Everything about their program is here, in this order: who is waiting for approval, the headline numbers, ONE list of
+  // subjects (each opens to show the topics inside it and the lessons that would help most), and the residents (each opens to show their own subjects).
+  // The printable report (js insights page) is an export of the same numbers, linked from here.
   async function dashboard(pid) {
     pageTitle('Dashboard');
     const preview = !!pid && !!profile && profile.role === 'admin';   // an admin looking at exactly what a program's faculty see on opening the app
@@ -70,6 +73,8 @@ const Program = (() => {
       const mine = preview ? await Cloud.adminPrograms().then(l => l.find(p => p.id === pid) || null) : await Cloud.myProgram();     // asked first: the roster calls refuse faculty who have no program yet
       const [roster, subj] = mine ? await Promise.all(preview ? [Cloud.previewRoster(pid), Cloud.previewSubjects(pid)] : [Cloud.facultyRoster(), Cloud.facultySubjects()]) : [[], []];
       const trend = mine ? await (preview ? Cloud.previewSubjectTrend(pid, trendDays) : Cloud.facultySubjectTrend(trendDays)).catch(() => null) : null;     // null on a database without the trend function yet
+      const nApproved = roster.filter(r => r.status === 'approved').length;
+      const topics = mine && nApproved >= 3 ? await (preview ? Cloud.previewTopics(pid, 0) : Cloud.facultyTopics(0)).catch(() => null) : null;      // the topics inside each subject; only shown for 3 or more residents, so no total is one person's
       if (location.hash !== here) return;
       if (!mine && preview) { $app.innerHTML = '<div class="card"><h2>Dashboard</h2><p class="muted">That program was not found. <a href="#/admin">Back to Admin</a></p></div>'; return; }
       if (!mine) { $app.innerHTML = `${tabs}${Mascot.scene(bank.config.coverImage)}${notes}<div class="card"><p class="muted">You have not been assigned to a program yet. Ask an administrator.</p></div>${own}`; cover('Dashboard', 'Welcome, Doc.', '', 'An administrator will connect you to your program.'); return; }
@@ -77,9 +82,10 @@ const Program = (() => {
       const res = roster.filter(r => r.status === 'approved'), pending = roster.filter(r => r.status === 'pending');
       const tot = res.reduce((a, r) => a + Number(r.attempts || 0), 0), cor = res.reduce((a, r) => a + Number(r.correct || 0), 0);
       const ago = r => (r.last_active ? (Date.now() - new Date(r.last_active).getTime()) / 86400000 : Infinity);
-      const week = res.filter(r => ago(r) <= 7).length, quiet = res.filter(r => ago(r) > 14).sort((a, b) => ago(b) - ago(a));
+      const week = res.filter(r => ago(r) <= 7).length, quiet = res.filter(r => ago(r) > 14);
       const subjects = [...new Set(subj.map(x => x.subject))].map(s => { const rows = subj.filter(x => x.subject === s), n = rows.reduce((a, x) => a + Number(x.attempts), 0), c = rows.reduce((a, x) => a + Number(x.correct), 0); return { s, n, p: n ? pct(c, n) : null }; }).filter(x => x.n).sort((a, b) => a.p - b.p || b.n - a.n);
-      const heat = p => `<td class="heat ${p >= 70 ? 'hi' : p >= 50 ? 'mid' : 'lo'}"><b>${p}%</b></td>`;
+      const cls = p => (p >= 70 ? 'hi' : p >= 50 ? 'mid' : 'lo');
+      const heat = p => `<td class="heat ${cls(p)}"><b>${p}%</b></td>`;
       const tr = Object.fromEntries((trend || []).map(r => [r.subject, r]));
       const trendCells = s => {
         const r = tr[s]; if (!r) return '<td class="muted">-</td><td class="muted">-</td><td class="muted">-</td>';
@@ -90,62 +96,53 @@ const Program = (() => {
         const d = rp - pp, kind = d >= 3 ? 'up' : d <= -3 ? 'down' : 'flat', sign = d > 0 ? '+' : d < 0 ? '&minus;' : '', n = Math.abs(d);
         return `<td>${now}</td><td>${before}</td><td class="chg ${kind}" title="${pp}% before, ${rp}% now"><b>${kind === 'up' ? '&#9650; ' : kind === 'down' ? '&#9660; ' : '&#9654; '}${sign}${n} pts</b> <span class="sr">${kind === 'up' ? 'up' : kind === 'down' ? 'down' : 'about the same,'} ${n} percentage points, from ${pp}% to ${rp}%</span></td>`;
       };
-      $app.innerHTML = `${tabs}${Mascot.scene(bank.config.coverImage)}
-        ${preview ? `<div class="card notice rep-preview"><b>Preview.</b> This is the dashboard faculty for ${esc(mine.name)} see when they open the app. <a href="#/admin">Back to Admin</a></div>` : ''}
-        ${notes}
-        ${pending.length ? `<div class="card notice"><b>${pending.length} ${pending.length === 1 ? 'person is' : 'people are'} waiting for your approval.</b> <a href="#/program${preview ? '/' + esc(pid) : ''}">Review requests</a></div>` : ''}
-        <div class="grid"><div class="card stat"><b>${res.length}</b><span>Residents</span></div><div class="card stat"><b>${week}</b><span>Active in the last 7 days</span></div><div class="card stat"><b>${tot}</b><span>Questions answered</span></div><div class="card stat"><b>${tot ? pct(cor, tot) + '%' : '-'}</b><span>Program correct</span></div></div>
-        ${res.length ? '' : '<div class="card"><p class="muted">No residents have joined yet. Residents choose your program when they sign up, or in Settings, and you approve them under Residents.</p></div>'}
-        ${quiet.length ? `<div class="card"><h2>Quiet for two weeks or more</h2><p class="muted">${quiet.length} of ${res.length} resident${res.length === 1 ? '' : 's'} ${quiet.length === 1 ? 'has' : 'have'} not answered anything in 14 days or longer.</p><ul class="reclist">${quiet.slice(0, 8).map(r => `<li>${esc(who(r))} <span class="muted">${r.last_active ? 'last active ' + new Date(r.last_active).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : 'has not started'}</span></li>`).join('')}</ul>${quiet.length > 8 ? `<p class="muted small">and ${quiet.length - 8} more. <a href="#/program${preview ? '/' + esc(pid) : ''}">See everyone</a></p>` : ''}</div>` : ''}
-        ${subjects.length ? `<div class="card"><h2>How the program is doing by subject</h2><p class="muted">Weakest first. Percent correct across all your residents, with how many questions that is. Green is 70% or more, amber 50 to 69, red under 50.${trend ? ` The last two columns show how each subject is moving: the recent period against the period of the same length just before it.` : ''}</p>
+      // What opens under a subject: its topics, weakest first, and the lessons that would help most with the weak ones
+      const lessons = bank.lessons || [], qs = bank.questions || [];
+      const detail = s => {
+        if (!topics) return `<p class="muted small">${nApproved < 3 ? 'Topics appear once at least 3 residents are approved, so a total can never be one person\'s results.' : 'Topic detail is not available yet.'}</p>`;
+        const rows = topics.filter(t => t.subject === s).map(t => { const a = Number(t.attempts), c = Number(t.correct), ga = Number(t.group_attempts || 0); return { topic: t.topic || '', a, p: pct(c, a), g: ga ? pct(Number(t.group_correct), ga) : null, r: Number(t.residents), low: Number(t.low_residents) }; }).sort((x, y) => x.p - y.p || y.a - x.a);
+        if (!rows.length) return '<p class="muted small">No topic in this subject has enough answers yet (a topic needs 10 answers from 3 residents).</p>';
+        const weakRows = Insights.weak(topics.filter(t => t.subject === s)).slice(0, 4), seen = new Set(), recs = [];
+        weakRows.forEach(w => Insights.lessonsFor(w, lessons, qs).forEach(r => { if (!seen.has(r.lesson.id) && recs.length < 3) { seen.add(r.lesson.id); recs.push(r); } }));
+        return `<ul class="topiclist">${rows.map(x => `<li><span class="heat ${cls(x.p)} tpct"><b>${x.p}%</b></span> <b>${esc(x.topic || s)}</b> <span class="muted small">${x.a} answers &middot; ${x.low} of ${x.r} residents under 60%${x.g !== null ? ' &middot; all members ' + x.g + '%' : ''}</span></li>`).join('')}</ul>`
+          + (recs.length ? `<p class="small"><b>Lessons that would help most:</b></p><ul class="reclist">${recs.map(r => `<li><a href="#/lesson/${encodeURIComponent(r.lesson.id)}">${esc(r.lesson.title)}</a> <span class="muted">${esc(r.reason)}</span></li>`).join('')}</ul>` : '');
+      };
+      const cols = 3 + (trend ? 3 : 0);
+      const subjectCard = subjects.length ? `<div class="card" id="pg-subjects"><h2>Subjects</h2><p class="muted">Weakest first: percent correct across all your residents. Open a subject to see the topics inside it${topics ? ' and the lessons that would help most' : ''}. Green is 70% or more, amber 50 to 69, red under 50.</p>
           ${trend ? `<div class="row" style="margin:6px 0"><label for="tr-days">Compare the last</label><select id="tr-days" style="width:auto">${TREND_CHOICES.map(([d, l]) => `<option value="${d}"${d === trendDays ? ' selected' : ''}>${l}</option>`).join('')}</select><span class="muted">with the ${trendDays} days before that</span></div>` : ''}
-          <div class="scroll" role="region" tabindex="0" aria-label="Program subjects table"><table class="heatmap"><caption class="sr">Program percent correct by subject, weakest first${trend ? ', with the change over time' : ''}</caption><thead><tr><th scope="col">Subject</th><th scope="col" class="qa">Questions answered</th><th scope="col">Correct</th>${trend ? `<th scope="col">Last ${trendDays} days</th><th scope="col">Before that</th><th scope="col">Change (points)</th>` : ''}</tr></thead><tbody>${subjects.map(x => `<tr><th scope="row">${esc(x.s)}</th><td class="qa">${x.n}</td>${heat(x.p)}${trend ? trendCells(x.s) : ''}</tr>`).join('')}</tbody></table></div>
-          ${trend ? `<p class="muted small">A change appears once both periods have at least ${TREND_MIN} answers. Subjects that fewer than three residents answered are left out, so no one resident shows.</p>` : ''}
-          <p class="small"><a href="#/program/${pre}insights">See the topics and questions behind these, and the lessons that would help most</a></p></div>` : ''}
-        ${own}`;
-      cover(mine.name, 'Your residents at a glance. Your own practice answers are kept separate and are not part of these numbers.', `<a class="btn primary" href="#/program${preview ? '/' + esc(pid) : ''}">Residents</a><a class="btn" href="#/program/${pre}insights">Program insights</a>`,
+          <div class="scroll" role="region" tabindex="0" aria-label="Program subjects table"><table class="heatmap"><caption class="sr">Program percent correct by subject, weakest first${trend ? ', with the change over time' : ''}</caption><thead><tr><th scope="col">Subject</th><th scope="col" class="qa">Answered</th><th scope="col">Correct</th>${trend ? `<th scope="col">Last ${trendDays} days</th><th scope="col">Before that</th><th scope="col">Change (points)</th>` : ''}</tr></thead><tbody>${subjects.map((x, i) => `<tr class="subjrow"><th scope="row"><button type="button" class="rowtog" data-tog="sd-${i}" aria-expanded="false" aria-controls="sd-${i}"><span class="chev" aria-hidden="true">&#9656;</span> ${esc(x.s)}</button></th><td class="qa">${x.n}</td>${heat(x.p)}${trend ? trendCells(x.s) : ''}</tr><tr class="subjdetail" id="sd-${i}" hidden><td colspan="${cols}">${detail(x.s)}</td></tr>`).join('')}</tbody></table></div>
+          ${trend ? `<p class="muted small">A change appears once both periods have at least ${TREND_MIN} answers. Subjects that fewer than three residents answered are left out, so no one resident shows.</p>` : ''}</div>` : '';
+      // Residents: one list; each opens to show that resident's own percent by subject
+      const sub = (u, s) => { const x = subj.find(y => y.user_id === u && y.subject === s); return x ? { n: Number(x.attempts), p: pct(Number(x.correct), Number(x.attempts)) } : null; };
+      const subjNames = [...new Set(subj.map(x => x.subject))].sort();
+      const resDetail = r => { const cells = subjNames.map(s => ({ s, c: sub(r.user_id, s) })).filter(x => x.c); return cells.length ? `<ul class="topiclist">${cells.sort((a, b) => a.c.p - b.c.p).map(x => `<li><span class="heat ${cls(x.c.p)} tpct"><b>${x.c.p}%</b></span> ${esc(x.s)} <span class="muted small">${x.c.n} answered</span></li>`).join('')}</ul>` : '<p class="muted small">No answers yet.</p>'; };
+      const pendingCard = pending.length ? `<div class="card notice" id="pg-pending"><h2>${pending.length} ${pending.length === 1 ? 'person is' : 'people are'} waiting for your approval</h2><p class="muted">These people asked to join. You cannot see any of their progress until you approve them.</p><ul class="reqlist" aria-label="Requests to join">${pending.map(r => `<li><span><b>${esc(who(r))}</b>${r.requested_at ? ' <span class="muted small">asked ' + new Date(r.requested_at).toLocaleDateString() + '</span>' : ''}</span><span class="reqbtn"><button class="primary" data-ok="${esc(r.user_id)}" aria-label="Approve ${esc(who(r))}">Approve</button> <button data-no="${esc(r.user_id)}" aria-label="Decline ${esc(who(r))}">Decline</button></span></li>`).join('')}</ul></div>` : '';
+      const residentsCard = `<div class="card" id="pg-residents"><div class="row spread"><h2>Residents</h2>${res.length ? '<button id="pg-csv" type="button">Download progress CSV</button>' : ''}</div>${res.length ? `<p class="muted">${quiet.length ? `<b>${quiet.length}</b> of ${res.length} ${quiet.length === 1 ? 'has' : 'have'} not answered anything in 14 days or longer. ` : ''}Open a resident to see their percent by subject.</p><div class="scroll" role="region" tabindex="0" aria-label="Residents table"><table><caption class="sr">Residents and their progress</caption><thead><tr><th scope="col">Resident</th><th scope="col">Answered</th><th scope="col">Correct</th><th scope="col">Last active</th><th scope="col"><span class="sr">Actions</span></th></tr></thead><tbody>${res.slice().sort((a, b) => who(a).localeCompare(who(b))).map((r, i) => `<tr class="subjrow"><th scope="row"><button type="button" class="rowtog" data-tog="rd-${i}" aria-expanded="false" aria-controls="rd-${i}"><span class="chev" aria-hidden="true">&#9656;</span> ${esc(who(r))}</button></th><td>${r.attempts}</td><td>${Number(r.attempts) ? pct(Number(r.correct), Number(r.attempts)) + '%' : '-'}</td><td>${r.last_active ? new Date(r.last_active).toLocaleDateString() : 'not yet'}${ago(r) > 14 ? ' <span class="tag">Quiet</span>' : ''}</td><td><button type="button" data-rm="${esc(r.user_id)}" data-email="${esc(who(r))}" aria-label="Remove ${esc(who(r))} from the program">Remove</button></td></tr><tr class="subjdetail" id="rd-${i}" hidden><td colspan="5">${resDetail(r)}</td></tr>`).join('')}</tbody></table></div>` : '<p class="muted">No residents have joined yet. Residents choose your program when they sign up, or in Settings, and you approve them here.</p>'}</div>`;
+      const reportCard = res.length >= 3 ? `<p class="small"><a href="#/program/${pre}insights">Print or download the program report</a></p>` : '';
+      $app.innerHTML = `${tabs}${Mascot.scene(bank.config.coverImage)}
+        ${preview ? `<div class="card notice rep-preview"><b>Preview.</b> This is the dashboard faculty for ${esc(mine.name)} see when they open the app. As an admin you can also approve, decline and remove here. <a href="#/admin">Back to Admin</a></div>` : ''}
+        ${notes}${pendingCard}
+        <div class="grid"><div class="card stat"><b>${res.length}</b><span>Residents</span></div><div class="card stat"><b>${week}</b><span>Active in the last 7 days</span></div><div class="card stat"><b>${tot}</b><span>Questions answered</span></div><div class="card stat"><b>${tot ? pct(cor, tot) + '%' : '-'}</b><span>Program correct</span></div></div>
+        ${subjectCard}${residentsCard}${reportCard}${own}`;
+      cover(mine.name, 'Your residents at a glance. Your own practice answers are kept separate and are not part of these numbers.', '',
         !res.length ? 'No residents yet. They find you when they sign up.' : week === res.length ? `All ${res.length} resident${res.length === 1 ? ' was' : 's were'} active this week. Nice.` : `${week} of ${res.length} resident${res.length === 1 ? ' was' : 's were'} active this week.`);
+      // open and close the rows
+      $app.querySelectorAll('[data-tog]').forEach(b => b.onclick = () => { const row = document.getElementById(b.dataset.tog), open = row.hidden; row.hidden = !open; b.setAttribute('aria-expanded', String(open)); b.querySelector('.chev').innerHTML = open ? '&#9662;' : '&#9656;'; });
       const sel = document.getElementById('tr-days'); if (sel) { if (focusTrend) { focusTrend = false; sel.focus(); sel.scrollIntoView({ block: 'center' }); } sel.onchange = () => { trendDays = +sel.value || 30; focusTrend = true; dashboard(pid); }; }
-    } catch (e) { $app.innerHTML = `${tabs}<div class="card"><h2>Dashboard</h2><p class="muted">Could not load your program: ${esc(e.offline ? 'you are offline' : e.message)}</p></div>${own}`; }
-  }
-
-  async function facultyPage(pid) {
-    pageTitle('Program');
-    const preview = !!pid && !!profile && profile.role === 'admin';   // an admin looking at exactly what a program's faculty see
-    if (!profile || (profile.role !== 'faculty' && !preview)) { $app.innerHTML = '<div class="card"><h2>Program</h2><p class="muted">This page is for program faculty.</p></div>'; return; }
-    $app.innerHTML = '<div class="card"><p class="muted">Loading your residents...</p></div>';
-    try {
-      const [mine, roster, subj] = preview
-        ? await Promise.all([Cloud.adminPrograms().then(l => l.find(p => p.id === pid) || null), Cloud.previewRoster(pid), Cloud.previewSubjects(pid)])
-        : await (async () => { const m = await Cloud.myProgram(); return m ? [m, ...(await Promise.all([Cloud.facultyRoster(), Cloud.facultySubjects()]))] : [null, [], []]; })();
-      if (!mine && preview) { $app.innerHTML = '<div class="card"><h2>Program</h2><p class="muted">That program was not found. <a href="#/admin">Back to Admin</a></p></div>'; return; }
-      if (!mine) { $app.innerHTML = '<div class="card"><h2>Program</h2><p class="muted">You have not been assigned to a program yet. Ask an administrator.</p></div>'; return; }
-      const who = r => r.display_name || r.email;   // the name a resident chose, else their email
-      const pending = roster.filter(r => r.status === 'pending'), res = roster.filter(r => r.status === 'approved');
-      const subjects = [...new Set(subj.map(x => x.subject))].sort();
-      const cell = (u, s) => { const x = subj.find(y => y.user_id === u && y.subject === s); return x ? { n: Number(x.attempts), p: pct(Number(x.correct), Number(x.attempts)) } : null; };
-      const heat = c => !c ? '<td class="heat none">-</td>' : `<td class="heat ${c.p >= 70 ? 'hi' : c.p >= 50 ? 'mid' : 'lo'}"><b>${c.p}%</b><span> (${c.n})</span></td>`;
-      const avg = s => { const rows = subj.filter(x => x.subject === s), n = rows.reduce((a, x) => a + Number(x.attempts), 0), c = rows.reduce((a, x) => a + Number(x.correct), 0); return n ? { n, p: pct(c, n) } : null; };
-      const tot = res.reduce((a, r) => a + Number(r.attempts || 0), 0), cor = res.reduce((a, r) => a + Number(r.correct || 0), 0);
-      $app.innerHTML = `${preview ? `<div class="card notice rep-preview"><b>Preview.</b> This is what faculty for ${esc(mine.name)} see. As an admin you can also do what they can here: approve, decline and remove. <a href="#/program/${esc(pid)}/dashboard">Faculty dashboard</a> &middot; <a href="#/admin">Back to Admin</a></div>` : ''}<div class="pagehead"><div><h2 class="pagetitle">${esc(mine.name)}</h2></div><button id="pg-csv">Download CSV</button></div>
-        <div class="grid"><div class="card stat"><b>${res.length}</b><span>Residents</span></div><div class="card stat"><b>${tot}</b><span>Questions answered</span></div><div class="card stat"><b>${tot ? pct(cor, tot) + '%' : '-'}</b><span>Program correct</span></div><div class="card stat"><b>${pending.length}</b><span>Waiting for approval</span></div></div>
-        <div class="card row spread"><div><b>Program insights</b><div class="muted">Where your residents are weakest as a group, and the lessons that would help most.</div></div><a class="btn primary" href="#/program/${preview ? esc(pid) + '/' : ''}insights">Open insights</a></div>
-        ${pending.length ? `<div class="card"><h2>Waiting for your approval</h2><p class="muted">These people asked to join. You cannot see any of their progress until you approve them.</p><table><caption class="sr">Requests to join</caption><thead><tr><th scope="col">Email</th><th scope="col">Asked</th><th scope="col"><span class="sr">Actions</span></th></tr></thead><tbody>${pending.map(r => `<tr><td>${esc(who(r))}</td><td>${day(r.joined)}</td><td><button class="primary" data-ok="${esc(r.user_id)}" aria-label="Approve ${esc(who(r))}">Approve</button> <button data-no="${esc(r.user_id)}" aria-label="Decline ${esc(who(r))}">Decline</button></td></tr>`).join('')}</tbody></table></div>` : ''}
-        <div class="card"><h2>Residents</h2>${res.length ? `<div class="scroll" role="region" tabindex="0" aria-label="Residents table"><table><caption class="sr">Residents and their progress</caption><thead><tr><th scope="col">Resident</th><th scope="col">Answered</th><th scope="col">Correct</th><th scope="col">Last active</th><th scope="col"><span class="sr">Actions</span></th></tr></thead><tbody>${res.map(r => `<tr><td>${esc(who(r))}</td><td>${r.attempts}</td><td>${Number(r.attempts) ? pct(Number(r.correct), Number(r.attempts)) + '%' : '-'}</td><td>${day(r.last_active)}</td><td><button data-rm="${esc(r.user_id)}" data-email="${esc(who(r))}" aria-label="Remove ${esc(who(r))} from the program">Remove</button></td></tr>`).join('')}</tbody></table></div>` : '<p class="muted">No residents yet. People join by choosing your program in Settings, or when they create an account.</p>'}</div>
-        ${subjects.length ? `<div class="card"><h2>By subject</h2><p class="muted">Percent correct, with the number of questions answered in brackets. Green is 70% or more, amber 50 to 69, red under 50.</p><div class="scroll" role="region" tabindex="0" aria-label="Subject table"><table class="heatmap"><caption class="sr">Percent correct by resident and subject</caption><thead><tr><th scope="col">Resident</th>${subjects.map(s => `<th scope="col">${esc(s)}</th>`).join('')}</tr></thead>
-          <tbody><tr class="avgrow"><th scope="row">Program average</th>${subjects.map(s => heat(avg(s))).join('')}</tr>${res.map(r => `<tr><th scope="row">${esc(who(r))}</th>${subjects.map(s => heat(cell(r.user_id, s))).join('')}</tr>`).join('')}</tbody></table></div></div>` : ''}`;
-      const act = async (fn, msg) => { try { await fn(); toast(msg); facultyPage(pid); } catch (x) { toast(x.offline ? 'No connection.' : 'That did not work: ' + x.message); } };
+      const act = async (fn, msg) => { try { await fn(); toast(msg); dashboard(pid); } catch (x) { toast(x.offline ? 'No connection.' : 'That did not work: ' + x.message); } };
       $app.querySelectorAll('[data-ok]').forEach(b => b.onclick = () => act(() => preview ? Cloud.programDecide(pid, b.dataset.ok, true) : Cloud.facultyDecide(b.dataset.ok, true), 'Approved.'));
       $app.querySelectorAll('[data-no]').forEach(b => b.onclick = () => act(() => preview ? Cloud.programDecide(pid, b.dataset.no, false) : Cloud.facultyDecide(b.dataset.no, false), 'Declined.'));
       $app.querySelectorAll('[data-rm]').forEach(b => b.onclick = async () => { if (await ask(`Remove ${b.dataset.email} from the program? You will no longer see their progress.`, 'Remove')) act(() => preview ? Cloud.programRemove(pid, b.dataset.rm) : Cloud.facultyRemove(b.dataset.rm), 'Removed.'); });
-      document.getElementById('pg-csv').onclick = () => {
-        const head = ['resident', 'answered', 'correct', 'percent_correct', 'last_active', ...subjects.flatMap(s => [s + ' answered', s + ' percent'])];
-        const rows = res.map(r => [who(r), r.attempts, r.correct, Number(r.attempts) ? pct(Number(r.correct), Number(r.attempts)) : '', r.last_active ? new Date(r.last_active).toISOString().slice(0, 10) : '', ...subjects.flatMap(s => { const c = cell(r.user_id, s); return c ? [c.n, c.p] : ['', '']; })]);
+      const csv = document.getElementById('pg-csv'); if (csv) csv.onclick = () => {
+        const head = ['resident', 'answered', 'correct', 'percent_correct', 'last_active', ...subjNames.flatMap(s => [s + ' answered', s + ' percent'])];
+        const rows = res.map(r => [who(r), r.attempts, r.correct, Number(r.attempts) ? pct(Number(r.correct), Number(r.attempts)) : '', r.last_active ? new Date(r.last_active).toISOString().slice(0, 10) : '', ...subjNames.flatMap(s => { const c = sub(r.user_id, s); return c ? [c.n, c.p] : ['', '']; })]);
         const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob(['﻿' + [head, ...rows].map(r => r.map(csvCell).join(',')).join('\r\n')], { type: 'text/csv' }));
         a.download = 'program-progress-' + new Date().toISOString().slice(0, 10) + '.csv'; a.click();
       };
-    } catch (e) { $app.innerHTML = `<div class="card"><h2>Program</h2><p class="muted">Could not load: ${esc(e.offline ? 'you are offline' : e.message)}</p></div>`; }
+    } catch (e) { $app.innerHTML = `${tabs}<div class="card"><h2>Dashboard</h2><p class="muted">Could not load your program: ${esc(e.offline ? 'you are offline' : e.message)}</p></div>${own}`; }
   }
+  // The old Residents page is part of the dashboard now (links to it still land here)
+  const facultyPage = pid => dashboard(pid);
 
   // ------------------------------------------------------------------ faculty: program insights
   // Where the program as a group is weakest and strongest, and the lessons that would help most.
@@ -157,17 +154,17 @@ const Program = (() => {
     const preview = !!pid && !!profile && profile.role === 'admin';
     if (!profile || (profile.role !== 'faculty' && !preview)) { $app.innerHTML = '<div class="card"><h2>Program insights</h2><p class="muted">This page is for program faculty.</p></div>'; return; }
     $app.innerHTML = '<div class="card"><p class="muted">Working out where your residents are weakest...</p></div>';
-    const back = preview ? `#/program/${esc(pid)}` : '#/program';
+    const back = preview ? `#/program/${esc(pid)}/dashboard` : '#/';
     try {
       const [mine, roster, topics] = preview
         ? await Promise.all([Cloud.adminPrograms().then(l => l.find(p => p.id === pid) || null), Cloud.previewRoster(pid), Cloud.previewTopics(pid, range)])
         : await Promise.all([Cloud.myProgram(), Cloud.facultyRoster(), Cloud.facultyTopics(range)]);
       if (!mine) { $app.innerHTML = `<div class="card"><h2>Program insights</h2><p class="muted">No program found. <a href="${back}">Back</a></p></div>`; return; }
       const res = roster.filter(r => r.status === 'approved');
-      const crumb = `<p class="crumb"><a href="${back}">Program</a></p>`;
+      const crumb = `<p class="crumb"><a href="${back}">Dashboard</a></p>`;
       const head = `${crumb}<div class="pagehead"><div><h2 class="pagetitle">Program insights</h2><p class="muted">${esc(mine.name)}${preview ? ' (preview as admin)' : ''}</p></div></div>`;
       if (res.length < 3) {
-        $app.innerHTML = `${head}<div class="card"><h2>Not enough residents yet</h2><p class="muted">Insights need at least 3 approved residents, so a total can never be one person's results. You have ${res.length}. Approve more requests on the <a href="${back}">Program page</a>.</p></div>`;
+        $app.innerHTML = `${head}<div class="card"><h2>Not enough residents yet</h2><p class="muted">Insights need at least 3 approved residents, so a total can never be one person's results. You have ${res.length}. Approve more requests on the <a href="${back}">Dashboard</a>.</p></div>`;
         return;
       }
       const lessons = bank.lessons || [], qs = bank.questions || [], ws = Insights.weak(topics).slice(0, 8);
