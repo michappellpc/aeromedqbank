@@ -934,6 +934,44 @@ begin
   if not public.is_admin() then raise exception 'admins only'; end if;
   return query select * from public._program_questions(pid, days);
 end $$;
+
+-- For the faculty dashboard's board outline chart: for EVERY question the program's approved residents have answered (no limit, unlike
+-- faculty_questions), just its id and the group totals. A question appears only when at least 3 residents answered it and it has at
+-- least 5 answers, so no total is one person's results. The page matches each id to the board outline items the question is tagged with.
+create or replace function public._program_question_totals(fp text, days int)
+  returns table (question_id text, attempts bigint, correct bigint, residents bigint)
+  language sql stable security definer set search_path = public as
+$$
+  with mem as (
+    select p.id from public.profiles p where p.program_id = fp and p.program_status = 'approved' and p.role <> 'faculty' and p.active),
+  prog as (
+    select t.question_id, count(*) as n, count(*) filter (where t.ok) as c, count(distinct t.user_id) as r
+    from public.attempts t join mem on mem.id = t.user_id
+    where coalesce(days, 0) <= 0 or t.at >= now() - make_interval(days => days)
+    group by 1)
+  select p.question_id, p.n, p.c, p.r
+  from prog p
+  join public.questions q on q.id = p.question_id and not q.archived and q.status = 'reviewed'
+  where public._program_cohort_ok(fp) and p.r >= 3 and p.n >= 5
+  order by p.question_id
+$$;
+create or replace function public.faculty_question_totals(days int default 0)
+  returns table (question_id text, attempts bigint, correct bigint, residents bigint)
+  language plpgsql stable security definer set search_path = public as
+$$
+declare fp text := public.faculty_program_id();
+begin
+  if fp is null then raise exception 'faculty only'; end if;
+  return query select * from public._program_question_totals(fp, days);
+end $$;
+create or replace function public.preview_question_totals(pid text, days int default 0)
+  returns table (question_id text, attempts bigint, correct bigint, residents bigint)
+  language plpgsql stable security definer set search_path = public as
+$$
+begin
+  if not public.is_admin() then raise exception 'admins only'; end if;
+  return query select * from public._program_question_totals(pid, days);
+end $$;
 create or replace function public.preview_weekly(pid text)
   returns table (week_start date, attempts bigint, correct bigint, active_residents bigint)
   language plpgsql stable security definer set search_path = public as
@@ -1241,7 +1279,7 @@ grant execute on function public.program_list() to anon, authenticated;
 grant execute on function public.my_program(), public.leave_program(), public.faculty_program_id(), public.faculty_roster(), public.faculty_subject_stats() to authenticated;
 grant execute on function public.set_my_name(text) to authenticated;
 grant execute on function public.preview_roster(text), public.preview_subjects(text), public.program_decide(text, uuid, boolean), public.program_remove(text, uuid) to authenticated;
-grant execute on function public.faculty_topics(int), public.faculty_questions(int), public.faculty_weekly(), public.preview_topics(text, int), public.preview_questions(text, int), public.preview_weekly(text) to authenticated;
+grant execute on function public.faculty_topics(int), public.faculty_questions(int), public.faculty_weekly(), public.preview_topics(text, int), public.preview_questions(text, int), public.preview_weekly(text), public.faculty_question_totals(int), public.preview_question_totals(text, int) to authenticated;
 grant execute on function public.faculty_subject_trend(int), public.preview_subject_trend(text, int) to authenticated;
 grant execute on function public.request_program(text), public.faculty_decide(uuid, boolean), public.faculty_remove(uuid) to authenticated;
 grant execute on function public.peer_stats(), public.peer_choices(), public.peer_min_users() to authenticated;

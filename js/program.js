@@ -51,6 +51,36 @@ const Program = (() => {
   // ------------------------------------------------------------------ faculty: their dashboard
   // What faculty see on opening the app: how their residents are doing, not their own scores. Their own answers (they try questions to see
   // and test them) are kept out of every program and group figure, so nothing here or in the residents' numbers includes them.
+  // ---- the board outline chart (js/outlinechart.js): the ABPM's domains with their share of the exam, and how the program's residents do in each ----
+  let outBoard = '';
+  const cutText = (x, n) => { x = String(x || ''); if (x.length <= n) return x; const h = x.slice(0, n - 1), k = h.lastIndexOf(' '); return (k > n * 0.6 ? h.slice(0, k) : h).trimEnd() + '…'; };
+  function outlineCard(totals, nApproved) {
+    const head = `<h2>Board exam outline</h2>`;
+    if (nApproved < 3) return `<div class="card" id="pg-outline">${head}<p class="muted">This chart appears once at least 3 residents are approved, so a total can never be one person's results.</p></div>`;
+    if (!totals) return `<div class="card" id="pg-outline">${head}<p class="muted">The outline chart is not available yet. Ask an administrator to run the latest database schema.</p></div>`;
+    const qs = bank.questions || [], boards = (bank.boards || []).map(b => b.id).filter(b => OutlineChart.layout(b));
+    const rolls = boards.map(b => OutlineChart.rollup(b, qs, totals)).filter(Boolean), withData = rolls.filter(r => r.placed.attempts > 0);
+    if (!rolls.length) return '';
+    if (!outBoard || !rolls.some(r => r.id === outBoard)) outBoard = (withData.sort((a, b) => b.placed.attempts - a.placed.attempts)[0] || rolls[0]).id;
+    const R = rolls.find(r => r.id === outBoard), maxW = Math.max(...R.domains.map(d => d.weight), 1);
+    const cls = p => (p >= 70 ? 'hi' : p >= 50 ? 'mid' : 'lo');
+    const perf = x => (x.pct === null ? '<td class="heat none">-</td>' : `<td class="heat ${cls(x.pct)}"><b>${x.pct}%</b></td>`);
+    const wcell = w => `<td class="wcell"><span class="wbar" aria-hidden="true"><i style="width:${Math.round(100 * w / maxW)}%"></i></span> <b>${w}%</b><span class="sr"> of the exam</span></td>`;
+    const ans = x => `<td>${x.attempts ? x.attempts.toLocaleString() : '<span class="muted">0</span>'}</td>`;
+    const stmts = (d, partKey) => { const rows = d.rows.filter(r => !partKey || r.part === partKey); return rows.length ? `<ul class="stmtlist">${rows.map(r => `<li class="${r.attempts ? '' : 'nodata'}" style="padding-left:${r.depth * 16}px"><span class="ocode">${esc(r.code)}</span> ${esc(cutText(r.text, 170))}<span class="stmtperf">${r.pct === null ? '' : `<span class="heat ${cls(r.pct)} tpct"><b>${r.pct}%</b></span> <span class="muted small">${r.attempts}</span>`}</span></li>`).join('')}</ul>` : ''; };
+    const body = R.domains.map((d, i) => {
+      const dRow = `<tr class="subjrow outdom"><th scope="row"><button type="button" class="rowtog" data-tog="od-${i}" aria-expanded="false" aria-controls="od-${i}"><span class="chev" aria-hidden="true">&#9656;</span> ${esc(d.key.length <= 3 && /^[IVX]+$/.test(d.key) ? d.key + '. ' : d.key + ' ')}${esc(d.name)}</button></th>${wcell(d.weight)}${perf(d)}${ans(d)}</tr>`;
+      const parts = d.parts.map(p => `<tr class="outpart"><th scope="row"><span class="partname">${esc(p.letter)}. ${esc(p.name)}</span></th>${wcell(p.weight)}${perf(p)}${ans(p)}</tr>`).join('');
+      const inner = d.parts.length ? d.parts.map(p => `<p class="small"><b>${esc(p.letter)}. ${esc(p.name)}</b></p>${stmts(d, p.key)}`).join('') : stmts(d, null);
+      return dRow + parts + `<tr class="subjdetail" id="od-${i}" hidden><td colspan="4">${inner || '<p class="muted small">No statements.</p>'}</td></tr>`;
+    }).join('');
+    const switcher = rolls.length > 1 ? `<div class="row" style="margin:6px 0"><label for="out-board">Exam</label><select id="out-board" style="width:auto">${rolls.map(r => `<option value="${esc(r.id)}"${r.id === outBoard ? ' selected' : ''}>${esc(r.name)}</option>`).join('')}</select></div>` : `<p class="muted small">${esc(R.name)}</p>`;
+    const note = R.share === null ? 'No answers by your residents are counted yet.' : `${R.share}% of your residents' counted answers are on questions tagged to this outline${R.share < 100 ? '; the rest are on questions not tagged to it yet, so they cannot be placed' : ''}.`;
+    return `<div class="card" id="pg-outline">${head}<p class="muted">Each domain of the ABPM content outline, how much of the exam it is worth, and how your residents are doing on the questions tagged to it. Open a domain to see its statements. Green is 70% or more, amber 50 to 69, red under 50.</p>${switcher}
+      <div class="scroll" role="region" tabindex="0" aria-label="Board exam outline table"><table class="heatmap outlinetbl"><caption class="sr">${esc(R.name)} content outline: percent of the exam, with how the program is doing in each domain</caption><thead><tr><th scope="col">Domain</th><th scope="col">Percent of exam</th><th scope="col">Residents correct</th><th scope="col">Answered</th></tr></thead><tbody>${body}</tbody></table></div>
+      <p class="muted small">${esc(note)} Source: ${R.source ? `<a href="${esc(R.url)}" target="_blank" rel="noopener noreferrer">${esc(R.source)}</a>` : 'ABPM content outline'}. ${esc(R.note)}</p></div>`;
+  }
+
   // The one page faculty need. Everything about their program is here, in this order: who is waiting for approval, the headline numbers, ONE list of
   // subjects (each opens to show the topics inside it and the lessons that would help most), and the residents (each opens to show their own subjects).
   // The printable report (js insights page) is an export of the same numbers, linked from here.
@@ -74,7 +104,8 @@ const Program = (() => {
       const [roster, subj] = mine ? await Promise.all(preview ? [Cloud.previewRoster(pid), Cloud.previewSubjects(pid)] : [Cloud.facultyRoster(), Cloud.facultySubjects()]) : [[], []];
       const trend = mine ? await (preview ? Cloud.previewSubjectTrend(pid, trendDays) : Cloud.facultySubjectTrend(trendDays)).catch(() => null) : null;     // null on a database without the trend function yet
       const nApproved = roster.filter(r => r.status === 'approved').length;
-      const topics = mine && nApproved >= 3 ? await (preview ? Cloud.previewTopics(pid, 0) : Cloud.facultyTopics(0)).catch(() => null) : null;      // the topics inside each subject; only shown for 3 or more residents, so no total is one person's
+      const topics = mine && nApproved >= 3 ? await (preview ? Cloud.previewTopics(pid, 0) : Cloud.facultyTopics(0)).catch(() => null) : null;
+      const totals = mine && nApproved >= 3 ? await (preview ? Cloud.previewQuestionTotals(pid, 0) : Cloud.facultyQuestionTotals(0)).catch(() => null) : null;      // for the board outline chart      // the topics inside each subject; only shown for 3 or more residents, so no total is one person's
       if (location.hash !== here) return;
       if (!mine && preview) { $app.innerHTML = '<div class="card"><h2>Dashboard</h2><p class="muted">That program was not found. <a href="#/admin">Back to Admin</a></p></div>'; return; }
       if (!mine) { $app.innerHTML = `${tabs}${Mascot.scene(bank.config.coverImage)}${notes}<div class="card"><p class="muted">You have not been assigned to a program yet. Ask an administrator.</p></div>${own}`; cover('Dashboard', 'Welcome, Doc.', '', 'An administrator will connect you to your program.'); return; }
@@ -123,11 +154,12 @@ const Program = (() => {
         ${preview ? `<div class="card notice rep-preview"><b>Preview.</b> This is the dashboard faculty for ${esc(mine.name)} see when they open the app. As an admin you can also approve, decline and remove here. <a href="#/admin">Back to Admin</a></div>` : ''}
         ${notes}${pendingCard}
         <div class="grid"><div class="card stat"><b>${res.length}</b><span>Residents</span></div><div class="card stat"><b>${week}</b><span>Active in the last 7 days</span></div><div class="card stat"><b>${tot}</b><span>Questions answered</span></div><div class="card stat"><b>${tot ? pct(cor, tot) + '%' : '-'}</b><span>Program correct</span></div></div>
-        ${subjectCard}${residentsCard}${reportCard}${own}`;
+        ${subjectCard}${outlineCard(totals, nApproved)}${residentsCard}${reportCard}${own}`;
       cover(mine.name, 'Your residents at a glance. Your own practice answers are kept separate and are not part of these numbers.', '',
         !res.length ? 'No residents yet. They find you when they sign up.' : week === res.length ? `All ${res.length} resident${res.length === 1 ? ' was' : 's were'} active this week. Nice.` : `${week} of ${res.length} resident${res.length === 1 ? ' was' : 's were'} active this week.`);
       // open and close the rows
       $app.querySelectorAll('[data-tog]').forEach(b => b.onclick = () => { const row = document.getElementById(b.dataset.tog), open = row.hidden; row.hidden = !open; b.setAttribute('aria-expanded', String(open)); b.querySelector('.chev').innerHTML = open ? '&#9662;' : '&#9656;'; });
+      const ob = document.getElementById('out-board'); if (ob) ob.onchange = () => { outBoard = ob.value; dashboard(pid); };
       const sel = document.getElementById('tr-days'); if (sel) { if (focusTrend) { focusTrend = false; sel.focus(); sel.scrollIntoView({ block: 'center' }); } sel.onchange = () => { trendDays = +sel.value || 30; focusTrend = true; dashboard(pid); }; }
       const act = async (fn, msg) => { try { await fn(); toast(msg); dashboard(pid); } catch (x) { toast(x.offline ? 'No connection.' : 'That did not work: ' + x.message); } };
       $app.querySelectorAll('[data-ok]').forEach(b => b.onclick = () => act(() => preview ? Cloud.programDecide(pid, b.dataset.ok, true) : Cloud.facultyDecide(b.dataset.ok, true), 'Approved.'));
