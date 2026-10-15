@@ -51,19 +51,6 @@ const Program = (() => {
   // ------------------------------------------------------------------ faculty: their dashboard
   // What faculty see on opening the app: how their residents are doing, not their own scores. Their own answers (they try questions to see
   // and test them) are kept out of every program and group figure, so nothing here or in the residents' numbers includes them.
-  // ABPM content-outline items for a topic or a section (the board's own codes and wording; see objectives.js)
-  const cut = (x, n) => { if (x.length <= n) return x; const h = x.slice(0, n - 1), k = h.lastIndexOf(' '); return (k > n * 0.6 ? h.slice(0, k) : h).trimEnd() + '\u2026'; };
-  // Tags the editors chose on this topic's questions come first (the two most used); otherwise the words are matched as before
-  const objFor = (subject, topic) => {
-    const b = Objectives.boardOf(subject, bank.subjects); if (!b) return [];
-    const use = new Map(); (bank.questions || []).filter(q => q.subject === subject && (q.topic || '') === (topic || '') && q.objectives).forEach(q => q.objectives.forEach(r => { if (r.startsWith(b + ':')) use.set(r, (use.get(r) || 0) + 1); }));
-    const tagged = [...use].sort((x, y) => y[1] - x[1] || x[0].localeCompare(y[0], undefined, { numeric: true })).map(([r]) => Objectives.board(b).byCode.get(r.slice(b.length + 1))).filter(Boolean).slice(0, 2).map(item => ({ item, via: 'tagged' }));
-    return tagged.length ? tagged : Objectives.forTopic(b, subject, topic, bank.questions || [], 2);
-  };
-  const objHtml = rows => (rows.length ? `<div class="small obj"><b>Board outline (ABPM):</b><ul class="reclist objlist">${rows.map(r => { const l = Objectives.label(r.item); return `<li><span class="ocode">${esc(l.code)}</span> ${esc(cut(l.text, 150))}${l.under ? ` <span class="muted">under ${esc(l.under.code)} ${esc(cut(l.under.text, 70))}</span>` : ''}${r.via === 'section' ? ' <span class="muted">(whole section)</span>' : ''}</li>`; }).join('')}</ul></div>` : '');
-  const secObj = subject => { const b = Objectives.boardOf(subject, bank.subjects); const hs = b ? Objectives.headlines(b, subject, 3) : []; return hs.length ? `<div class="muted small secobj">${hs.map(i => `<span class="ocode">${esc(i.code)}</span> ${esc(cut(i.text, 55))}`).join(' &middot; ')}</div>` : ''; };
-
-  const secCodes = subject => { const b = Objectives.boardOf(subject, bank.subjects), hs = b ? Objectives.headlines(b, subject, 3) : []; return hs.length ? `<div class="muted small secobj" title="Board outline sections this subject covers">${hs.map(i => `<span class="ocode">${esc(i.code)}</span>`).join(' ')}</div>` : ''; };
   // The one page faculty need. Everything about their program is here, in this order: who is waiting for approval, the headline numbers, ONE list of
   // subjects (each opens to show the topics inside it and the lessons that would help most), and the residents (each opens to show their own subjects).
   // The printable report (js insights page) is an export of the same numbers, linked from here.
@@ -117,13 +104,13 @@ const Program = (() => {
         if (!rows.length) return '<p class="muted small">No topic in this subject has enough answers yet (a topic needs 10 answers from 3 residents).</p>';
         const weakRows = Insights.weak(topics.filter(t => t.subject === s)).slice(0, 4), seen = new Set(), recs = [];
         weakRows.forEach(w => Insights.lessonsFor(w, lessons, qs).forEach(r => { if (!seen.has(r.lesson.id) && recs.length < 3) { seen.add(r.lesson.id); recs.push(r); } }));
-        return `${secObj(s)}<ul class="topiclist">${rows.map(x => `<li><span class="heat ${cls(x.p)} tpct"><b>${x.p}%</b></span> <b>${esc(x.topic || s)}</b> <span class="muted small">${x.a} answers &middot; ${x.low} of ${x.r} residents under 60%${x.g !== null ? ' &middot; all members ' + x.g + '%' : ''}</span>${objHtml(objFor(s, x.topic))}</li>`).join('')}</ul>`
+        return `<ul class="topiclist">${rows.map(x => `<li><span class="heat ${cls(x.p)} tpct"><b>${x.p}%</b></span> <b>${esc(x.topic || s)}</b> <span class="muted small">${x.a} answers &middot; ${x.low} of ${x.r} residents under 60%${x.g !== null ? ' &middot; all members ' + x.g + '%' : ''}</span></li>`).join('')}</ul>`
           + (recs.length ? `<p class="small"><b>Lessons that would help most:</b></p><ul class="reclist">${recs.map(r => `<li><a href="#/lesson/${encodeURIComponent(r.lesson.id)}">${esc(r.lesson.title)}</a> <span class="muted">${esc(r.reason)}</span></li>`).join('')}</ul>` : '');
       };
       const cols = 3 + (trend ? 3 : 0);
       const subjectCard = subjects.length ? `<div class="card" id="pg-subjects"><h2>Subjects</h2><p class="muted">Weakest first: percent correct across all your residents. Open a subject to see the topics inside it${topics ? ' and the lessons that would help most' : ''}. Green is 70% or more, amber 50 to 69, red under 50.</p>
           ${trend ? `<div class="row" style="margin:6px 0"><label for="tr-days">Compare the last</label><select id="tr-days" style="width:auto">${TREND_CHOICES.map(([d, l]) => `<option value="${d}"${d === trendDays ? ' selected' : ''}>${l}</option>`).join('')}</select><span class="muted">with the ${trendDays} days before that</span></div>` : ''}
-          <div class="scroll" role="region" tabindex="0" aria-label="Program subjects table"><table class="heatmap"><caption class="sr">Program percent correct by subject, weakest first${trend ? ', with the change over time' : ''}</caption><thead><tr><th scope="col">Subject</th><th scope="col" class="qa">Answered</th><th scope="col">Correct</th>${trend ? `<th scope="col">Last ${trendDays} days</th><th scope="col">Before that</th><th scope="col">Change (points)</th>` : ''}</tr></thead><tbody>${subjects.map((x, i) => `<tr class="subjrow"><th scope="row"><button type="button" class="rowtog" data-tog="sd-${i}" aria-expanded="false" aria-controls="sd-${i}"><span class="chev" aria-hidden="true">&#9656;</span> ${esc(x.s)}</button>${secCodes(x.s)}</th><td class="qa">${x.n}</td>${heat(x.p)}${trend ? trendCells(x.s) : ''}</tr><tr class="subjdetail" id="sd-${i}" hidden><td colspan="${cols}">${detail(x.s)}</td></tr>`).join('')}</tbody></table></div>
+          <div class="scroll" role="region" tabindex="0" aria-label="Program subjects table"><table class="heatmap"><caption class="sr">Program percent correct by subject, weakest first${trend ? ', with the change over time' : ''}</caption><thead><tr><th scope="col">Subject</th><th scope="col" class="qa">Answered</th><th scope="col">Correct</th>${trend ? `<th scope="col">Last ${trendDays} days</th><th scope="col">Before that</th><th scope="col">Change (points)</th>` : ''}</tr></thead><tbody>${subjects.map((x, i) => `<tr class="subjrow"><th scope="row"><button type="button" class="rowtog" data-tog="sd-${i}" aria-expanded="false" aria-controls="sd-${i}"><span class="chev" aria-hidden="true">&#9656;</span> ${esc(x.s)}</button></th><td class="qa">${x.n}</td>${heat(x.p)}${trend ? trendCells(x.s) : ''}</tr><tr class="subjdetail" id="sd-${i}" hidden><td colspan="${cols}">${detail(x.s)}</td></tr>`).join('')}</tbody></table></div>
           ${trend ? `<p class="muted small">A change appears once both periods have at least ${TREND_MIN} answers. Subjects that fewer than three residents answered are left out, so no one resident shows.</p>` : ''}</div>` : '';
       // Residents: one list; each opens to show that resident's own percent by subject
       const sub = (u, s) => { const x = subj.find(y => y.user_id === u && y.subject === s); return x ? { n: Number(x.attempts), p: pct(Number(x.correct), Number(x.attempts)) } : null; };
@@ -187,6 +174,17 @@ const Program = (() => {
       // lessons that come up for the most weak topics: where to start
       const tally = new Map(); recs.forEach(({ rec }) => rec.forEach(r => { const t = tally.get(r.lesson.id) || { lesson: r.lesson, n: 0 }; t.n++; tally.set(r.lesson.id, t); }));
       const start = [...tally.values()].sort((a, b) => b.n - a.n || a.lesson.title.localeCompare(b.lesson.title)).slice(0, 5);
+      // ABPM content-outline items for a topic or a section (the board's own codes and wording; see objectives.js)
+      const cut = (x, n) => { if (x.length <= n) return x; const h = x.slice(0, n - 1), k = h.lastIndexOf(' '); return (k > n * 0.6 ? h.slice(0, k) : h).trimEnd() + '\u2026'; };
+      // Tags the editors chose on this topic's questions come first (the two most used); otherwise the words are matched as before
+      const objFor = (subject, topic) => {
+        const b = Objectives.boardOf(subject, bank.subjects); if (!b) return [];
+        const use = new Map(); (bank.questions || []).filter(q => q.subject === subject && (q.topic || '') === (topic || '') && q.objectives).forEach(q => q.objectives.forEach(r => { if (r.startsWith(b + ':')) use.set(r, (use.get(r) || 0) + 1); }));
+        const tagged = [...use].sort((x, y) => y[1] - x[1] || x[0].localeCompare(y[0], undefined, { numeric: true })).map(([r]) => Objectives.board(b).byCode.get(r.slice(b.length + 1))).filter(Boolean).slice(0, 2).map(item => ({ item, via: 'tagged' }));
+        return tagged.length ? tagged : Objectives.forTopic(b, subject, topic, bank.questions || [], 2);
+      };
+      const objHtml = rows => (rows.length ? `<div class="small obj"><b>Board outline (ABPM):</b><ul class="reclist objlist">${rows.map(r => { const l = Objectives.label(r.item); return `<li><span class="ocode">${esc(l.code)}</span> ${esc(cut(l.text, 150))}${l.under ? ` <span class="muted">under ${esc(l.under.code)} ${esc(cut(l.under.text, 70))}</span>` : ''}${r.via === 'section' ? ' <span class="muted">(whole section)</span>' : ''}</li>`; }).join('')}</ul></div>` : '');
+      const secObj = subject => { const b = Objectives.boardOf(subject, bank.subjects); const hs = b ? Objectives.headlines(b, subject, 3) : []; return hs.length ? `<div class="muted small secobj">${hs.map(i => `<span class="ocode">${esc(i.code)}</span> ${esc(cut(i.text, 55))}`).join(' &middot; ')}</div>` : ''; };
       // one bar on a 0 to 100 track, with a tick at the target so "under target" can be seen at a glance, in print too
       const pbar = (p, cls) => `<div class="pbar ${cls}" aria-hidden="true"><span class="fil" style="width:${p}%"></span><span class="tgt" style="left:${Insights.TARGET}%"></span></div>`;
       const today = new Date(), todayText = today.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' }), rangeText = (RANGES.find(r => r[0] === range) || RANGES[0])[1];
