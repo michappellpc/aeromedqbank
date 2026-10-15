@@ -31,7 +31,7 @@ const Inbox = (() => {
     };
     const paint = () => {
       const list = shown(); const box = document.getElementById('ib-list');
-      box.innerHTML = list.length ? list.map(r => `<article class="card msg" data-id="${r.id}"><div class="row spread"><div>${tag(r.status)} ${r.kind === 'support' ? '<span class="tag">Support</span>' : `<span class="tag">${esc(CAT[r.category] || r.category)}</span>`} <span class="muted">${esc(when(r.last_activity || r.created_at))}${admin && r.reporter ? ' &middot; ' + esc(r.reporter) : ''}</span></div>
+      box.innerHTML = list.length ? list.map(r => `<article class="card msg" data-id="${r.id}"><div class="row spread"><div><b class="msgno" title="Message number: the same one Copy uses, and the one to quote when replying about it">Message ${r.id}</b> ${tag(r.status)} ${r.kind === 'support' ? '<span class="tag">Support</span>' : `<span class="tag">${esc(CAT[r.category] || r.category)}</span>`} <span class="muted">${esc(when(r.last_activity || r.created_at))}${admin && r.reporter ? ' &middot; ' + esc(r.reporter) : ''}</span></div>
           ${r.question_id ? `<a href="#/admin/questions/edit/${encodeURIComponent(r.question_id)}">Open question</a>` : ''}</div>
         ${r.question_id ? `<p class="muted small" style="margin:6px 0 0">${esc(r.question_id)}${r.question_stem ? ': ' + esc(r.question_stem) + (r.question_stem.length >= 140 ? '...' : '') : ' (question no longer exists)'}</p>` : ''}
         ${r.kind === 'support' ? `<h3 style="margin:8px 0 0">${esc(r.subject || 'Support')}</h3>` : ''}
