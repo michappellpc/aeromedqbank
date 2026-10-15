@@ -1092,7 +1092,6 @@ async function startSession() {
   Store.hooks.mine = id => Cloud.queueMine(id);
   lockUI(false); ready = true;
   showProBadge(); progMenu.setup();
-  document.getElementById('nav-program').hidden = profile.role !== 'faculty';
   document.getElementById('nav-support').hidden = false;
   clearInterval(badgeTimer);
   const navAdmin = document.getElementById('nav-admin');

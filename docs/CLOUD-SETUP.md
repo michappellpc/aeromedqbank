@@ -163,7 +163,7 @@ If something fails, tell me exactly what you saw (a screenshot helps) and I will
 
 1. **Admin > Overview > Residency programs**: type a program name and click **Add program**. Residents will see it in a list when they create an account.
 2. **Make faculty**: under Approved emails add the person with role **faculty** and choose their program (or click **Edit** on an existing person). Faculty then get a **Program** menu item. You can have several faculty per program.
-3. Residents choose their program when they sign up, or in **Settings**. Faculty approve or decline each request on their Program page, and see progress only once approved.
+3. Residents choose their program when they sign up, or in **Settings**. Faculty approve or decline each request on their Dashboard, and see progress only once approved.
 4. To take someone out of a program, faculty click **Remove**, or the resident clicks **Leave** in Settings.
 
 Program names are visible to anyone on the sign-up page, so name them generically if that matters (for example "Aerospace Medicine Residency" rather than a person's name).
