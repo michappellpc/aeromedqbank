@@ -761,3 +761,9 @@ section.rep-sec:not(.card){padding:0 2px}
 .stmtlist .stmtperf{margin-left:auto;white-space:nowrap;padding-left:10px}.stmtlist li.nodata{color:var(--muted)}
 @media(max-width:600px){.wbar{width:50px}.outpart th{padding-left:14px}}
 #out-board,#tr-days{max-width:100%}
+
+#objcard .objboard{margin:10px 0;border:1px solid var(--line);border-radius:10px;padding:6px 12px}#objcard .objboard>summary{font-weight:650;cursor:pointer;padding:6px 0}
+#objcard .objdom{border-top:1px solid var(--line);padding:4px 0}#objcard .objdom:first-of-type{border-top:0}#objcard .objdom>summary{cursor:pointer;padding:6px 0;display:flex;flex-wrap:wrap;gap:4px 10px;align-items:baseline}
+#objcard .odname{font-weight:600}.wpct{font-size:.82rem;font-weight:650;background:var(--sel);color:var(--fg);border-radius:99px;padding:1px 9px;white-space:nowrap}
+#objcard .objall{display:block;margin:6px 0;font-weight:600}.objlist{list-style:none;margin:4px 0 8px;padding:0}.objlist li{padding:3px 0}.objchk{display:flex;gap:8px;align-items:baseline}.objpart{margin:10px 0 2px}
+#objcard .objboard[hidden]{display:none}

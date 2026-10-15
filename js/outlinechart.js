@@ -58,5 +58,21 @@
     L.share = placed.a + unplaced.a ? Math.round(100 * placed.a / (placed.a + unplaced.a)) : null;      // what percent of the program's counted answers could be placed on the outline
     return L;
   }
-  return { layout, rollup, partKey, REF };
+
+  // For picking questions by outline item: the set of "board:code" a question covers, i.e. every item it is tagged with and every item above them,
+  // so a question tagged K1.E.1 is found under K1.E as well.
+  const byCodeCache = {};
+  const codes = b => byCodeCache[b] || (byCodeCache[b] = new Set(((DATA && DATA[b] && DATA[b].items) || []).map(i => i.code)));
+  const memo = new WeakMap();
+  function coverSet(q) {
+    const key = q && q.objectives ? q.objectives.join('|') : '', hit = q && typeof q === 'object' ? memo.get(q) : null; if (hit && hit.key === key) return hit.set;
+    const out = new Set();
+    ((q && q.objectives) || []).forEach(r => {
+      const m = REF.exec(String(r)); if (!m || !codes(m[1]).has(m[2])) return;
+      const parts = m[2].split('.'); while (parts.length > 1) { const c = parts.join('.'); if (codes(m[1]).has(c)) out.add(m[1] + ':' + c); parts.pop(); }
+    });
+    if (q && typeof q === 'object') memo.set(q, { key, set: out });
+    return out;
+  }
+  return { layout, rollup, partKey, REF, coverSet };
 });

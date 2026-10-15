@@ -45,4 +45,10 @@ const dd = Rpm2.domains.find(d => d.key === 'II');
 t('a Public Health tag counts for its domain and for the part it sits in', dd.attempts === 12 && dd.parts.filter(p => p.attempts === 12).length === 1, JSON.stringify(dd.parts.map(p => [p.key, p.attempts])));
 t('statements are listed in the board\'s order with their depth', d1.rows[0].code === 'K1.A' && row('K1.E.1').depth > row('K1.E').depth);
 t('an unknown board gives nothing', OC.rollup('xx', qs, totals) === null && OC.layout('xx') === null);
+console.log('Picking by outline item');
+{
+  const cs = OC.coverSet({ objectives: ['aem:K1.E.1', 'om:K1.2', 'aem:K9.9', 'junk'] });
+  t('a question covers each item it is tagged with and every item above it', cs.has('aem:K1.E.1') && cs.has('aem:K1.E') && !cs.has('aem:K1') && cs.has('om:K1.2'), [...cs].join());
+  t('a tag that is not an outline item covers nothing, and a question with no tags covers nothing', !cs.has('aem:K9.9') && OC.coverSet({ objectives: [] }).size === 0 && OC.coverSet({}).size === 0 && OC.coverSet(null).size === 0);
+}
 console.log(`\n${pass} passed, ${fail} failed`); process.exit(fail ? 1 : 0);
