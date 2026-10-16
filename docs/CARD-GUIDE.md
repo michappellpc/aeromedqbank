@@ -4,7 +4,7 @@ Flashcards are short prompts a resident flips and rates ("Again, Hard, Good, Eas
 
 ## Workflow
 
-1. **Draft** cards with the AI (prompt below), or write them yourself.
+1. **Draft** cards with the chat (prompt below), or write them yourself.
 2. **Import** them in **Admin > Flashcards > Import from a chat**. Paste the whole reply. The checker reports problems and near-copies of cards you already have, and nothing is saved until you press Save. Everything arrives as **Draft**, hidden from members.
 3. **Review** each card yourself. Check the facts against a real source.
 4. **Publish** in the list: tick the cards and press **Mark reviewed (publish)**. Your name is recorded on each one.
@@ -50,7 +50,7 @@ Cards are JSON, the same shape the importer and `data/cards/*.json` use:
 
 `node tools/validate.js` checks `data/cards/*.json` (listed under `"cards"` in the manifest) with the same rules as the editor.
 
-## Prompt for the AI
+## Prompt for the chat
 
 ````text
 You are helping write flashcards for physician residents studying for the
@@ -81,4 +81,4 @@ Rules
 - "id" is lowercase letters, digits and hyphens, unique, numbered in order.
 ````
 
-**An AI-written fact is not a checked fact.** Models write confident, wrong cards and invent references. A physician must check every card before it is published.
+**An chat-written fact is not a checked fact.** Models write confident, wrong cards and invent references. A physician must check every card before it is published.

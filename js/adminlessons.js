@@ -56,7 +56,7 @@ const AdminLessons = (() => {
     const subjects = subjectsFor([]);
     $app.innerHTML = `${tabs('lessons')}
       <div class="card"><div class="row spread"><div><h2 style="margin:0">Lessons</h2><p class="muted" style="margin:4px 0 0">${n.live} live for members &middot; ${n.draft} draft (hidden) &middot; ${n.arch} archived</p></div>
-        <div class="row"><a class="btn primary" href="#/admin/lessons/new">Add a lesson</a><a class="btn" href="#/admin/lessons/import">Import from a chat</a><button id="aicopy" type="button" aria-label="Copy these lessons to paste into a chat" title="Copy the lessons you are looking at, to paste into a chat">Copy</button><button id="hyapply" type="button" title="Paste your AI assistant's answer to the Sort by high yield Copy task">Apply high yield list</button><button id="backup">Download backup</button></div></div></div>
+        <div class="row"><a class="btn primary" href="#/admin/lessons/new">Add a lesson</a><a class="btn" href="#/admin/lessons/import">Import from a chat</a><button id="aicopy" type="button" aria-label="Copy these lessons to paste into a chat" title="Copy the lessons you are looking at, to paste into a chat">Copy</button><button id="hyapply" type="button" title="Paste the answer you got for the Sort by high yield Copy task">Apply high yield list</button><button id="backup">Download backup</button></div></div></div>
       <div class="card"><form id="flt" class="filters" aria-label="Filter lessons">
         <div><label for="fq">Search</label><input id="fq" type="search" value="${esc(view.q)}" placeholder="title or id"></div>
         <div><label for="fs">Subject</label><select id="fs"><option value="">All</option>${subjects.map(s => `<option${s === view.subject ? ' selected' : ''}>${esc(s)}</option>`).join('')}</select></div>
@@ -141,7 +141,7 @@ const AdminLessons = (() => {
         <fieldset><legend>Board outline items (optional)</legend><p class="hint">The ABPM outline items this lesson covers. Members see them with the summary, and Program insights uses them instead of guessing. Changing them never sends a live lesson back to Draft.</p><div id="f-obj"></div></fieldset>
         <div class="row" style="margin:14px 0 6px;align-items:flex-end"><div><label for="f-add">Add a block</label><select id="f-add" style="width:auto"><option value="">Choose a block to insert...</option>${Object.keys(TEMPLATES).map(k => `<option>${esc(k)}</option>`).join('')}</select></div><button type="button" id="f-fmt">Tidy the JSON</button><div><label for="f-img">Upload a picture as a new block</label><input id="f-img" type="file" accept="image/png,image/jpeg,image/webp,image/gif"></div></div>
         <div class="lessonedit"><div><label for="f-blocks">Content blocks (JSON)</label><textarea id="f-blocks" class="codearea" spellcheck="false">${esc(JSON.stringify(l0.blocks, null, 2))}</textarea>
-          <p class="hint">Block types: heading, text, list, callout, table, steps, compare, stats, chart, image. Use the menu above to insert an example, or paste blocks written by an AI assistant (see docs/LESSON-GUIDE.md).</p></div>
+          <p class="hint">Block types: heading, text, list, callout, table, steps, compare, stats, chart, image. Use the menu above to insert an example, or paste blocks written in the same format (see docs/LESSON-GUIDE.md).</p></div>
           <div><span class="lbl">Live preview</span><div id="lprev" class="lpreview lesson" aria-live="polite"></div></div></div>
         <div class="row" style="margin-top:16px"><button class="primary" type="submit" id="save">Save</button>
           ${!isNew ? (orig.archived ? '<button type="button" id="restore">Restore</button><button type="button" id="del" class="danger">Delete permanently</button>' : '<button type="button" id="archive">Archive</button>') : ''}</div>
@@ -210,7 +210,7 @@ const AdminLessons = (() => {
     pageTitle('Import lessons');
     const c = await ensure(); if (!c) return;
     $app.innerHTML = `${tabs('lessons')}<div class="card"><div class="row spread"><h2 style="margin:0">Import lessons</h2><a href="#/admin/lessons">Back to the list</a></div>
-      <p>Paste the whole reply you got from your AI assistant, or choose the file. Lessons are checked first, and nothing is saved until you press Save. Everything is saved as a <b>draft</b>, hidden from members until you publish it.</p>
+      <p>Paste the whole reply you got back, or choose the file. Lessons are checked first, and nothing is saved until you press Save. Everything is saved as a <b>draft</b>, hidden from members until you publish it.</p>
       <label for="paste">Pasted lessons</label><textarea id="paste" rows="10" spellcheck="false" class="codearea" style="min-height:220px" placeholder="Paste here"></textarea>
       <label for="pfile">Or choose a JSON file</label><input id="pfile" type="file" accept=".json,application/json,text/plain"></div><div id="res" aria-live="polite"></div>`;
     const el = id => document.getElementById(id); let timer = null; const existing = new Map(c.list.map(l => [l.id, l]));
