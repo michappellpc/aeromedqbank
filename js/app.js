@@ -599,28 +599,47 @@ function create(preSubject, preStatus) {
     return true;
   };
   const pool = () => { const bs = vals('board'), ss = vals('subj'), stt = vals('status'), ds = vals('diff'); return bank.questions.filter(q => fits(q, bs, ss, stt, ds)); };
+  // One pass over the bank: for each question, which of the choices it fails. The "available" total and every count beside a checkbox
+  // (how many questions would apply if only that choice changed) are then simple tallies, instead of a pass over the bank for each one.
+  const FAIL = { O: 1, H: 2, F: 4, B: 8, S: 16, T: 32 };
+  const statusOk = (q, stt) => { if (stt.includes('all')) return true; const s = Store.qstat(q.id); return (stt.includes('unused') && (!s || !s.seen)) || (stt.includes('incorrect') && s && s.last === 'w') || (stt.includes('flagged') && s && s.flagged); };
   const upd = () => {
-    const p = pool().length, bs = vals('board'), ss = vals('subj'), stt = vals('status'), ds = vals('diff');
+    const bs = vals('board'), ss = vals('subj'), stt = vals('status'), ds = vals('diff'), os = osel(), hy = hyOn(), draftsOk = showDrafts();
+    const cnt = {}, add = k => { cnt[k] = (cnt[k] || 0) + 1; }, oq = [];
+    let p = 0, nh = 0;
+    for (const q of bank.questions) {
+      if (isDraft(q) && !draftsOk) continue;
+      let m = 0;
+      if (os.size && !ObjTest.matches(q, os)) m |= FAIL.O;
+      if (hy && !q.highYield) m |= FAIL.H;
+      if (!ds.includes(String(q.difficulty || 2))) m |= FAIL.F;
+      if (!q.boards.some(b => bs.includes(b))) m |= FAIL.B;
+      if (by !== 'obj' && !ss.includes(q.subject)) m |= FAIL.S;
+      const sOk = statusOk(q, stt); if (!sOk) m |= FAIL.T;
+      if (!m) p++;
+      if (q.highYield && !(m & ~FAIL.H)) nh++;
+      if (!(m & ~FAIL.O)) oq.push(q);
+      if (!(m & ~FAIL.B)) q.boards.forEach(b => add('board:' + b));
+      if (!(m & ~FAIL.S)) add('subj:' + q.subject);
+      if (!(m & ~FAIL.F)) add('diff:' + (q.difficulty || 2));
+      const rest = m & ~FAIL.T; if (!rest) ['unused', 'incorrect', 'flagged', 'all'].forEach(k => { if (statusOk(q, [k])) add('status:' + k); });
+    }
     document.getElementById('avail').textContent = `${p} available`; document.getElementById('availn').textContent = p; document.getElementById('go').disabled = !p;
     document.getElementById('subjsum').textContent = `${ss.length} of ${subjects.length} selected`;
-    const nh = bank.questions.filter(q => q.highYield && fits(q, bs, ss, stt, ds, false)).length; document.getElementById('hy-n').textContent = `${nh} high yield with the choices below`;
+    document.getElementById('hy-n').textContent = `${nh} high yield with the choices below`;
     if (objCard) {
       ObjTest.showBoards(bs);
-      const oc = ObjTest.counts(bank.questions.filter(q => fits(q, bs, ss, stt, ds, hyOn(), null)));
+      const oc = ObjTest.counts(oq);
       objCard.querySelectorAll('[data-ocnt]').forEach(sp => { const k = sp.dataset.ocnt, n = oc[k] || 0; sp.textContent = n ? `(${n})` : ''; });
     }
     f.querySelectorAll('[data-sg]').forEach(e => { const l = e.dataset.sg.split('|'); e.textContent = `${l.filter(x => ss.includes(x)).length} of ${l.length}`; });
     f.querySelectorAll('[data-cnt]').forEach(span => {
-      const [kind, key] = span.dataset.cnt.split(/:(.*)/s);
-      const n = bank.questions.filter(q => kind === 'board' ? q.boards.includes(key) && fits(q, null, ss, stt, ds)
-        : kind === 'subj' ? q.subject === key && fits(q, bs, null, stt, ds)
-        : kind === 'diff' ? String(q.difficulty || 2) === key && fits(q, bs, ss, stt, null)
-        : fits(q, bs, ss, [key], ds)).length;
+      const n = cnt[span.dataset.cnt] || 0;
       span.textContent = `(${n})`; span.closest('label').classList.toggle('zero', n === 0);
     });
   };
   document.getElementById('hy').onchange = e => { setHy(e.target.checked); upd(); };
-  if (objCard) ObjTest.bind(objCard, upd);
+  if (objCard) ObjTest.bind(objCard, upd);                    // the form's own change listener below recounts after a tick, so it only asks for a recount on Clear
   showBy();
   f.querySelectorAll('[name=by]').forEach(r => r.addEventListener('change', () => { by = r.value; try { localStorage.setItem('qbank.testby', by); } catch { /* not saved */ } showBy(); upd(); }));
   f.addEventListener('change', upd); upd();
