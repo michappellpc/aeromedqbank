@@ -164,8 +164,8 @@ const Cloud = (() => {
     const hlRes = await api('/rest/v1/highlights?select=id,kind,item_id,field,start_pos,end_pos,text_hl&limit=5000').catch(e => { if (noOwnTable(e)) return null; throw e; });
     const mineRes = await api('/rest/v1/my_cards?select=id,front,back,src_kind,src_id,ease,interval_days,due,reps,lapses,last_reviewed&limit=3000').catch(e => { if (noOwnTable(e)) return null; throw e; });
     const [prog, marks, tests, settings] = await Promise.all([
-      api('/rest/v1/rpc/my_progress', { method: 'POST', body: {} }),
-      api('/rest/v1/question_marks?select=question_id,flagged,note'),
+      allRows('/rest/v1/rpc/my_progress?order=question_id.asc&{p}'),
+      allRows('/rest/v1/question_marks?select=question_id,flagged,note&order=question_id.asc&{p}'),
       api('/rest/v1/tests?select=*&order=taken_at.desc&limit=500'),
       api('/rest/v1/user_settings?select=data&limit=1')
     ]);
@@ -245,6 +245,13 @@ const Cloud = (() => {
     return api(`/rest/v1/lessons?select=*${filter}&order=position.asc,title.asc&limit=1000`);
   }
   const missingColumn = e => e && e.status === 400 && /archived|updated_by/i.test(e.message);
+  async function allRows(path) {                              // the database returns at most 1000 rows a call, so ask page by page
+    const rows = []; let offset = 0;
+    for (;;) {
+      const page = await api(path.replace('{p}', `limit=1000&offset=${offset}`), path.includes('/rpc/') ? { method: 'POST', body: {} } : {});
+      rows.push(...page); if (page.length < 1000) return rows; offset += 1000;
+    }
+  }
   async function allQuestions(filter) {                        // pages of 1000, oldest id first
     const rows = []; let offset = 0;
     for (;;) {
