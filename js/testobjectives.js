@@ -11,8 +11,8 @@ const ObjTest = (() => {
   function html() {
     const boards = layouts(); if (!boards.length) return '';
     const stmt = (b, i) => `<li style="padding-left:${depth(i) * 16}px"><label class="chk objchk"><input type="checkbox" name="obj" value="${esc(b.id + ':' + i.code)}" data-code="${esc(i.code)}"> <span class="ocode">${esc(i.code)}</span> ${esc(i.text.length > 150 ? i.text.slice(0, 149).trimEnd() + '…' : i.text)} <span class="cnt" data-ocnt="${esc(b.id + ':' + i.code)}"></span></label></li>`;
-    // one row: a checkbox for the domain (or part) with its percent of the exam and question count, and a button that opens its statements
-    const row = (b, id, title, weight, cnt, items, extra = '', cls = '') => `<div class="objrow ${cls}"><div class="objhead"><label class="chk"><input type="checkbox" data-grp> <span class="odname">${title}</span> <span class="wpct">${weight}% of exam</span> <span class="cnt" data-ocnt="${esc(cnt)}"></span></label>${items.length ? `<button type="button" class="objtog" data-ost="ost-${esc(id)}" aria-expanded="false" aria-controls="ost-${esc(id)}">Statements</button>` : ''}</div>
+    // one row: a checkbox for the domain (or part) with its percent of the exam and question count, and a button that opens its details
+    const row = (b, id, title, weight, cnt, items, extra = '', cls = '') => `<div class="objrow ${cls}"><div class="objhead"><label class="chk"><input type="checkbox" data-grp> <span class="odname">${title}</span> <span class="wpct">${weight}% of exam</span> <span class="cnt" data-ocnt="${esc(cnt)}"></span></label>${items.length ? `<button type="button" class="objtog" data-ost="ost-${esc(id)}" aria-expanded="false" aria-controls="ost-${esc(id)}">Show details</button>` : ''}</div>
       ${items.length ? `<ul class="objstm" id="ost-${esc(id)}" hidden>${items.map(i => stmt(b, i)).join('')}</ul>` : ''}${extra}</div>`;
     const dom = (b, d) => {
       const title = esc(/^[IVX]+$/.test(d.key) ? d.key + '. ' : d.key + ' ') + esc(d.name), did = (b.id + '-' + d.key).replace(/[^A-Za-z0-9-]/g, '_');
@@ -50,7 +50,7 @@ const ObjTest = (() => {
     });
     root.addEventListener('click', e => {
       const b = e.target.closest('.objtog'); if (!b) return;
-      const list = document.getElementById(b.dataset.ost), open = list.hidden; list.hidden = !open; b.setAttribute('aria-expanded', String(open)); b.textContent = open ? 'Hide statements' : 'Statements';
+      const list = document.getElementById(b.dataset.ost), open = list.hidden; list.hidden = !open; b.setAttribute('aria-expanded', String(open)); b.textContent = open ? 'Hide details' : 'Show details';
     });
     root.querySelector('#objclear').onclick = () => { boxes().forEach(c => { c.checked = false; }); sync(); onChange(); };
     sync();
