@@ -42,5 +42,8 @@
     let last = null;
     return it => { const k = keys(it, mode, ctx)[0]; if (k.key === last) return ''; last = k.key; return (mode === 'topic' && k.sub ? k.sub + ': ' : '') + k.label + (k.weight != null ? ' (' + k.weight + '% of the exam)' : ''); };
   }
-  return { MODES, NONE, keys, groups, sortItems, heading };
+  // One look for a group everywhere: the name, a badge with its percent of the exam when it has one, and a small grey line (board or subject) under it.
+  const esc = t => String(t == null ? '' : t).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const cell = g => `<span class="gname">${esc(g.name)}</span>${g.weight != null && g.weight !== '' ? ` <span class="wpct">${esc(g.weight)}% of exam</span>` : ''}${g.sub ? `<span class="gsub">${esc(g.sub)}</span>` : ''}`;
+  return { MODES, NONE, keys, groups, sortItems, heading, cell };
 });
