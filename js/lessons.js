@@ -91,7 +91,7 @@ const Lessons = (() => {
   // Lessons grouped by the board learning objective (outline domain) they are tagged to, with each domain's percent of the exam
   const byObjective = list => {
     const gs = GroupBy.groups(list, 'objective', { boards: bank.boards, subjects: bank.subjects }, (a, b) => (a.order ?? 100) - (b.order ?? 100) || a.title.localeCompare(b.title));
-    return gs.length ? gs.map(g => `<section class="card"><h2>${X(g.label)}${g.weight ? ` <span class="wpct">${g.weight}% of exam</span>` : ''}</h2>${g.sub ? `<p class="muted small" style="margin:0 0 6px">${X(g.sub)}</p>` : ''}${g.items.map(card).join('')}</section>`).join('') : '';
+    return gs.length ? gs.map(g => `<section class="card"><h2>${GroupBy.cell({ name: g.label, sub: g.sub, weight: g.weight })}</h2>${g.items.map(card).join('')}</section>`).join('') : '';
   };
   function indexPage() {
     pageTitle('Lessons');
