@@ -572,14 +572,22 @@ function create(preSubject, preStatus) {
       <p class="muted small" id="avail" aria-live="polite"></p>
       <button class="primary wide" id="go">Start test</button></aside></form>`;
   const f = document.getElementById('f');
-  if (preSubject) {                                  // arrived from a lesson: practice just that subject
+  // Arrived from a lesson ("~l:id"): tick that lesson's board and, if it is tagged to the board outline, those learning objectives, else its subject. All of it stays editable.
+  const lessonArg = /^~l:(.+)$/.exec(preSubject ? decodeURIComponent(preSubject) : ''), fromLesson = lessonArg ? (bank.lessons || []).find(l => l.id === lessonArg[1]) : null;
+  let lessonObj = false;
+  if (fromLesson) {
+    f.querySelectorAll('[name=board]').forEach(e => { e.checked = fromLesson.boards.includes(e.value); });
+    const want = new Set(fromLesson.objectives || []), boxes = [...f.querySelectorAll('#objcard input[name=obj]')].filter(e => want.has(e.value));
+    if (boxes.length) { boxes.forEach(e => { e.checked = true; }); lessonObj = true; }
+    else f.querySelectorAll('[name=subj]').forEach(e => { e.checked = e.value === fromLesson.subject; });
+  } else if (preSubject && !lessonArg) {            // arrived from a subject link: practice just that subject
     const want = decodeURIComponent(preSubject);
     f.querySelectorAll('[name=subj]').forEach(e => { e.checked = e.value === want; });
   }
   if (preStatus === 'incorrect') f.querySelectorAll('[name=status]').forEach(e => { e.checked = e.value === 'incorrect'; });   // arrived from Focus areas: just the missed questions
   const vals = n => [...f.querySelectorAll(`[name=${n}]:checked`)].map(e => e.value);
   const objCard = f.querySelector('#objcard'), subjCard = f.querySelector('#subjcard');
-  let by = preSubject ? 'subj' : byPref();                                      // choose the test by subject or by board learning objective: only the chosen one applies
+  let by = lessonObj ? 'obj' : preSubject && !lessonArg ? 'subj' : byPref();                                      // choose the test by subject or by board learning objective: only the chosen one applies
   const osel = () => (objCard && by === 'obj' ? ObjTest.selected() : new Set());
   const showBy = () => { if (subjCard) subjCard.hidden = by === 'obj'; if (objCard) objCard.hidden = by !== 'obj'; const r = f.querySelector(`[name=by][value=${by}]`); if (r) r.checked = true; };
   // Does a question fit the current choices? Anything passed as null is left out of the check, so each checkbox
