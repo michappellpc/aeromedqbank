@@ -72,7 +72,7 @@ const Program = (() => {
       const dRow = `<tr class="subjrow outdom"><th scope="row"><button type="button" class="rowtog" data-tog="od-${i}" aria-expanded="false" aria-controls="od-${i}"><span class="chev" aria-hidden="true">&#9656;</span> ${esc(d.key.length <= 3 && /^[IVX]+$/.test(d.key) ? d.key + '. ' : d.key + ' ')}${esc(d.name)}</button></th>${wcell(d.weight)}${perf(d)}${ans(d)}</tr>`;
       const parts = d.parts.map(p => `<tr class="outpart"><th scope="row"><span class="partname">${esc(p.letter)}. ${esc(p.name)}</span></th>${wcell(p.weight)}${perf(p)}${ans(p)}</tr>`).join('');
       const inner = d.parts.length ? d.parts.map(p => `<p class="small"><b>${esc(p.letter)}. ${esc(p.name)}</b></p>${stmts(d, p.key)}`).join('') : stmts(d, null);
-      return dRow + parts + `<tr class="subjdetail" id="od-${i}" hidden><td colspan="4">${inner || '<p class="muted small">No statements.</p>'}</td></tr>`;
+      return dRow + parts + `<tr class="subjdetail" id="od-${i}" hidden><td colspan="4">${inner || '<p class="muted small">Nothing listed.</p>'}</td></tr>`;
     }).join('');
     const switcher = rolls.length > 1 ? `<div class="row" style="margin:6px 0"><label for="out-board">Exam</label><select id="out-board" style="width:auto">${rolls.map(r => `<option value="${esc(r.id)}"${r.id === outBoard ? ' selected' : ''}>${esc(r.name)}</option>`).join('')}</select></div>` : `<p class="muted small">${esc(R.name)}</p>`;
     const note = R.share === null ? 'No answers by your residents are counted yet.' : `${R.share}% of your residents' counted answers are on questions tagged to this outline${R.share < 100 ? '; the rest are on questions not tagged to it yet, so they cannot be placed' : ''}.`;

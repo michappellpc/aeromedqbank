@@ -88,16 +88,23 @@ const Lessons = (() => {
   const done = () => { bindZoom(); hydrateImages(); };
 
   const BYKEY = 'qbank.lessonsby', byMode = () => { try { return localStorage.getItem(BYKEY) === 'objective' ? 'objective' : 'subject'; } catch { return 'subject'; } };
-  // Lessons grouped by the board learning objective (outline domain) they are tagged to, with each domain's percent of the exam
+  const gctx = () => ({ boards: bank.boards, subjects: bank.subjects });
+  const objGroups = list => GroupBy.groups(list, 'objective', gctx(), (a, b) => (a.order ?? 100) - (b.order ?? 100) || a.title.localeCompare(b.title));
+  // Lessons by board learning objective, laid out like the subjects: a section per board with a tile per outline domain (its percent of the exam and lesson count)
   const byObjective = list => {
-    const gs = GroupBy.groups(list, 'objective', { boards: bank.boards, subjects: bank.subjects }, (a, b) => (a.order ?? 100) - (b.order ?? 100) || a.title.localeCompare(b.title));
-    return gs.length ? gs.map(g => `<section class="card"><h2>${GroupBy.cell({ name: g.label, sub: g.sub, weight: g.weight })}</h2>${g.items.map(card).join('')}</section>`).join('') : '';
+    const found = new Map(objGroups(list).map(g => [g.key, g]));
+    const tile = (name, weight, g) => { const n = g ? g.items.length : 0, meta = `${n ? n + ' lesson' + (n === 1 ? '' : 's') : 'No lessons yet'}${weight != null ? ` &middot; ${weight}% of exam` : ''}`;
+      return n ? `<a class="subjtile" href="#/lessons/${enc(g.key)}"><b>${X(name)}</b><span>${meta}</span></a>` : `<div class="subjtile off" aria-disabled="true"><b>${X(name)}</b><span>${meta}</span></div>`; };
+    const sections = bank.boards.map(b => { const L = OutlineChart.layout(b.id); if (!L) return '';
+      return `<section class="card"><h2>${X(b.name)}</h2><div class="subjgrid">${L.domains.map(d => tile((/^[IVX]+$/.test(d.key) ? d.key + '. ' : d.key + ' ') + d.name, d.weight, found.get('O|' + b.id + '|' + d.key))).join('')}</div></section>`; }).join('');
+    const none = found.get('O|none');
+    return sections + (none ? `<section class="card"><h2>${X(GroupBy.NONE)}</h2><div class="subjgrid">${tile(GroupBy.NONE, null, none)}</div></section>` : '');
   };
   function indexPage() {
     pageTitle('Lessons');
     const full = bank.lessons || [], all = hyList(full), nHy = full.filter(l => l.highYield).length, mode = byMode();
     const tile = (subj, n) => n ? `<a class="subjtile" href="#/lessons/${enc(subj)}"><b>${X(subj)}</b><span>${n} lesson${n === 1 ? '' : 's'}</span></a>` : `<div class="subjtile off" aria-disabled="true"><b>${X(subj)}</b><span>No lessons yet</span></div>`;
-    $app.innerHTML = `<div class="pagehead"><div><h2 class="pagetitle">Lessons</h2><p class="muted">Short reviews with tables, charts and step-by-step flows. Choose a subject.</p></div>
+    $app.innerHTML = `<div class="pagehead"><div><h2 class="pagetitle">Lessons</h2><p class="muted">Short reviews with tables, charts and step-by-step flows. Choose a subject or a learning objective.</p></div>
       <div class="lsearch"><label class="sr" for="lq">Search lessons</label><input id="lq" type="search" placeholder="Search lessons" autocomplete="off"></div></div>
       <div class="row hybar">${hySwitch('hy', `${nHy} of ${full.length} lesson${full.length === 1 ? ' is' : 's are'} marked high yield`)}</div>
       <div id="lres"></div>
@@ -117,12 +124,23 @@ const Lessons = (() => {
 
   function subjectPage(subject) {
     subject = decodeURIComponent(subject || '');
+    if (/^O\|/.test(subject)) return objectivePage(subject);
     pageTitle(subject || 'Lessons');
     const inSubject = (bank.lessons || []).filter(l => l.subject === subject), list = sorted(hyList(inSubject));
     $app.innerHTML = `<div class="pagehead"><div><p class="crumb"><a href="#/lessons">Lessons</a></p><h2 class="pagetitle">${X(subject)}</h2></div><a class="btn primary" href="#/create/${enc(subject)}">Practice questions in this subject</a></div>
       <div class="row hybar">${hySwitch('hy', `${inSubject.filter(l => l.highYield).length} of ${inSubject.length} marked high yield`)}</div>
       <div class="card">${list.length ? list.map(card).join('') : `<p class="muted">${inSubject.length ? 'No lessons here are marked high yield yet. Switch off High yield only to see them all.' : 'No lessons in this subject yet.'}</p>`}</div>`;
     document.getElementById('hy').onchange = e => { setHy(e.target.checked); subjectPage(encodeURIComponent(subject)); const again = document.getElementById('hy'); if (again) again.focus(); };
+  }
+
+  // One learning objective (outline domain) and the lessons tagged to it
+  function objectivePage(key) {
+    const g = objGroups(bank.lessons || []).find(x => x.key === key), name = g ? g.label : 'Lessons', list = g ? hyList(g.items) : [];
+    pageTitle(name);
+    $app.innerHTML = `<div class="pagehead"><div><p class="crumb"><a href="#/lessons">Lessons</a></p><h2 class="pagetitle">${GroupBy.cell({ name, sub: g ? g.sub : '', weight: g ? g.weight : null })}</h2></div></div>
+      <div class="row hybar">${hySwitch('hy', `${g ? g.items.filter(l => l.highYield).length : 0} of ${g ? g.items.length : 0} marked high yield`)}</div>
+      <div class="card">${list.length ? list.map(card).join('') : `<p class="muted">${g ? 'No lessons here are marked high yield yet. Switch off High yield only to see them all.' : 'No lessons are tagged to this learning objective yet.'}</p>`}</div>`;
+    document.getElementById('hy').onchange = e => { setHy(e.target.checked); objectivePage(key); const again = document.getElementById('hy'); if (again) again.focus(); };
   }
 
   function lessonPage(id) {
