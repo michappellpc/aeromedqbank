@@ -233,6 +233,8 @@ The database returns at most 1,000 rows per call, however many are asked for. An
 ## What the admin Overview numbers mean
 **Active members:** approved accounts of every kind. **Questions done:** every answer given by active members, repeats counted, faculty left out. **Group correct:** the share of those answers that were right. **Live questions:** reviewed and visible to members (drafts and archived are listed but not counted). In Recent activity, **Different questions done** is how many questions were answered at least once in the period, and **Members answering** is how many people answered at least one.
 
+**Practice from a lesson.** The lesson page's *Set up a practice test for this lesson* button opens New test (it no longer starts a quiz) with that lesson's board ticked and, if the lesson is tagged to the board outline, those learning objectives ticked under *Learning objectives*, otherwise its subject under *Subjects*. Everything stays editable before *Start test*. The route is `#/create/~l:<lesson id>`.
+
 ## Features
 Tutor and timed modes, filters (board, subject, unused/incorrect/flagged), option cross-out, flagging, notes, question navigator, keyboard shortcuts (1-9/letters, ←/→, F, Enter), results by subject, test review, history, dark mode, progress backup.
 
