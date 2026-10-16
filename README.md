@@ -227,6 +227,12 @@ Most lists can be grouped three ways: by subject, by topic, or by learning objec
 - **Admin Questions, Lessons and Flashcards:** a "Sort by" menu adds a heading row per group.
 A question tagged to two domains appears under both in grouped lists, and once (under its first domain) in a sorted table. Items with no outline tag go in "Not tagged to the outline yet". Lessons have no topic, so they offer subject and learning objective only. Nothing in the database changed.
 
+## Lists longer than 1,000 rows
+The database returns at most 1,000 rows per call, however many are asked for. Anything that can grow past that (a member's answered questions, group averages, the admin and faculty per-question tables, flashcards, lessons, highlights, the inbox) is fetched page by page in a fixed order (`pagedGet` and `rpcAll` in `js/cloud.js`). A page that starts over stops the loop, so a server that ignored paging cannot hang the app. Add any new per-question or per-member list to the `ORDER` table there.
+
+## What the admin Overview numbers mean
+**Active members:** approved accounts of every kind. **Questions done:** every answer given by active members, repeats counted, faculty left out. **Group correct:** the share of those answers that were right. **Live questions:** reviewed and visible to members (drafts and archived are listed but not counted). In Recent activity, **Different questions done** is how many questions were answered at least once in the period, and **Members answering** is how many people answered at least one.
+
 ## Features
 Tutor and timed modes, filters (board, subject, unused/incorrect/flagged), option cross-out, flagging, notes, question navigator, keyboard shortcuts (1-9/letters, ←/→, F, Enter), results by subject, test review, history, dark mode, progress backup.
 

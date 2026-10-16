@@ -478,7 +478,7 @@ function facTabs(on) {
 function dashboard() {
   pageTitle('Dashboard');
   const st = Store.data.q, all = Object.values(st);
-  const used = all.filter(s => s.seen).length, c = all.reduce((a, s) => a + s.correct, 0), w = all.reduce((a, s) => a + s.wrong, 0);
+  const shown = visibleQuestions(), used = shown.filter(q => { const s = st[q.id]; return s && s.seen; }).length, c = all.reduce((a, s) => a + s.correct, 0), w = all.reduce((a, s) => a + s.wrong, 0);
   const active = Store.data.active;
   const sf = !!Store.data.settings.stressFree;            // Stress Free: no scores on the dashboard, a calming line from the mascot instead
   const quote = Mascot.quotes[Math.floor(Math.random() * Mascot.quotes.length)];
@@ -493,10 +493,10 @@ function dashboard() {
   ${bank.program && bank.program.status === 'pending' ? `<div class="card notice">Waiting for faculty at <b>${esc(bank.program.name)}</b> to approve you. Until they do, they cannot see any of your progress. <a href="#/settings">Settings</a></div>` : ''}
   ${active ? `<div class="card continue"><div class="contbody"><b>Continue where you left off</b><span class="muted">${active.paused ? 'Paused. ' : ''}${esc(active.mode === 'timed' ? 'Timed' : 'Tutor')} test, question ${Math.min(active.idx + 1, active.qids.length)} of ${active.qids.length} (${Object.keys(active.answers).length} answered)</span><div class="bar" aria-hidden="true"><i style="width:${pct(Object.keys(active.answers).length, active.qids.length)}%"></i></div></div><a class="btn primary" href="#/test">Resume</a></div>` : ''}
   ${(Store.data.parked || []).length ? `<div class="card notice">You have ${(Store.data.parked || []).length} more unfinished quiz${(Store.data.parked || []).length === 1 ? '' : 'zes'} in <a href="#/history">Test history</a>.</div>` : ''}
-  ${examCard(bank.questions.length - used)}
+  ${examCard(shown.length - used)}
   <div class="grid">
-    <div class="card stat"><b>${bank.questions.length}</b><span class="muted">Questions in bank</span></div>
-    <div class="card stat"><b>${used}</b><span class="muted">Used (${pct(used, bank.questions.length)}%)</span></div>
+    <div class="card stat"><b>${shown.length}</b><span class="muted">Questions in bank</span></div>
+    <div class="card stat"><b>${used}</b><span class="muted">Used (${pct(used, shown.length)}%)</span></div>
     ${sf ? '' : `<div class="card stat" id="tile-overall"><b>${c + w ? pct(c, c + w) + '%' : '—'}</b><span class="muted">Overall correct</span></div>
     <div class="card stat" id="tile-recent"><b id="tile-recent-v">—</b><span class="muted" id="tile-recent-l">Recent correct</span></div>`}
     ${all.some(s => s.flagged) ? `<a class="card stat statlink" href="#/flagged"><b>${all.filter(s => s.flagged).length}</b><span class="muted">Flagged &rsaquo; review</span></a>` : `<div class="card stat"><b>0</b><span class="muted">Flagged</span></div>`}
@@ -1164,14 +1164,17 @@ async function adminPage() {
     const progCell = (id, status) => (id ? `${esc(progName(id))}${status === 'pending' ? ' <span class="tag draft">pending</span>' : ''}` : '<span class="muted">-</span>');
     const act = mem.filter(m => m.active), counted = act.filter(m => m.role !== 'faculty'), tot = counted.reduce((x, m) => x + m.attempts, 0), cor = counted.reduce((x, m) => x + m.correct, 0);   // faculty answers are left out of the group totals
     const recent = await Cloud.rpc('admin_recent_activity').catch(() => null);
+    const live = qs.filter(q => q.status === 'reviewed' && !q.archived).length, archived = qs.filter(q => q.archived).length, drafts = qs.filter(q => q.status !== 'reviewed' && !q.archived).length;
     const me = Cloud.session.email.toLowerCase();
     $app.innerHTML = `${Admin.tabs('overview')}<div class="grid">
-      <div class="card stat"><b>${act.length}</b><span>Active members</span></div><div class="card stat"><b>${tot}</b><span>Questions answered</span></div>
-      <div class="card stat"><b>${tot ? pct(cor, tot) + '%' : '-'}</b><span>Group correct</span></div><div class="card stat"><b>${qs.length}</b><span>Questions in bank</span></div></div>
+      <div class="card stat"><b>${act.length}</b><span>Active members</span><small class="muted statnote">Approved accounts of every kind (members, reviewers, faculty, admins).</small></div>
+      <div class="card stat"><b>${tot}</b><span>Questions done</span><small class="muted statnote">Every answer given, repeats counted. Active members only, faculty left out.</small></div>
+      <div class="card stat"><b>${tot ? pct(cor, tot) + '%' : '-'}</b><span>Group correct</span><small class="muted statnote">The share of those answers that were right.</small></div>
+      <div class="card stat"><b>${live}</b><span>Live questions</span><small class="muted statnote">Reviewed and visible to members. Not counted: ${drafts} draft${drafts === 1 ? '' : 's'}, ${archived} archived.</small></div></div>
       <div class="card" id="recent"><div class="row spread"><h2 style="margin:0">Recent activity</h2><div><label for="rwin" class="sr">Time period</label><select id="rwin">${RECENT_WINDOWS.map(([h, t]) => `<option value="${h}">${t}</option>`).join('')}</select></div></div>
         <div class="grid" id="rstats" aria-live="polite" style="margin-top:10px"></div><p class="muted small" id="rnote"></p></div>
       <div class="card"><div class="row spread"><h2 style="margin:0">Members</h2><button id="csv">Download CSV</button></div>
-        <div class="scroll" role="region" tabindex="0" aria-label="Data table"><table><caption class="sr">Members and their activity</caption><thead><tr><th scope="col">Email</th><th scope="col">Access</th><th scope="col">Program</th><th scope="col">Answered</th><th scope="col">Correct</th><th scope="col">Last active</th><th scope="col"><span class="sr">Actions</span></th></tr></thead><tbody>${mem.map(m =>
+        <div class="scroll" role="region" tabindex="0" aria-label="Data table"><table><caption class="sr">Members and their activity</caption><thead><tr><th scope="col">Email</th><th scope="col">Access</th><th scope="col">Program</th><th scope="col" title="Every answer given, repeats counted">Questions done</th><th scope="col" title="Answers that were right">Correct</th><th scope="col">Last active</th><th scope="col"><span class="sr">Actions</span></th></tr></thead><tbody>${mem.map(m =>
         `<tr><td>${esc(m.email)}${m.display_name ? `<div class="muted small">${esc(m.display_name)}</div>` : ''}</td><td>${m.active ? (['admin', 'reviewer', 'faculty'].includes(m.role) ? esc(m.role === 'admin' ? 'Admin' : m.role === 'reviewer' ? 'Reviewer' : 'Faculty') : proTag(m.plan, m.pro_until)) : 'Not approved'}</td><td>${progCell(m.program_id, m.program_status)}</td><td>${m.attempts}</td><td>${m.attempts ? pct(m.correct, m.attempts) + '%' : '-'}</td><td>${m.last_active ? new Date(m.last_active).toLocaleDateString() : '-'}</td><td>${m.active && allowed.some(r => r.email === m.email) ? `<button data-memb="${esc(m.email)}" aria-label="Change membership for ${esc(m.email)}">Membership</button> <button data-edit="${esc(m.email)}" aria-label="Edit ${esc(m.email)}">Edit</button>` : ''}</td></tr>`).join('')}</tbody></table></div></div>
       <div id="prog-admin"></div>
       <div class="card"><h2>Group averages</h2>
@@ -1201,9 +1204,9 @@ async function adminPage() {
       if (!recent) { sel.disabled = true; box.innerHTML = ''; note.textContent = 'Needs the latest supabase/schema.sql (run it once in the SQL Editor).'; return; }
       const paintRecent = () => {
         const r = recent.find(x => x.hours === +sel.value) || { attempts: 0, correct: 0, questions: 0, members: 0 };
-        box.innerHTML = `<div class="card stat"><b>${r.attempts}</b><span>Questions answered</span></div><div class="card stat"><b>${r.attempts ? pct(r.correct, r.attempts) + '%' : '-'}</b><span>Correct</span></div>
-          <div class="card stat"><b>${r.members}</b><span>Members answering</span></div><div class="card stat"><b>${r.questions}</b><span>Different questions</span></div>`;
-        note.textContent = 'Counts every try by active members, including repeats.';
+        box.innerHTML = `<div class="card stat"><b>${r.attempts}</b><span>Questions done</span><small class="muted statnote">Every answer given in this period, repeats counted.</small></div><div class="card stat"><b>${r.attempts ? pct(r.correct, r.attempts) + '%' : '-'}</b><span>Correct</span><small class="muted statnote">The share of those answers that were right.</small></div>
+          <div class="card stat"><b>${r.members}</b><span>Members answering</span><small class="muted statnote">People who answered at least one question in this period.</small></div><div class="card stat"><b>${r.questions}</b><span>Different questions done</span><small class="muted statnote">Questions answered at least once, however many times.</small></div>`;
+        note.textContent = 'Counts active members only (faculty left out), including repeats.';
         try { localStorage.setItem('qbank.recentwin', sel.value); } catch {}
       };
       sel.onchange = paintRecent; paintRecent();
