@@ -1,6 +1,6 @@
 'use strict';
 // The "bank map": every question reduced to its categorization and tagging (no choices, answer or explanation), plus a summary of how the bank covers the
-// board outline against the exam weights, so the whole bank can be seen at a glance or handed to an AI. Pure logic, no page code. Runs in the browser and in Node.
+// board outline against the exam weights, so the whole bank can be seen at a glance or handed to a chat. Pure logic, no page code. Runs in the browser and in Node.
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) module.exports = factory(typeof require === 'function' ? require('./outlines-data.js') : root.OutlinesData); else root.BankMap = factory(root.OutlinesData);
 })(typeof self !== 'undefined' ? self : this, function (DATA) {

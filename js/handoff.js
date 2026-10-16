@@ -1,6 +1,6 @@
 'use strict';
 // "Copy": turns the questions, lessons, flashcards or feedback you are looking at (so the filters you set decide what goes) into
-// one message to paste into a chat. The data is in the same JSON format that Import from a chat accepts, so the AI's reply can be pasted straight
+// one message to paste into a chat. The data is in the same JSON format that Import from a chat accepts, so the reply can be pasted straight
 // back. The builders are pure (tested in Node); open() is the small dialog. Loaded before the admin pages.
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) module.exports = factory(root); else root.Handoff = factory(root);
@@ -167,16 +167,16 @@
     d.innerHTML = `<div class="card" role="dialog" aria-modal="true" aria-labelledby="hf-h" style="max-width:720px;width:100%;max-height:92vh;overflow:auto"><h2 id="hf-h" style="margin-top:0">Copy</h2>
       <p class="muted" id="hf-sum"></p>
       ${sel.length ? `<fieldset class="inline"><legend class="sr">Which ${NOUN[kind][1]}</legend><label class="chk"><input type="radio" name="hf-src" value="shown" checked> All ${all.length} shown by the filters</label><label class="chk"><input type="radio" name="hf-src" value="sel"> Only the ${sel.length} I selected</label></fieldset>` : ''}
-      <div class="fgrid"><div><label for="hf-task">What should the AI do?</label><select id="hf-task">${tasks.map(t => `<option value="${t[0]}">${esc(t[1])}</option>`).join('')}</select></div>
+      <div class="fgrid"><div><label for="hf-task">What should the chat do?</label><select id="hf-task">${tasks.map(t => `<option value="${t[0]}">${esc(t[1])}</option>`).join('')}</select></div>
         <div><label for="hf-size-sel">${NOUN[kind][1].replace(/^./, c => c.toUpperCase())} per message</label><select id="hf-size-sel">${SIZES[kind].map(n => `<option value="${n}">${n}${n === CHUNK[kind] ? ' (default)' : ''}</option>`).join('')}</select></div>
         <div id="hf-partbox" hidden><label for="hf-part">Part</label><select id="hf-part"></select></div></div>
-      <p class="muted small">A bigger message lets the AI work on more at once and uses more of your usage. The AI has to write every changed item back in full, so if its reply stops partway, pick a smaller number.</p>
-      <label for="hf-note">Your note to the AI (optional): how you like things done</label><textarea id="hf-note" rows="3" placeholder="e.g. Keep my explanations short. Use ABPM wording. Do not change the references."></textarea>
+      <p class="muted small">A bigger message lets the chat work on more at once and uses more of your usage. It has to write every changed item back in full, so if its reply stops partway, pick a smaller number.</p>
+      <label for="hf-note">Your note to the chat (optional): how you like things done</label><textarea id="hf-note" rows="3" placeholder="e.g. Keep my explanations short. Use ABPM wording. Do not change the references."></textarea>
       ${o.stats ? '<label class="chk"><input type="checkbox" id="hf-stats" checked> Include how each has been performing</label>' : ''}
       <label for="hf-prev">The message (you can read it before you copy)</label><textarea id="hf-prev" rows="9" readonly style="font:12px/1.4 ui-monospace,Menlo,Consolas,monospace"></textarea>
       <p class="muted small" id="hf-size" aria-live="polite"></p>
       <div class="row"><button class="primary" id="hf-copy" type="button">Copy to clipboard</button><button id="hf-dl" type="button">Download as a file</button><button id="hf-x" type="button">Close</button></div>
-      <p class="muted small">Then paste it into your AI chat. When it replies, copy its JSON and ${o.importHash ? `<a href="${o.importHash}" id="hf-imp">bring it back with Import from a chat</a>` : 'use it to update the items'}. Everything comes back as a draft for you to review.</p></div>`;
+      <p class="muted small">Then paste it into your chat. When it replies, copy its JSON and ${o.importHash ? `<a href="${o.importHash}" id="hf-imp">bring it back with Import from a chat</a>` : 'use it to update the items'}. Everything comes back as a draft for you to review.</p></div>`;
     const prev = doc.activeElement, E = id => d.querySelector('#' + id);
     const close = () => { d.remove(); doc.removeEventListener('keydown', onKey, true); if (prev && doc.body.contains(prev)) prev.focus(); };
     const onKey = e => { if (e.key === 'Escape') { e.stopPropagation(); close(); } };
@@ -205,7 +205,7 @@
     d.querySelectorAll('[name=hf-src]').forEach(r => r.addEventListener('change', () => { E('hf-part').value = '0'; draw(); }));
     E('hf-x').onclick = close;
     E('hf-copy').onclick = async () => {
-      try { await root.navigator.clipboard.writeText(d._text); root.toast && root.toast('Copied. Paste it into your AI chat.'); }
+      try { await root.navigator.clipboard.writeText(d._text); root.toast && root.toast('Copied. Paste it into your chat.'); }
       catch { E('hf-prev').readOnly = false; E('hf-prev').focus(); E('hf-prev').select(); root.toast && root.toast('Could not copy automatically. The message is selected: press Ctrl+C (or Cmd+C).'); }
     };
     E('hf-dl').onclick = () => { const a = doc.createElement('a'); a.href = root.URL.createObjectURL(new root.Blob([d._text], { type: 'text/plain' })); a.download = `for-ai-${kind}-${new Date().toISOString().slice(0, 10)}.txt`; a.click(); };

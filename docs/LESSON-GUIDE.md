@@ -4,7 +4,7 @@ Lessons are short teaching pages for one subject: text, tables, charts, step-by-
 
 ## The easy way: Admin > Lessons
 
-1. Ask the AI to write lessons with the prompt below.
+1. Ask the chat to write lessons with the prompt below.
 2. In the app open **Admin > Lessons > Import from a chat** and paste the whole reply. Each lesson is checked and saved as a **Draft**, which only admins and reviewers can see.
 3. Open a lesson (**Edit**) to see a live preview, fix wording, or insert an example block from the menu.
 4. A physician reads it against the references, then selects it in the list and clicks **Publish (mark reviewed)**. Their email is recorded as the reviewer.
@@ -31,7 +31,7 @@ Each lesson has a list of blocks, shown in order.
 
 Limits: 80 blocks per lesson, tables up to 12 columns by 40 rows, charts up to 24 categories and 4 series.
 
-## Prompt for the AI
+## Prompt for the chat
 
 Copy everything in the box, fill in the topic line, and paste it into a new chat.
 
@@ -65,7 +65,7 @@ Rules:
 
 ## Reviewing lessons
 
-A lesson goes live only after a physician has checked the facts, numbers and references. Pay special attention to numbers in charts and tables, dose or limit values, and anything the AI marked "(verify)". Sample lessons that ship in `data/lessons/sample.json` are drafts written for the demo and have **not** been medically reviewed.
+A lesson goes live only after a physician has checked the facts, numbers and references. Pay special attention to numbers in charts and tables, dose or limit values, and anything the chat marked "(verify)". Sample lessons that ship in `data/lessons/sample.json` are drafts written for the demo and have **not** been medically reviewed.
 
 ## From the command line
 

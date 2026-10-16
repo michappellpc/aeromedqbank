@@ -9,7 +9,7 @@ With accounts turned on (docs/CLOUD-SETUP.md), **real questions never go in the 
 Sign in as an admin (or reviewer) and open **Admin > Questions**. With accounts turned on this is all most people need.
 
 1. **Draft** questions with Fable (prompt below).
-2. **Import**: click **Import from a chat**, paste the AI's whole reply (extra chatter and code fences are fine), and read the check results. Good questions are saved as **Draft**, which means **only admins and reviewers can see them**; ones with problems are listed with a plain reason and skipped.
+2. **Import**: click **Import from a chat**, paste the chat's whole reply (extra chatter and code fences are fine), and read the check results. Good questions are saved as **Draft**, which means **only admins and reviewers can see them**; ones with problems are listed with a plain reason and skipped.
 3. **Edit** any question: click its id, change the text, choices, picture or tags, and press Save. **Preview** shows what a member will see.
 4. **Review and publish**: a physician opens the question, reads it against a reference, and sets Status to **Reviewed** (or selects several rows and uses **Mark reviewed**). **Reviewed questions go live for members.** The reviewer's email is recorded automatically and cannot be typed in. Rewriting a question's answer choices also clears the percentages of who picked each choice (they would no longer match). Editing the wording of a reviewed question sends it back to Draft, which hides it from members until it is reviewed again. To take a question offline without deleting it, use **Mark draft (hide)** (temporary) or **Archive** (retired).
 5. **Remove**: **Archive** hides a question from members but keeps everyone's history and lets you **Restore** it. **Delete permanently** is only offered for archived questions and needs the word DELETE typed, because it also erases members' history for that question.
@@ -32,7 +32,7 @@ Everything a model writes starts as `"status": "draft"`. Draft questions show an
 
 ## Rules that keep the bank trustworthy
 
-- **Nobody should trust an AI-written medical fact until a physician has checked it.** Models write plausible, confident, wrong answers, and they invent references. Check the answer, the explanation, and that every reference exists.
+- **Nobody should trust a chat-written medical fact until a physician has checked it.** Models write plausible, confident, wrong answers, and they invent references. Check the answer, the explanation, and that every reference exists.
 - **Write original questions.** Do not paste in or ask a model to reproduce real board exam items, or questions from commercial banks. Exam candidates agree not to share exam content, and copying a competitor's bank is a copyright problem.
 - **No patient information.** Vignettes must be invented composites. Nothing from a real chart, and nothing controlled or sensitive from a real unit or mission.
 - Give it the **official content outline** for each board (paste it into the prompt) so questions cover what is actually tested.

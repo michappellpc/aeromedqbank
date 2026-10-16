@@ -87,7 +87,7 @@
 
   // One line about how a question has been performing (null when there is nothing to say yet)
   const statLine = i => (!i || i.pct === null ? null : `${i.id}: ${i.pct}% correct on the first try (${i.n} members); labeled ${LABELS[i.label]}${i.ev ? `; evidence: ${i.ev.level} (${i.n} first ${i.n === 1 ? 'try' : 'tries'}), best estimate ${i.ev.est}%, likely ${i.ev.lo}% to ${i.ev.hi}%, ${i.ev.call}` : ''}${i.disc === null ? '' : '; separates strong from weak members at ' + i.disc.toFixed(2)}${i.topWrong ? `; wrong choice picked most: ${i.topWrong.id} (${i.topWrong.share}%)` : ''}${i.dead.length ? `; almost never picked: ${i.dead.join(', ')}` : ''}${i.flags.includes('longans') ? '; the correct answer is much longer than the others' : ''}`);
-  // A message to paste into a chat with an AI so it rewrites the chosen questions. direction: 'harder' | 'easier'. Returns text.
+  // A message to paste into a chat so it rewrites the chosen questions. direction: 'harder' | 'easier'. Returns text.
   function rewritePrompt(items, direction, opts = {}) {
     const target = opts.target, fields = opts.fields || ['id', 'status', 'boards', 'subject', 'topic', 'difficulty', 'stem', 'options', 'answer', 'explanation', 'optionNotes', 'references', 'tier'];
     const how = direction === 'harder'
