@@ -46,7 +46,7 @@ const ObjTest = (() => {
         t.closest('.objrow').querySelectorAll('input[name=obj]').forEach(c => { if (c.value.startsWith(b + ':' + code + '.')) c.checked = t.checked; });
       } else if (t.matches('[data-grp]')) { t.closest('.objrow').querySelectorAll('input[name=obj]').forEach(c => { c.checked = t.checked; }); }
       else return;
-      sync(); onChange();
+      sync();                                                                            // the change bubbles on to the form, which recounts the test
     });
     root.addEventListener('click', e => {
       const b = e.target.closest('.objtog'); if (!b) return;
