@@ -769,3 +769,4 @@ section.rep-sec:not(.card){padding:0 2px}
 .objstm{list-style:none;margin:2px 0 8px 26px;padding:0}.objstm[hidden]{display:none}.objstm li{padding:3px 0}.objchk{display:flex;gap:8px;align-items:baseline}
 .objparts{margin:0 0 4px 26px}.objpartrow{padding:2px 0}.objpartrow .odname{font-weight:500}
 .objgroup{border-top:1px solid var(--line);margin-top:10px;padding-top:8px}.objgroup summary{cursor:pointer;font-weight:600;padding:4px 0}
+#subjcard[hidden],#objcard[hidden]{display:none!important}

@@ -540,6 +540,7 @@ function flaggedPage() {
 }
 
 // ---------- create test ----------
+const byPref = () => { try { return localStorage.getItem('qbank.testby') === 'obj' && typeof ObjTest !== 'undefined' && ObjTest.html() ? 'obj' : 'subj'; } catch { return 'subj'; } };
 function create(preSubject, preStatus) {
   pageTitle('New test');
   const boardBoxes = bank.boards.map(b => `<label class="chk"><input type="checkbox" name="board" value="${b.id}" checked> ${esc(b.name)} <span class="cnt" data-cnt="board:${b.id}"></span></label>`).join('');
@@ -555,8 +556,9 @@ function create(preSubject, preStatus) {
       ${choice('mode', 'tutor', 'Tutor', 'Feedback after each question', true)}${choice('mode', 'timed', 'Timed', 'Feedback at the end, about 90 s per question', false)}</div></fieldset>
     <fieldset class="card"><legend>High yield</legend><div class="row">${hySwitch('hy', '<span id="hy-n"></span>')}</div><p class="muted small" style="margin:6px 0 0">Practice just the questions marked as most worth your time. This also applies to Lessons and Flashcards.</p></fieldset>
     <fieldset class="card"><legend>Board</legend><div class="chips">${boardBoxes}</div></fieldset>
+    ${ObjTest.html() ? `<fieldset class="card"><legend>Choose by</legend><div class="choices">${choice('by', 'subj', 'Subjects', 'Pick from the subjects below', byPref() === 'subj')}${choice('by', 'obj', 'Learning objectives', 'Pick from the board content outline, with each domain\'s percent of the exam', byPref() === 'obj')}</div></fieldset>` : ''}
     ${ObjTest.html()}
-    <fieldset class="card"><legend>Subjects</legend><div class="row"><button type="button" id="all">Select all</button><button type="button" id="none">Clear</button><span class="muted small" id="subjsum" aria-live="polite"></span></div>${subjGroups}</fieldset>
+    <fieldset class="card" id="subjcard"><legend>Subjects</legend><div class="row"><button type="button" id="all">Select all</button><button type="button" id="none">Clear</button><span class="muted small" id="subjsum" aria-live="polite"></span></div>${subjGroups}</fieldset>
     <fieldset class="card"><legend>Question status</legend><div class="chips">
       ${[['unused', 'Unused'], ['incorrect', 'Previously incorrect'], ['flagged', 'Flagged'], ['all', 'All']].map(([v, l], i) => `<label class="chk"><input type="checkbox" name="status" value="${v}" ${i == 0 ? 'checked' : ''}> ${l} <span class="cnt" data-cnt="status:${v}"></span></label>`).join('')}</div></fieldset>
     <fieldset class="card"><legend>Difficulty</legend><div class="chips">
@@ -576,7 +578,10 @@ function create(preSubject, preStatus) {
   }
   if (preStatus === 'incorrect') f.querySelectorAll('[name=status]').forEach(e => { e.checked = e.value === 'incorrect'; });   // arrived from Focus areas: just the missed questions
   const vals = n => [...f.querySelectorAll(`[name=${n}]:checked`)].map(e => e.value);
-  const objCard = f.querySelector('#objcard'), osel = () => (objCard ? ObjTest.selected() : new Set());
+  const objCard = f.querySelector('#objcard'), subjCard = f.querySelector('#subjcard');
+  let by = preSubject ? 'subj' : byPref();                                      // choose the test by subject or by board learning objective: only the chosen one applies
+  const osel = () => (objCard && by === 'obj' ? ObjTest.selected() : new Set());
+  const showBy = () => { if (subjCard) subjCard.hidden = by === 'obj'; if (objCard) objCard.hidden = by !== 'obj'; const r = f.querySelector(`[name=by][value=${by}]`); if (r) r.checked = true; };
   // Does a question fit the current choices? Anything passed as null is left out of the check, so each checkbox
   // can show how many questions would apply to it given everything else that is selected.
   const fits = (q, bs, ss, stt, ds, hy = hyOn(), os = osel()) => {
@@ -585,7 +590,7 @@ function create(preSubject, preStatus) {
     if (hy && !q.highYield) return false;
     if (ds && !ds.includes(String(q.difficulty || 2))) return false;
     if (bs && !q.boards.some(b => bs.includes(b))) return false;
-    if (ss && !ss.includes(q.subject)) return false;
+    if (ss && by !== 'obj' && !ss.includes(q.subject)) return false;
     if (stt) {
       if (stt.includes('all')) return true;
       const s = Store.qstat(q.id);
@@ -616,6 +621,8 @@ function create(preSubject, preStatus) {
   };
   document.getElementById('hy').onchange = e => { setHy(e.target.checked); upd(); };
   if (objCard) ObjTest.bind(objCard, upd);
+  showBy();
+  f.querySelectorAll('[name=by]').forEach(r => r.addEventListener('change', () => { by = r.value; try { localStorage.setItem('qbank.testby', by); } catch { /* not saved */ } showBy(); upd(); }));
   f.addEventListener('change', upd); upd();
   f.querySelectorAll('[data-q]').forEach(b => b.onclick = () => { const p = pool().length; document.getElementById('n').value = b.dataset.q === 'all' ? Math.max(1, p) : Math.min(+b.dataset.q, Math.max(1, p)); });
   document.getElementById('all').onclick = () => { f.querySelectorAll('[name=subj]').forEach(e => e.checked = true); upd(); };
