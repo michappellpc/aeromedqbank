@@ -160,12 +160,12 @@ const Cloud = (() => {
 
   const blankStat = () => ({ seen: 0, correct: 0, wrong: 0, flagged: false, note: '', last: null });
   async function pull() {
-    const cardRes = await api('/rest/v1/card_reviews?select=card_id,ease,interval_days,due,reps,lapses,last_reviewed&limit=5000').catch(e => { if (noCardsTable(e)) return null; throw e; });
-    const hlRes = await api('/rest/v1/highlights?select=id,kind,item_id,field,start_pos,end_pos,text_hl&limit=5000').catch(e => { if (noOwnTable(e)) return null; throw e; });
-    const mineRes = await api('/rest/v1/my_cards?select=id,front,back,src_kind,src_id,ease,interval_days,due,reps,lapses,last_reviewed&limit=3000').catch(e => { if (noOwnTable(e)) return null; throw e; });
+    const cardRes = await pagedGet('/rest/v1/card_reviews?select=card_id,ease,interval_days,due,reps,lapses,last_reviewed&order=card_id.asc').catch(e => { if (noCardsTable(e)) return null; throw e; });
+    const hlRes = await pagedGet('/rest/v1/highlights?select=id,kind,item_id,field,start_pos,end_pos,text_hl&order=id.asc').catch(e => { if (noOwnTable(e)) return null; throw e; });
+    const mineRes = await pagedGet('/rest/v1/my_cards?select=id,front,back,src_kind,src_id,ease,interval_days,due,reps,lapses,last_reviewed&order=id.asc').catch(e => { if (noOwnTable(e)) return null; throw e; });
     const [prog, marks, tests, settings] = await Promise.all([
-      allRows('/rest/v1/rpc/my_progress?order=question_id.asc&{p}'),
-      allRows('/rest/v1/question_marks?select=question_id,flagged,note&order=question_id.asc&{p}'),
+      rpcAll('my_progress'),
+      pagedGet('/rest/v1/question_marks?select=question_id,flagged,note&order=question_id.asc'),
       api('/rest/v1/tests?select=*&order=taken_at.desc&limit=500'),
       api('/rest/v1/user_settings?select=data&limit=1')
     ]);
@@ -242,14 +242,33 @@ const Cloud = (() => {
   const noCardsTable = e => e && (e.status === 404 || e.status === 400) && /flashcards|card_reviews|schema cache|relation/i.test(e.message || '');
   const noLessonsTable = e => e && (e.status === 404 || e.status === 400) && /lessons|schema cache|relation/i.test(e.message || '');
   async function allLessons(filter) {
-    return api(`/rest/v1/lessons?select=*${filter}&order=position.asc,title.asc&limit=1000`);
+    return pagedGet(`/rest/v1/lessons?select=*${filter}&order=position.asc,title.asc,id.asc`);
   }
   const missingColumn = e => e && e.status === 400 && /archived|updated_by/i.test(e.message);
-  async function allRows(path) {                              // the database returns at most 1000 rows a call, so ask page by page
+  // The database returns at most 1000 rows a call, whatever limit is asked for. Anything that can grow past that is fetched page by page,
+  // in a fixed order so no row is skipped or repeated. rpcAll does the same for the database functions that return one row per question, member or message.
+  const more = (rows, page, offset) => !(offset && page.length && rows.length && JSON.stringify(page[0]) === JSON.stringify(rows[0]));   // a page that starts over means the server ignored the offset: stop, never loop
+  async function pagedGet(path) {
     const rows = []; let offset = 0;
     for (;;) {
-      const page = await api(path.replace('{p}', `limit=1000&offset=${offset}`), path.includes('/rpc/') ? { method: 'POST', body: {} } : {});
-      rows.push(...page); if (page.length < 1000) return rows; offset += 1000;
+      const page = await api(`${path}${path.includes('?') ? '&' : '?'}limit=1000&offset=${offset}`);
+      if (more(rows, page, offset)) rows.push(...page); else return rows;
+      if (page.length < 1000) return rows; offset += 1000;
+    }
+  }
+  const ORDER = { peer_stats: 'question_id.asc', peer_choices: 'question_id.asc,chosen.asc', admin_question_stats: 'question_id.asc', admin_item_analysis: 'question_id.asc', admin_member_summary: 'email.asc',
+    faculty_questions: 'question_id.asc', preview_questions: 'question_id.asc', faculty_question_totals: 'question_id.asc', preview_question_totals: 'question_id.asc',
+    faculty_topics: 'subject.asc,topic.asc', preview_topics: 'subject.asc,topic.asc', faculty_roster: 'user_id.asc', preview_roster: 'user_id.asc', faculty_subject_stats: 'user_id.asc,subject.asc', preview_subjects: 'user_id.asc,subject.asc',
+    feedback_inbox: 'id.desc', my_threads: 'id.desc', my_progress: 'question_id.asc' };
+  async function rpcAll(name, body = {}) {
+    const order = ORDER[name], path = `/rest/v1/rpc/${name}`;
+    if (!order) return api(path, { method: 'POST', body });
+    const rows = []; let offset = 0;
+    for (;;) {
+      const page = await api(`${path}?order=${order}&limit=1000&offset=${offset}`, { method: 'POST', body });
+      if (!Array.isArray(page)) return page;
+      if (more(rows, page, offset)) rows.push(...page); else return rows;
+      if (page.length < 1000) return rows; offset += 1000;
     }
   }
   async function allQuestions(filter) {                        // pages of 1000, oldest id first
@@ -389,21 +408,21 @@ const Cloud = (() => {
     async myProgram() { try { const r = await api('/rest/v1/rpc/my_program', { method: 'POST', body: {} }); return r && r[0] ? r[0] : null; } catch { return null; } },
     requestProgram: id => api('/rest/v1/rpc/request_program', { method: 'POST', body: { pid: id } }),
     leaveProgram: () => api('/rest/v1/rpc/leave_program', { method: 'POST', body: {} }),
-    previewRoster: pid => api('/rest/v1/rpc/preview_roster', { method: 'POST', body: { pid } }),
-    previewSubjects: pid => api('/rest/v1/rpc/preview_subjects', { method: 'POST', body: { pid } }),
+    previewRoster: pid => rpcAll('preview_roster', { pid }),
+    previewSubjects: pid => rpcAll('preview_subjects', { pid }),
     questionRevisions: id => api('/rest/v1/question_revisions?select=*&question_id=eq.' + encodeURIComponent(id) + '&order=revised_at.desc&limit=20'),
     facultySubjectTrend: days => api('/rest/v1/rpc/faculty_subject_trend', { method: 'POST', body: { days: days || 30 } }),
     previewSubjectTrend: (pid, days) => api('/rest/v1/rpc/preview_subject_trend', { method: 'POST', body: { pid, days: days || 30 } }),
-    facultyTopics: days => api('/rest/v1/rpc/faculty_topics', { method: 'POST', body: { days: days || 0 } }),
-    facultyQuestions: days => api('/rest/v1/rpc/faculty_questions', { method: 'POST', body: { days: days || 0 } }),
-    facultyQuestionTotals: days => api('/rest/v1/rpc/faculty_question_totals', { method: 'POST', body: { days: days || 0 } }),
+    facultyTopics: days => rpcAll('faculty_topics', { days: days || 0 }),
+    facultyQuestions: days => rpcAll('faculty_questions', { days: days || 0 }),
+    facultyQuestionTotals: days => rpcAll('faculty_question_totals', { days: days || 0 }),
     facultyWeekly: () => api('/rest/v1/rpc/faculty_weekly', { method: 'POST', body: {} }),
-    previewTopics: (pid, days) => api('/rest/v1/rpc/preview_topics', { method: 'POST', body: { pid, days: days || 0 } }),
-    previewQuestions: (pid, days) => api('/rest/v1/rpc/preview_questions', { method: 'POST', body: { pid, days: days || 0 } }),
-    previewQuestionTotals: (pid, days) => api('/rest/v1/rpc/preview_question_totals', { method: 'POST', body: { pid, days: days || 0 } }),
+    previewTopics: (pid, days) => rpcAll('preview_topics', { pid, days: days || 0 }),
+    previewQuestions: (pid, days) => rpcAll('preview_questions', { pid, days: days || 0 }),
+    previewQuestionTotals: (pid, days) => rpcAll('preview_question_totals', { pid, days: days || 0 }),
     previewWeekly: pid => api('/rest/v1/rpc/preview_weekly', { method: 'POST', body: { pid } }),
-    facultyRoster: () => api('/rest/v1/rpc/faculty_roster', { method: 'POST', body: {} }),
-    facultySubjects: () => api('/rest/v1/rpc/faculty_subject_stats', { method: 'POST', body: {} }),
+    facultyRoster: () => rpcAll('faculty_roster', {}),
+    facultySubjects: () => rpcAll('faculty_subject_stats', {}),
     programDecide: (pid, uid, approve) => api('/rest/v1/rpc/program_decide', { method: 'POST', body: { pid, uid, approve } }),
     programRemove: (pid, uid) => api('/rest/v1/rpc/program_remove', { method: 'POST', body: { pid, uid } }),
     facultyDecide: (uid, approve) => api('/rest/v1/rpc/faculty_decide', { method: 'POST', body: { uid, approve } }),
@@ -413,11 +432,11 @@ const Cloud = (() => {
     deleteProgram: id => api('/rest/v1/programs?id=eq.' + encodeURIComponent(id), { method: 'DELETE', headers: { Prefer: 'return=minimal' } }),
     // ---- question feedback (members write, admins and reviewers read in Admin > Inbox) ----
     queueFeedback(row) { change(q => { (q.feedback ||= []).push({ ...row, client_id: cid() }); }); },
-    inbox: () => api('/rest/v1/rpc/feedback_inbox', { method: 'POST', body: {} }),
+    inbox: () => rpcAll('feedback_inbox', {}),
     async unreadFeedback() { try { const n = await api('/rest/v1/rpc/feedback_unread_count', { method: 'POST', body: {} }); return typeof n === 'number' ? n : 0; } catch { return 0; } },
     setFeedback: (id, status, note) => api('/rest/v1/rpc/feedback_set', { method: 'POST', body: note === undefined ? { fid: id, new_status: status } : { fid: id, new_status: status, note } }),
     // ---- conversations: replies both ways, and support messages (a conversation with no question) ----
-    myThreads: () => api('/rest/v1/rpc/my_threads', { method: 'POST', body: {} }),
+    myThreads: () => rpcAll('my_threads', {}),
     myThreadMessages: id => api('/rest/v1/rpc/my_thread_messages', { method: 'POST', body: { fid: id } }),
     markThreadSeen: id => api('/rest/v1/rpc/my_thread_seen', { method: 'POST', body: { fid: id } }),
     async myUnreadReplies() { try { const n = await api('/rest/v1/rpc/my_unread_replies', { method: 'POST', body: {} }); return typeof n === 'number' ? n : 0; } catch { return 0; } },
@@ -427,7 +446,7 @@ const Cloud = (() => {
     // ---- group averages (aggregate numbers only; the database withholds a question until enough members have answered it) ----
     async peerStats() {
       try {
-        const rows = await api('/rest/v1/rpc/peer_stats', { method: 'POST', body: {} }), m = {};
+        const rows = await rpcAll('peer_stats', {}), m = {};
         (rows || []).forEach(r => { m[r.question_id] = { users: r.users, pct: Math.round(r.pct_correct) }; });
         await cacheSet('peer', { uid: uid(), at: Date.now(), m }); return m;
       } catch (e) {
@@ -437,7 +456,7 @@ const Cloud = (() => {
     },
     async peerChoices() {                                                     // { question_id: { total, counts: { A: n, B: n } } }
       try {
-        const rows = await api('/rest/v1/rpc/peer_choices', { method: 'POST', body: {} }), m = {};
+        const rows = await rpcAll('peer_choices', {}), m = {};
         (rows || []).forEach(r => { const o = m[r.question_id] ||= { total: r.total, counts: {} }; o.counts[r.chosen] = r.picks; });
         await cacheSet('choices', { uid: uid(), at: Date.now(), m }); return m;
       } catch (e) {
@@ -449,7 +468,7 @@ const Cloud = (() => {
     async setPeerMin(n) { await api('/rest/v1/rpc/set_peer_min_users', { method: 'POST', body: { n } }); },
     // ---- flashcards (members read reviewed ones; editors read and write all) ----
     async cards() {
-      try { const list = (await api('/rest/v1/flashcards?select=*&archived=eq.false&order=subject.asc,id.asc&limit=5000')).map(toCard); await cacheSet('cards', { uid: uid(), at: Date.now(), list }); return list; }
+      try { const list = (await pagedGet('/rest/v1/flashcards?select=*&archived=eq.false&order=subject.asc,id.asc')).map(toCard); await cacheSet('cards', { uid: uid(), at: Date.now(), list }); return list; }
       catch (e) {
         if (noCardsTable(e)) return [];                                     // database not upgraded yet
         if (!e.offline) throw e;
@@ -457,7 +476,7 @@ const Cloud = (() => {
       }
     },
     async cardsReady() { try { await api('/rest/v1/flashcards?select=id&limit=1'); return true; } catch (e) { if (noCardsTable(e)) return false; throw e; } },
-    async editorCards() { return (await api('/rest/v1/flashcards?select=*&order=subject.asc,id.asc&limit=5000')).map(toEditorCard); },
+    async editorCards() { return (await pagedGet('/rest/v1/flashcards?select=*&order=subject.asc,id.asc')).map(toEditorCard); },
     async saveCards(list) { for (let i = 0; i < list.length; i += 50) await api('/rest/v1/flashcards?on_conflict=id', { method: 'POST', headers: { Prefer: 'resolution=merge-duplicates,return=minimal' }, body: list.slice(i, i + 50).map(toCardRow) }); },
     patchCards: (ids, patch) => api('/rest/v1/flashcards?id=in.' + encodeURIComponent(inList(ids)), { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: patch }),
     deleteCards: ids => api('/rest/v1/flashcards?id=in.' + encodeURIComponent(inList(ids)), { method: 'DELETE', headers: { Prefer: 'return=minimal' } }),
@@ -501,7 +520,7 @@ const Cloud = (() => {
       const url = URL.createObjectURL(blob); imageUrls.set(path, url); return url;
     },
     async prefetchImages(paths) { for (const p of [...new Set(paths)]) { try { await this.image(p); } catch { /* fetched later, or unavailable */ } } },
-    rpc: (name, args = {}) => api(`/rest/v1/rpc/${name}`, { method: 'POST', body: args }),
+    rpc: (name, args = {}) => rpcAll(name, args),
 
     // hooks called by the Store
     queueAttempt(question_id, ok, chosen) { change(q => q.attempts.push({ question_id, ok, ...(chosen ? { chosen: String(chosen).slice(0, 3) } : {}), client_id: cid(), at: new Date().toISOString() })); },
