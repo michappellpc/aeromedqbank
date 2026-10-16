@@ -2,13 +2,14 @@
 // A member's performance by subject or by topic, for their last few tests ("recent"), over everything ("overall"), or both. Pure logic, no page
 // code. Runs in the browser and in Node (for tests).
 (function (root, factory) {
-  if (typeof module === 'object' && module.exports) module.exports = factory(); else root.Perf = factory();
-})(typeof self !== 'undefined' ? self : this, function () {
+  if (typeof module === 'object' && module.exports) module.exports = factory(require('./groupby.js')); else root.Perf = factory(root.GroupBy);
+})(typeof self !== 'undefined' ? self : this, function (dep) {
+  const GB = () => dep || (typeof self !== 'undefined' ? self.GroupBy : undefined);      // in the browser GroupBy loads after this file, so it is looked up when needed
   const RECENT = { t5: 'Your last 5 tests', t10: 'Your last 10 tests', d30: 'The last 30 days' };
   const SORTS = { weak: 'Weakest first', strong: 'Strongest first', most: 'Most answered', least: 'Least answered', up: 'Biggest improvement', down: 'Biggest drop', az: 'A to Z' };
   const DEFAULTS = { group: 'subject', show: 'both', recent: 't5', sort: 'weak', trend: 'overall', compare: true };
   const pct = (c, n) => (n ? Math.round(100 * c / n) : null);
-  const clean = d => { const o = { ...DEFAULTS, ...(d || {}) }; if (!['subject', 'topic'].includes(o.group)) o.group = DEFAULTS.group; if (!['recent', 'overall', 'both'].includes(o.show)) o.show = DEFAULTS.show; if (!RECENT[o.recent]) o.recent = DEFAULTS.recent; if (!SORTS[o.sort]) o.sort = DEFAULTS.sort; if (!['overall', 'recent', 'both', 'off'].includes(o.trend)) o.trend = DEFAULTS.trend; o.compare = o.compare !== false; return o; };
+  const clean = d => { const o = { ...DEFAULTS, ...(d || {}) }; if (!['subject', 'topic', 'objective'].includes(o.group)) o.group = DEFAULTS.group; if (!['recent', 'overall', 'both'].includes(o.show)) o.show = DEFAULTS.show; if (!RECENT[o.recent]) o.recent = DEFAULTS.recent; if (!SORTS[o.sort]) o.sort = DEFAULTS.sort; if (!['overall', 'recent', 'both', 'off'].includes(o.trend)) o.trend = DEFAULTS.trend; o.compare = o.compare !== false; return o; };
 
   // Answers a test actually holds (a test that ended early lists its unanswered questions in total but they were never answered)
   const answered = t => (t.answers && t.qids ? t.qids.filter(id => t.answers[id]).length : t.total);
@@ -48,10 +49,14 @@
   // One line per subject (under its board) or per topic. Overall comes from the running totals (qstat), recent from the answers in the chosen tests.
   // input: { group, questions, boards, subjects, qstat, tests, peer, recent, now }
   function aggregate(o) {
-    const group = o.group === 'topic' ? 'topic' : 'subject', byId = new Map(o.questions.map(q => [q.id, q])), rows = new Map(), order = [];
-    const keysOf = q => group === 'topic' ? [`${q.subject}|${q.topic || ''}`] : q.boards.map(b => `${b}|${q.subject}`);
+    const group = o.group === 'topic' ? 'topic' : o.group === 'objective' ? 'objective' : 'subject', byId = new Map(o.questions.map(q => [q.id, q])), rows = new Map(), order = [];
+    const gctx = { boards: o.boards, subjects: o.subjects }, objKeys = q => GB().keys(q, 'objective', gctx);      // learning objectives: the board outline's domains, with their weight on the exam
+    const keysOf = q => group === 'topic' ? [`${q.subject}|${q.topic || ''}`] : group === 'objective' ? objKeys(q).map(k => k.key) : q.boards.map(b => `${b}|${q.subject}`);
     const row = (key, q, b) => {
-      if (!rows.has(key)) { rows.set(key, { key, board: group === 'subject' ? ((o.boards.find(x => x.id === b) || {}).name || b) : '', boardId: b || '', subject: q.subject, topic: group === 'topic' ? (q.topic || '') : '', total: 0, seen: 0, oc: 0, ow: 0, rc: 0, rn: 0, gu: 0, gc: 0 }); order.push(key); }
+      if (!rows.has(key)) {
+        const meta = group === 'objective' ? objKeys(q).find(k => k.key === key) : null;
+        rows.set(key, { key, board: group === 'subject' ? ((o.boards.find(x => x.id === b) || {}).name || b) : group === 'objective' ? meta.sub : '', boardId: b || '', subject: group === 'objective' ? '' : q.subject, topic: group === 'topic' ? (q.topic || '') : '', objLabel: meta ? meta.label : '', weight: meta && meta.weight !== undefined ? meta.weight : null, sortKey: meta ? meta.sort : null, total: 0, seen: 0, oc: 0, ow: 0, rc: 0, rn: 0, gu: 0, gc: 0 }); order.push(key);
+      }
       return rows.get(key);
     };
     o.questions.forEach(q => keysOf(q).forEach((key, i) => {
@@ -69,8 +74,9 @@
     // in subject view keep the manifest's order of boards and subjects
     let list = order.map(k => rows.get(k));
     if (group === 'subject') { const bi = id => o.boards.findIndex(b => b.id === id), si = r => ((o.subjects || {})[r.boardId] || []).indexOf(r.subject); list = list.sort((a, b) => bi(a.boardId) - bi(b.boardId) || (si(a) < 0 ? 99 : si(a)) - (si(b) < 0 ? 99 : si(b))); }
+    else if (group === 'objective') list = list.sort((a, b) => a.sortKey[0] - b.sortKey[0] || a.sortKey[1] - b.sortKey[1]);      // the outline's own order, untagged last
     else list = list.sort((a, b) => a.subject.localeCompare(b.subject) || a.topic.localeCompare(b.topic));
-    list.forEach(r => { r.overall = pct(r.oc, r.oc + r.ow); r.on = r.oc + r.ow; r.recent = pct(r.rc, r.rn); r.change = r.overall !== null && r.recent !== null ? r.recent - r.overall : null; r.group = r.gu ? Math.round(r.gc / r.gu) : null; r.label = group === 'topic' ? `${r.subject}: ${r.topic || 'No topic set'}` : r.subject; });
+    list.forEach(r => { r.overall = pct(r.oc, r.oc + r.ow); r.on = r.oc + r.ow; r.recent = pct(r.rc, r.rn); r.change = r.overall !== null && r.recent !== null ? r.recent - r.overall : null; r.group = r.gu ? Math.round(r.gc / r.gu) : null; r.label = group === 'topic' ? `${r.subject}: ${r.topic || 'No topic set'}` : group === 'objective' ? r.objLabel : r.subject; });
     return { rows: list, recentCorrect: allC, recentAnswered: allN, recentScore: pct(allC, allN), testsInWindow: win.length };
   }
 

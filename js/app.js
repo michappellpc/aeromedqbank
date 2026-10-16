@@ -431,9 +431,9 @@ const dashPrefs = () => Perf.clean(Store.data.settings.dash);
 function setDash(patch) { Store.data.settings.dash = { ...dashPrefs(), ...patch }; Store.touchSettings(); paintPerf(); paintTrend(); }
 function paintPerf() {
   const pr = dashPrefs(), d = Perf.aggregate({ group: pr.group, questions: bank.questions, boards: bank.boards, subjects: bank.subjects, qstat: Store.data.q, tests: Store.data.tests, peer: bank.peer, recent: pr.recent });
-  const showR = pr.show !== 'overall', showO = pr.show !== 'recent', both = pr.show === 'both', topic = pr.group === 'topic';
+  const showR = pr.show !== 'overall', showO = pr.show !== 'recent', both = pr.show === 'both', topic = pr.group === 'topic', obj = pr.group === 'objective';
   const sortKey = !both && ['up', 'down'].includes(pr.sort) ? 'weak' : pr.sort, rows = Perf.sortRows(d.rows, sortKey, pr.show);
-  document.getElementById('perf-title').textContent = `Performance by ${pr.group}`;
+  document.getElementById('perf-title').textContent = `Performance by ${obj ? 'learning objective' : pr.group}`;
   document.querySelectorAll('[data-pg]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.pg === pr.group)));
   document.querySelectorAll('[data-ps]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.ps === pr.show)));
   const rec = document.getElementById('perf-rec'); rec.value = pr.recent; rec.disabled = !showR;
@@ -448,8 +448,8 @@ function paintPerf() {
   const cell = (p, n) => (p === null ? '<span class="muted">—</span>' : `<b>${p}%</b> <span class="muted small">(${n})</span>`);
   const chg = r => { if (r.change === null) return '<span class="muted">—</span>'; const up = r.change > 0, dn = r.change < 0; return `<span class="chg ${up ? 'up' : dn ? 'down' : 'flat'}"><span aria-hidden="true">${up ? '\u25b2' : dn ? '\u25bc' : '='}</span> ${up ? '+' : dn ? '\u2212' : ''}${Math.abs(r.change)} pts<span class="sr"> percentage points ${up ? 'up' : dn ? 'down' : 'no change'} compared with overall</span></span>`; };
   const measure = r => (showR && !showO ? r.recent : r.overall);
-  document.getElementById('perf-body').innerHTML = rows.length ? `<div class="scroll" role="region" tabindex="0" aria-label="Performance table"><table><caption class="sr">Your performance by ${pr.group}, ${esc(Perf.SORTS[sortKey].toLowerCase())}</caption><thead><tr>${topic ? '' : '<th scope="col">Board</th>'}<th scope="col">${topic ? 'Subject and topic' : 'Subject'}</th><th scope="col">Used</th>${showR ? '<th scope="col">Recent</th>' : ''}${showO ? '<th scope="col">Overall</th>' : ''}${both ? '<th scope="col" title="Recent minus overall, in percentage points">Change (points)</th>' : ''}<th scope="col"><span class="sr">Progress</span></th></tr></thead><tbody>
-    ${rows.map(r => `<tr>${topic ? '' : `<td>${esc(r.board)}</td>`}<td>${esc(r.label)}</td><td>${r.seen}/${r.total}</td>${showR ? `<td>${cell(r.recent, r.rn)}</td>` : ''}${showO ? `<td>${cell(r.overall, r.on)}</td>` : ''}${both ? `<td>${chg(r)}</td>` : ''}<td style="width:20%"><div class="bar" aria-hidden="true"><i style="width:${measure(r) || 0}%"></i></div></td></tr>`).join('')}</tbody></table></div>` : '<p class="muted">No questions loaded.</p>';
+  document.getElementById('perf-body').innerHTML = rows.length ? `<div class="scroll" role="region" tabindex="0" aria-label="Performance table"><table><caption class="sr">Your performance by ${obj ? 'learning objective' : pr.group}, ${esc(Perf.SORTS[sortKey].toLowerCase())}</caption><thead><tr>${topic ? '' : '<th scope="col">Board</th>'}<th scope="col">${topic ? 'Subject and topic' : obj ? 'Learning objective (percent of the exam)' : 'Subject'}</th><th scope="col">Used</th>${showR ? '<th scope="col">Recent</th>' : ''}${showO ? '<th scope="col">Overall</th>' : ''}${both ? '<th scope="col" title="Recent minus overall, in percentage points">Change (points)</th>' : ''}<th scope="col"><span class="sr">Progress</span></th></tr></thead><tbody>
+    ${rows.map(r => `<tr>${topic ? '' : `<td>${esc(r.board)}</td>`}<td>${esc(r.label)}${obj && r.weight ? ` <span class="wpct">${r.weight}% of exam</span>` : ''}</td><td>${r.seen}/${r.total}</td>${showR ? `<td>${cell(r.recent, r.rn)}</td>` : ''}${showO ? `<td>${cell(r.overall, r.on)}</td>` : ''}${both ? `<td>${chg(r)}</td>` : ''}<td style="width:20%"><div class="bar" aria-hidden="true"><i style="width:${measure(r) || 0}%"></i></div></td></tr>`).join('')}</tbody></table></div>` : '<p class="muted">No questions loaded.</p>';
 }
 function bindPerf() {
   document.querySelectorAll('[data-pg]').forEach(b => b.onclick = () => setDash({ group: b.dataset.pg }));
@@ -510,7 +510,7 @@ function dashboard() {
   ${sf ? '' : focusAreas()}
   ${sf ? '' : `<div class="card" id="perf"><h2 id="perf-title">Performance by subject</h2>
     <div class="perfctl">
-      <div class="seg" role="group" aria-label="Show by"><button type="button" data-pg="subject">Subject</button><button type="button" data-pg="topic">Topic</button></div>
+      <div class="seg" role="group" aria-label="Show by"><button type="button" data-pg="subject">Subject</button><button type="button" data-pg="topic">Topic</button><button type="button" data-pg="objective">Learning objective</button></div>
       <div class="seg" role="group" aria-label="Which score to show"><button type="button" data-ps="recent">Recent</button><button type="button" data-ps="overall">Overall</button><button type="button" data-ps="both">Both</button></div>
       <div><label for="perf-rec">Recent means</label><select id="perf-rec">${Object.entries(Perf.RECENT).map(([k, v]) => `<option value="${k}">${v}</option>`).join('')}</select></div>
       <div><label for="perf-sort">Sort by</label><select id="perf-sort"></select></div></div>

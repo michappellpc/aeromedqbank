@@ -87,17 +87,25 @@ const Lessons = (() => {
   const sorted = list => list.slice().sort((a, b) => (a.order ?? 100) - (b.order ?? 100) || a.title.localeCompare(b.title));
   const done = () => { bindZoom(); hydrateImages(); };
 
+  const BYKEY = 'qbank.lessonsby', byMode = () => { try { return localStorage.getItem(BYKEY) === 'objective' ? 'objective' : 'subject'; } catch { return 'subject'; } };
+  // Lessons grouped by the board learning objective (outline domain) they are tagged to, with each domain's percent of the exam
+  const byObjective = list => {
+    const gs = GroupBy.groups(list, 'objective', { boards: bank.boards, subjects: bank.subjects }, (a, b) => (a.order ?? 100) - (b.order ?? 100) || a.title.localeCompare(b.title));
+    return gs.length ? gs.map(g => `<section class="card"><h2>${X(g.label)}${g.weight ? ` <span class="wpct">${g.weight}% of exam</span>` : ''}</h2>${g.sub ? `<p class="muted small" style="margin:0 0 6px">${X(g.sub)}</p>` : ''}${g.items.map(card).join('')}</section>`).join('') : '';
+  };
   function indexPage() {
     pageTitle('Lessons');
-    const full = bank.lessons || [], all = hyList(full), nHy = full.filter(l => l.highYield).length;
+    const full = bank.lessons || [], all = hyList(full), nHy = full.filter(l => l.highYield).length, mode = byMode();
     const tile = (subj, n) => n ? `<a class="subjtile" href="#/lessons/${enc(subj)}"><b>${X(subj)}</b><span>${n} lesson${n === 1 ? '' : 's'}</span></a>` : `<div class="subjtile off" aria-disabled="true"><b>${X(subj)}</b><span>No lessons yet</span></div>`;
     $app.innerHTML = `<div class="pagehead"><div><h2 class="pagetitle">Lessons</h2><p class="muted">Short reviews with tables, charts and step-by-step flows. Choose a subject.</p></div>
       <div class="lsearch"><label class="sr" for="lq">Search lessons</label><input id="lq" type="search" placeholder="Search lessons" autocomplete="off"></div></div>
       <div class="row hybar">${hySwitch('hy', `${nHy} of ${full.length} lesson${full.length === 1 ? ' is' : 's are'} marked high yield`)}</div>
       <div id="lres"></div>
-      <div id="lidx">${bank.boards.map(b => `<section class="card"><h2>${X(b.name)}</h2><div class="subjgrid">${(bank.subjects[b.id] || []).map(s => tile(s, all.filter(l => l.boards.includes(b.id) && l.subject === s).length)).join('')}</div></section>`).join('')}
+      <div class="row seggroup" style="margin:6px 0"><span class="muted small" id="lg-l">Group by</span><div class="seg" role="group" aria-labelledby="lg-l">${[['subject', 'Subject'], ['objective', 'Learning objective']].map(([m, t]) => `<button type="button" data-lg="${m}" aria-pressed="${m === mode}">${t}</button>`).join('')}</div></div>
+      <div id="lidx">${mode === 'objective' ? byObjective(all) : bank.boards.map(b => `<section class="card"><h2>${X(b.name)}</h2><div class="subjgrid">${(bank.subjects[b.id] || []).map(s => tile(s, all.filter(l => l.boards.includes(b.id) && l.subject === s).length)).join('')}</div></section>`).join('')}
       ${all.length ? '' : `<p class="muted">${full.length ? 'No lessons are marked high yield yet. Switch off High yield only to see them all.' : 'Lessons have not been added yet.'}</p>`}</div>`;
     document.getElementById('hy').onchange = e => { setHy(e.target.checked); indexPage(); const again = document.getElementById('hy'); if (again) again.focus(); };
+    $app.querySelectorAll('[data-lg]').forEach(b => b.onclick = () => { try { localStorage.setItem(BYKEY, b.dataset.lg); } catch { /* not saved */ } indexPage(); const again = $app.querySelector(`[data-lg="${b.dataset.lg}"]`); if (again) again.focus(); });
     document.getElementById('lq').addEventListener('input', e => {
       const w = e.target.value.trim().toLowerCase(), res = document.getElementById('lres'), idx = document.getElementById('lidx');
       idx.hidden = !!w; if (!w) { res.innerHTML = ''; return; }

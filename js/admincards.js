@@ -9,7 +9,7 @@ const AdminCards = (() => {
   const withLesson = () => { if (wlKey !== cache.list || wlSet === null) { wlKey = cache.list; wlSet = Links.withLesson(cache.list, bank.lessons || []); } return wlSet; };
   const hyOk = x => !view.hy || (view.hy === 'yes') === !!x.highYield;     // the High yield filter
   const tagOk = x => !view.tag || (view.tag === 'nolesson' ? !withLesson().has(x.id) : (view.tag === 'none') === !((x.objectives || []).length));
-  const view = { q: '', subject: '', status: '', tag: '', hy: '', show: 'active', sel: new Set(), page: 0 };
+  const view = { sort: '', q: '', subject: '', status: '', tag: '', hy: '', show: 'active', sel: new Set(), page: 0 };
   const SIZES = [50, 100, 250, 500, 0];                       // rows per page; 0 shows them all
   let size = 50; try { const raw = localStorage.getItem('qbank.admin.pagesize'); if (raw !== null && SIZES.includes(+raw)) size = +raw; } catch {}
   const sizeBox = () => `<div><label for="fpp">Per page</label><select id="fpp">${SIZES.map(n => `<option value="${n}"${n === size ? ' selected' : ''}>${n || 'All'}</option>`).join('')}</select></div>`;
@@ -54,13 +54,14 @@ const AdminCards = (() => {
       <div class="card"><form id="flt" class="filters" aria-label="Filter flashcards">
         <div><label for="fq">Search</label><input id="fq" type="search" value="${esc(view.q)}" placeholder="id, topic, or words on the card"></div>
         <div><label for="fs">Subject</label><select id="fs"><option value="">All</option>${subjects.map(s => `<option${s === view.subject ? ' selected' : ''}>${esc(s)}</option>`).join('')}</select></div>
-        <div><label for="fst">Status</label><select id="fst"><option value="">All</option><option value="draft">Draft</option><option value="reviewed">Reviewed</option></select></div>
+        <div><label for="fsort">Sort by</label><select id="fsort"><option value="">Default order</option><option value="subject">Subject (outline order)</option><option value="topic">Subject, then topic</option><option value="objective">Learning objective (percent of the exam)</option></select></div><div><label for="fst">Status</label><select id="fst"><option value="">All</option><option value="draft">Draft</option><option value="reviewed">Reviewed</option></select></div>
         <div><label for="fot">Outline tags</label><select id="fot"><option value="">All</option><option value="none">Not tagged yet (${cache.list.filter(x => !x.archived && !(x.objectives || []).length).length})</option><option value="some">Tagged</option><option value="nolesson">No lesson linked yet (${cache.list.filter(x => !x.archived && !withLesson().has(x.id)).length})</option></select></div><div><label for="fhy">High yield</label><select id="fhy"><option value="">All</option><option value="yes">High yield only (${cache.list.filter(x => !x.archived && x.highYield).length})</option><option value="no">Not marked yet</option></select></div><div><label for="fsh">Show</label><select id="fsh"><option value="active">Active</option><option value="archived">Archived</option><option value="all">Both</option></select></div>${sizeBox()}</form></div>
       <div id="bulk"></div><div class="card" id="cres"></div>`;
     const el = id => document.getElementById(id);
-    el('fst').value = view.status; el('fsh').value = view.show; el('fot').value = view.tag; el('fhy').value = view.hy;
+    el('fsort').value = view.sort; el('fst').value = view.status; el('fsh').value = view.show; el('fot').value = view.tag; el('fhy').value = view.hy;
     el('fq').oninput = e => { view.q = e.target.value; view.page = 0; paint(); };
     el('fs').onchange = e => { view.subject = e.target.value; view.page = 0; paint(); };
+    el('fsort').onchange = e => { view.sort = e.target.value; view.page = 0; paint(); };
     el('fst').onchange = e => { view.status = e.target.value; view.page = 0; paint(); };
     el('fot').onchange = e => { view.tag = e.target.value; view.page = 0; paint(); };
     el('fhy').onchange = e => { view.hy = e.target.value; view.page = 0; paint(); };
@@ -80,13 +81,13 @@ const AdminCards = (() => {
 
   let lastRows = [];
   function paint() {
-    const rows = filtered(); lastRows = rows; const pg = size || Math.max(1, rows.length), pages = Math.max(1, Math.ceil(rows.length / pg)); view.page = Math.min(view.page, pages - 1);
+    const ctx = { boards: bank.boards, subjects: bank.subjects }, rows = view.sort ? GroupBy.sortItems(filtered(), view.sort, ctx, (a, b) => a.id.localeCompare(b.id)) : filtered(), head = view.sort ? GroupBy.heading(view.sort, ctx) : null; lastRows = rows; const pg = size || Math.max(1, rows.length), pages = Math.max(1, Math.ceil(rows.length / pg)); view.page = Math.min(view.page, pages - 1);
     const slice = rows.slice(view.page * pg, view.page * pg + pg), all = slice.length && slice.every(c => view.sel.has(c.id));
     document.getElementById('cres').innerHTML = rows.length ? `<div class="scroll" role="region" tabindex="0" aria-label="Flashcards table"><table class="qtable"><caption class="sr">Flashcards, ${rows.length} shown</caption><thead><tr>
-      <th scope="col"><input type="checkbox" id="selall" aria-label="Select all shown"${all ? ' checked' : ''}></th><th scope="col">Card</th><th scope="col">Subject</th><th scope="col">Status</th><th scope="col">Updated</th></tr></thead><tbody>${slice.map(c => `<tr${c.archived ? ' class="dim"' : ''}>
+      <th scope="col"><input type="checkbox" id="selall" aria-label="Select all shown"${all ? ' checked' : ''}></th><th scope="col">Card</th><th scope="col">Subject</th><th scope="col">Status</th><th scope="col">Updated</th></tr></thead><tbody>${slice.map(c => { const gh = head ? head(c) : ''; return `${gh ? `<tr class="grouprow"><th scope="colgroup" colspan="5">${esc(gh)}</th></tr>` : ''}<tr${c.archived ? ' class="dim"' : ''}>
         <td><input type="checkbox" data-sel="${esc(c.id)}" aria-label="Select ${esc(c.id)}"${view.sel.has(c.id) ? ' checked' : ''}></td>
         <td><a href="#/admin/cards/edit/${esc(c.id)}">${esc(c.id)}</a><div class="small">${esc(c.front.slice(0, 90))}${c.front.length > 90 ? '...' : ''}</div><div class="muted small">${esc(c.back.slice(0, 90))}${c.back.length > 90 ? '...' : ''}</div></td>
-        <td>${esc(c.subject)}<div class="muted small">${esc(c.topic || '')}</div></td><td>${tag(c)}${c.highYield ? ' <span class="tag hy" title="Marked high yield">High yield</span>' : ''}</td><td>${day(c.updatedAt)}<div class="muted small">${esc(c.updatedBy)}</div></td></tr>`).join('')}</tbody></table></div>
+        <td>${esc(c.subject)}<div class="muted small">${esc(c.topic || '')}</div></td><td>${tag(c)}${c.highYield ? ' <span class="tag hy" title="Marked high yield">High yield</span>' : ''}</td><td>${day(c.updatedAt)}<div class="muted small">${esc(c.updatedBy)}</div></td></tr>`; }).join('')}</tbody></table></div>
       <div class="row spread" style="margin-top:10px"><span class="muted" aria-live="polite">${rows.length} card${rows.length === 1 ? '' : 's'}${pages > 1 ? `, page ${view.page + 1} of ${pages}` : ''}</span>
         ${pages > 1 ? `<span class="row"><button id="pv"${view.page ? '' : ' disabled'}>Previous</button><button id="nx"${view.page < pages - 1 ? '' : ' disabled'}>Next</button></span>` : ''}</div>`
       : '<p class="muted">No flashcards match. Add one, or import a batch from a chat.</p>';

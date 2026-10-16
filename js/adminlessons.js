@@ -9,7 +9,7 @@ const AdminLessons = (() => {
   const inUse = () => { if (iuKey !== cache.list || iuSet === null) { iuKey = cache.list; iuSet = Links.lessonsInUse(cache.list, [...(bank.questions || []), ...(bank.cards || [])]); } return iuSet; };
   const hyOk = x => !view.hy || (view.hy === 'yes') === !!x.highYield;     // the High yield filter
   const tagOk = x => !view.tag || (view.tag === 'nolinks' ? !inUse().has(x.id) : (view.tag === 'none') === !((x.objectives || []).length));
-  const view = { q: '', subject: '', status: '', tag: '', hy: '', show: 'active', sel: new Set() };
+  const view = { sort: '', q: '', subject: '', status: '', tag: '', hy: '', show: 'active', sel: new Set() };
   const refresh = () => { cache = null; Admin.changed = true; };
   const slug = s => String(s || '').toLowerCase().replace(/&/g, ' ').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 48) || 'lesson';
   const day = t => (t ? new Date(t).toLocaleDateString() : '-');
@@ -60,12 +60,13 @@ const AdminLessons = (() => {
       <div class="card"><form id="flt" class="filters" aria-label="Filter lessons">
         <div><label for="fq">Search</label><input id="fq" type="search" value="${esc(view.q)}" placeholder="title or id"></div>
         <div><label for="fs">Subject</label><select id="fs"><option value="">All</option>${subjects.map(s => `<option${s === view.subject ? ' selected' : ''}>${esc(s)}</option>`).join('')}</select></div>
-        <div><label for="fst">Status</label><select id="fst"><option value="">All</option><option value="draft">Draft</option><option value="reviewed">Live</option></select></div>
+        <div><label for="fsort">Sort by</label><select id="fsort"><option value="">Default order</option><option value="subject">Subject (outline order)</option><option value="objective">Learning objective (percent of the exam)</option></select></div><div><label for="fst">Status</label><select id="fst"><option value="">All</option><option value="draft">Draft</option><option value="reviewed">Live</option></select></div>
         <div><label for="fot">Outline tags</label><select id="fot"><option value="">All</option><option value="none">Not tagged yet (${cache.list.filter(x => !x.archived && !(x.objectives || []).length).length})</option><option value="some">Tagged</option><option value="nolinks">Nothing linked to it yet (${cache.list.filter(x => !x.archived && !inUse().has(x.id)).length})</option></select></div><div><label for="fhy">High yield</label><select id="fhy"><option value="">All</option><option value="yes">High yield only (${cache.list.filter(x => !x.archived && x.highYield).length})</option><option value="no">Not marked yet</option></select></div><div><label for="fsh">Show</label><select id="fsh"><option value="active">Active</option><option value="archived">Archived</option><option value="all">Both</option></select></div></form></div>
       <div id="bulk"></div><div class="card" id="lres"></div>`;
-    document.getElementById('fst').value = view.status; document.getElementById('fsh').value = view.show; document.getElementById('fot').value = view.tag; document.getElementById('fhy').value = view.hy;
+    document.getElementById('fsort').value = view.sort; document.getElementById('fst').value = view.status; document.getElementById('fsh').value = view.show; document.getElementById('fot').value = view.tag; document.getElementById('fhy').value = view.hy;
     const on = (id, ev, fn) => document.getElementById(id).addEventListener(ev, fn);
     on('fq', 'input', e => { view.q = e.target.value; paint(); }); on('fs', 'change', e => { view.subject = e.target.value; paint(); });
+    on('fsort', 'change', e => { view.sort = e.target.value; paint(); });
     on('fst', 'change', e => { view.status = e.target.value; paint(); }); on('fot', 'change', e => { view.tag = e.target.value; paint(); }); on('fhy', 'change', e => { view.hy = e.target.value; paint(); }); on('fsh', 'change', e => { view.show = e.target.value; paint(); });
     on('backup', 'click', () => backup(c.list));
     on('hyapply', 'click', () => Admin.applyHighYield({ noun: 'lesson', items: cache.list, patch: Cloud.patchLessons, after: () => { refresh(); list(); } }));
@@ -75,10 +76,10 @@ const AdminLessons = (() => {
   }
   let lastRows = [];
   function paint() {
-    const rows = filtered(), box = document.getElementById('lres'); lastRows = rows;
+    const ctx = { boards: bank.boards, subjects: bank.subjects }, rows = view.sort ? GroupBy.sortItems(filtered(), view.sort, ctx, (a, b) => a.title.localeCompare(b.title)) : filtered(), head = view.sort ? GroupBy.heading(view.sort, ctx) : null, box = document.getElementById('lres'); lastRows = rows;
     box.innerHTML = rows.length ? `<div class="scroll" role="region" tabindex="0" aria-label="Lessons table"><table class="qtable"><caption class="sr">Lessons, ${rows.length} shown</caption><thead><tr><th scope="col"><input type="checkbox" id="selall" aria-label="Select all shown"></th><th scope="col">Lesson</th><th scope="col">Subject</th><th scope="col">Status</th><th scope="col">Who can see it</th><th scope="col">Updated</th></tr></thead>
-      <tbody>${rows.map(l => `<tr${l.archived ? ' class="dim"' : ''}><td><input type="checkbox" data-sel="${esc(l.id)}" aria-label="Select ${esc(l.title)}"${view.sel.has(l.id) ? ' checked' : ''}></td>
-        <td><a href="#/admin/lessons/edit/${esc(l.id)}">${esc(l.title)}</a><div class="muted small">${esc(l.id)}</div></td><td>${esc(l.subject)}</td><td>${tag(l)}${l.highYield ? ' <span class="tag hy" title="Marked high yield">High yield</span>' : ''}</td><td>${l.tier === 'free' ? 'Free members too' : 'Pro members'}</td><td>${day(l.updatedAt)}<div class="muted small">${esc(l.updatedBy)}</div></td></tr>`).join('')}</tbody></table></div>`
+      <tbody>${rows.map(l => { const gh = head ? head(l) : ''; return `${gh ? `<tr class="grouprow"><th scope="colgroup" colspan="6">${esc(gh)}</th></tr>` : ''}<tr${l.archived ? ' class="dim"' : ''}><td><input type="checkbox" data-sel="${esc(l.id)}" aria-label="Select ${esc(l.title)}"${view.sel.has(l.id) ? ' checked' : ''}></td>
+        <td><a href="#/admin/lessons/edit/${esc(l.id)}">${esc(l.title)}</a><div class="muted small">${esc(l.id)}</div></td><td>${esc(l.subject)}</td><td>${tag(l)}${l.highYield ? ' <span class="tag hy" title="Marked high yield">High yield</span>' : ''}</td><td>${l.tier === 'free' ? 'Free members too' : 'Pro members'}</td><td>${day(l.updatedAt)}<div class="muted small">${esc(l.updatedBy)}</div></td></tr>`; }).join('')}</tbody></table></div>`
       : '<p class="muted">No lessons match. Add one, or import a batch from a chat.</p>';
     const all = document.getElementById('selall');
     if (all) all.onchange = e => { rows.forEach(l => e.target.checked ? view.sel.add(l.id) : view.sel.delete(l.id)); paint(); };
