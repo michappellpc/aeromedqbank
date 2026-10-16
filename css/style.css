@@ -770,3 +770,4 @@ section.rep-sec:not(.card){padding:0 2px}
 .objparts{margin:0 0 4px 26px}.objpartrow{padding:2px 0}.objpartrow .odname{font-weight:500}
 .objgroup{border-top:1px solid var(--line);margin-top:10px;padding-top:8px}.objgroup summary{cursor:pointer;font-weight:600;padding:4px 0}
 #subjcard[hidden],#objcard[hidden]{display:none!important}
+.browsehead{margin:18px 0 6px;font-size:1rem}.seggroup{align-items:center;gap:10px}

@@ -4,7 +4,13 @@ const Cards = (() => {
   const RATINGS = [[1, 'Again'], [2, 'Hard'], [3, 'Good'], [4, 'Easy']];
   const day = () => CardSched.today();
   const liveCards = () => (bank.cards || []).filter(c => !hyOn() || c.highYield || c.mine);     // High yield only (your own cards always stay)
-  const subjectCards = subject => liveCards().filter(c => !subject || c.subject === subject);
+  // A deck can be a subject, a topic ("T|subject|topic") or a board learning objective ("O|board|domain"); the key is what the links carry
+  const gctx = () => ({ boards: bank.boards, subjects: bank.subjects });
+  const isKey = k => /^[TO]\|/.test(k || '');
+  const inKey = (c, key) => !key || (isKey(key) ? GroupBy.keys(c, key[0] === 'T' ? 'topic' : 'objective', gctx()).some(k => k.key === key) : c.subject === key);
+  const keyLabel = (key, cards) => { if (!isKey(key)) return key; for (const c of cards) { const k = GroupBy.keys(c, key[0] === 'T' ? 'topic' : 'objective', gctx()).find(x => x.key === key); if (k) return (key[0] === 'T' ? k.sub + ': ' : '') + k.label; } return key; };
+  const subjectCards = subject => liveCards().filter(c => inKey(c, subject));
+  const BYKEY = 'qbank.cardsby', byMode = () => { try { const v = localStorage.getItem(BYKEY); return GroupBy.MODES[v] ? v : 'subject'; } catch { return 'subject'; } };
   const prefs = () => CardSched.settings(Store.data.settings && Store.data.settings.cards);
   const optsFor = () => { const p = prefs(); return { newPerDay: p.newPerDay, maxReviews: p.maxReviews, newSeenToday: Store.newCardsSeen(day()), suspended: Store.suspended() }; };
   const shuffled = a => { const b = a.slice(); for (let i = b.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [b[i], b[j]] = [b[j], b[i]]; } return b; };
@@ -36,18 +42,20 @@ const Cards = (() => {
       MyCards.bind(indexPage);
       return;
     }
-    const k = CardSched.counts(all, states, t, opts), subjects = [...new Set(all.map(c => c.subject))].sort();
-    const rows = subjects.map(s => { const cs = subjectCards(s), n = CardSched.counts(cs, states, t, opts);
-      return `<tr><th scope="row">${esc(s)}</th><td>${n.due}</td><td>${n.new}</td><td>${n.total}</td><td><a class="btn${n.due + n.new ? ' primary' : ''}" href="#/cards/study/${encodeURIComponent(s)}" aria-label="Study ${esc(s)}">Study</a> <a class="btn" href="#/cards/browse/${encodeURIComponent(s)}" aria-label="Browse ${esc(s)}">Browse</a></td></tr>`; }).join('');
+    const mode = byMode(), k = CardSched.counts(all, states, t, opts);
+    let gl = GroupBy.groups(all, mode, gctx()); if (mode === 'subject') gl = gl.sort((a, b) => a.label.localeCompare(b.label));
+    const rows = gl.map(g => { const n = CardSched.counts(g.items, states, t, opts), nm = esc(g.label), arg = encodeURIComponent(mode === 'subject' ? g.label : g.key);
+      return `<tr><th scope="row">${nm}${mode === 'topic' ? `<div class="muted small">${esc(g.sub)}</div>` : mode === 'objective' && g.weight ? ` <span class="wpct">${g.weight}% of exam</span><div class="muted small">${esc(g.sub)}</div>` : ''}</th><td>${n.due}</td><td>${n.new}</td><td>${n.total}</td><td><a class="btn${n.due + n.new ? ' primary' : ''}" href="#/cards/study/${arg}" aria-label="Study ${nm}">Study</a> <a class="btn" href="#/cards/browse/${arg}" aria-label="Browse ${nm}">Browse</a></td></tr>`; }).join('');
     $app.innerHTML = `<div class="pagehead"><div><h2 class="pagetitle">Flashcards</h2><p class="muted">Short cards to learn and revisit. Rate each one honestly and the app brings it back just before you would forget it.</p></div></div>
       ${hyRow}
       <div class="grid"><div class="card stat"><b>${k.due}</b><span>Due today</span></div><div class="card stat"><b>${k.new}</b><span>New today</span></div><div class="card stat"><b>${k.learned}</b><span>Well learned</span></div><div class="card stat"><b>${k.total}</b><span>Cards in all</span></div></div>
       <div class="card"><div class="row spread"><div><h2 style="margin:0">Today</h2><p class="muted" style="margin:4px 0 0">${k.due + k.new ? `${k.due} to review and ${k.new} new` : 'Nothing is due. Come back tomorrow, or study a deck below to get ahead.'}</p></div>
         <div class="row"><a class="btn primary" href="#/cards/study"${k.due + k.new ? '' : ' aria-disabled="true"'}>${k.due + k.new ? `Study ${k.due + k.new} card${k.due + k.new === 1 ? '' : 's'}` : 'All done for today'}</a><a class="btn" href="#/cards/browse">Browse all cards</a></div></div></div>
-      <div class="card"><h2>Decks</h2><div class="scroll" role="region" tabindex="0" aria-label="Decks table"><table><caption class="sr">Flashcard decks by subject</caption><thead><tr><th scope="col">Subject</th><th scope="col">Due</th><th scope="col">New</th><th scope="col">Cards</th><th scope="col"><span class="sr">Study</span></th></tr></thead><tbody>${rows}</tbody></table></div>
+      <div class="card"><h2>Decks</h2><div class="row seggroup" style="margin:4px 0"><span class="muted small" id="cg-l">Group by</span><div class="seg" role="group" aria-labelledby="cg-l">${Object.entries(GroupBy.MODES).map(([m, l]) => `<button type="button" data-cg="${m}" aria-pressed="${m === mode}">${l}</button>`).join('')}</div></div><div class="scroll" role="region" tabindex="0" aria-label="Decks table"><table><caption class="sr">Flashcard decks by ${esc(GroupBy.MODES[mode].toLowerCase())}</caption><thead><tr><th scope="col">${esc(GroupBy.MODES[mode])}</th><th scope="col">Due</th><th scope="col">New</th><th scope="col">Cards</th><th scope="col"><span class="sr">Study</span></th></tr></thead><tbody>${rows}</tbody></table></div>
         <p class="muted small">Up to ${prefs().newPerDay} new cards a day${prefs().maxReviews ? ` and ${prefs().maxReviews} reviews per session` : ''}, so reviews never pile up.${k.suspended ? ` ${k.suspended} card${k.suspended === 1 ? ' is' : 's are'} suspended. <a href="#/cards/browse/~suspended">See suspended cards</a>.` : ''}</p></div>
       ${MyCards.section()}
       <details class="card flashset" id="flashset"><summary><b>Flashcard settings</b></summary>${settingsForm()}</details>`;
+    $app.querySelectorAll('[data-cg]').forEach(b => b.onclick = () => { try { localStorage.setItem(BYKEY, b.dataset.cg); } catch { /* not saved */ } indexPage(); const again = $app.querySelector(`[data-cg="${b.dataset.cg}"]`); if (again) again.focus(); });
     bindSettings(); MyCards.bind(indexPage); bindHy();
   }
 
@@ -79,7 +87,7 @@ const Cards = (() => {
   // ------------------------------------------------------------------ study session
   function studyPage(subjectArg) {
     const subject = subjectArg ? decodeURIComponent(subjectArg) : '';
-    pageTitle('Flashcards' + (subject ? ': ' + subject : ''));
+    pageTitle('Flashcards' + (subject ? ': ' + keyLabel(subject, liveCards()) : ''));
     const all = subjectCards(subject), t = day();
     const pr = prefs();
     let queue = CardSched.queue(all, Store.cardStates(), t, optsFor()), idx = 0, shown = false;
@@ -152,7 +160,7 @@ const Cards = (() => {
     const fm = /^~([ql]):(.+)$/.exec(subjectArg || ''), fid = fm ? decodeURIComponent(fm[2]) : '';
     const fItem = fm ? (fm[1] === 'q' ? bank.byId[fid] : (bank.lessons || []).find(l => l.id === fid)) : null;
     const only = fItem ? new Set((fm[1] === 'q' ? Links.cardsForQuestion(fItem, all) : Links.cardsForLesson(fItem, all)).map(c => c.id)) : null;
-    const v = { q: '', subject: subjectArg && !susOnly && !fm ? decodeURIComponent(subjectArg) : '', all: false, sus: susOnly, shown: STEP, open: new Set() };
+    const v = { q: '', subject: subjectArg && !susOnly && !fm ? decodeURIComponent(subjectArg) : '', all: false, sus: susOnly, shown: STEP, open: new Set(), sort: byMode() };
     const isSus = c => Store.suspended().includes(c.id);
     const status = c => { const st = states[c.id]; return isSus(c) ? 'Suspended' : !st ? 'New' : st.due <= t ? 'Due today' : `Next review ${when(st.due)}`; };
     $app.innerHTML = `<p class="crumb"><a href="#/cards">Back to flashcards</a></p><div class="card"><h2 style="margin:0">Browse flashcards</h2>
@@ -160,18 +168,19 @@ const Cards = (() => {
       ${fm ? `<p class="notice" role="status">${fItem ? `Showing the ${only.size} card${only.size === 1 ? '' : 's'} that cover ${fm[1] === 'q' ? 'this question' : 'the lesson <b>' + esc(fItem.title) + '</b>'}.` : 'That item is no longer available, so every card is shown.'} <a href="#/cards/browse">Show all cards</a></p>` : ''}
       <form class="filters" aria-label="Filter flashcards" style="margin-top:12px">
         <div><label for="bq">Search</label><input id="bq" type="search" placeholder="words on the card or topic" autocomplete="off"></div>
-        <div><label for="bs">Subject</label><select id="bs"><option value="">All subjects</option>${subjects.map(s => `<option${s === v.subject ? ' selected' : ''}>${esc(s)}</option>`).join('')}</select></div>
+        <div><label for="bs">Subject</label><select id="bs"><option value="">All subjects</option>${subjects.map(s => `<option${s === v.subject ? ' selected' : ''}>${esc(s)}</option>`).join('')}${isKey(v.subject) ? `<option value="${esc(v.subject)}" selected>${esc(keyLabel(v.subject, all))}</option>` : ''}</select></div>
+        <div><label for="bsort">Sort by</label><select id="bsort">${Object.entries(GroupBy.MODES).map(([m, l]) => `<option value="${m}"${m === v.sort ? ' selected' : ''}>${l}</option>`).join('')}</select></div>
         <div style="align-self:end"><label class="chk"><input type="checkbox" id="ball"> Show all answers</label></div>
         <div style="align-self:end">${hySwitch('hy')}</div>
         <div style="align-self:end"><label class="chk"><input type="checkbox" id="bsus"${susOnly ? ' checked' : ''}> Suspended cards only</label></div></form></div>
       <div id="blist"></div>`;
     const el = i => document.getElementById(i);
-    const filtered = () => { const w = v.q.trim().toLowerCase(); return all.filter(c => (!only || only.has(c.id)) && (!v.sus || isSus(c)) && (!v.subject || c.subject === v.subject) && (!w || c.front.toLowerCase().includes(w) || c.back.toLowerCase().includes(w) || (c.topic || '').toLowerCase().includes(w))); };
+    const filtered = () => { const w = v.q.trim().toLowerCase(); return all.filter(c => (!only || only.has(c.id)) && (!v.sus || isSus(c)) && inKey(c, v.subject) && (!w || c.front.toLowerCase().includes(w) || c.back.toLowerCase().includes(w) || (c.topic || '').toLowerCase().includes(w))); };
     function paint() {
-      const rows = filtered(), slice = rows.slice(0, v.shown);
+      const rows = GroupBy.sortItems(filtered(), v.sort, gctx()), slice = rows.slice(0, v.shown); let lastKey = null;
       el('blist').innerHTML = rows.length ? `<p class="muted" aria-live="polite">${rows.length} card${rows.length === 1 ? '' : 's'}</p>${slice.map(c => {
-        const open = v.all || v.open.has(c.id), lesson = open ? lessonFor(c) : null;
-        return `<article class="card browsecard"><div class="row spread"><span class="muted small">${esc(c.subject)}${c.topic ? ' &middot; ' + esc(c.topic) : ''}</span><span>${c.highYield ? '<span class="tag hy" title="Marked high yield">High yield</span> ' : ''}<span class="tag">${esc(status(c))}</span></span></div>
+        const open = v.all || v.open.has(c.id), lesson = open ? lessonFor(c) : null, gk = GroupBy.keys(c, v.sort, gctx())[0], head = gk.key !== lastKey ? `<h3 class="browsehead">${esc(gk.label)}${v.sort === 'objective' && gk.weight ? ` <span class="wpct">${gk.weight}% of exam</span>` : ''}${gk.sub ? ` <span class="muted small">${esc(gk.sub)}</span>` : ''}</h3>` : ''; lastKey = gk.key;
+        return `${head}<article class="card browsecard"><div class="row spread"><span class="muted small">${esc(c.subject)}${c.topic ? ' &middot; ' + esc(c.topic) : ''}</span><span>${c.highYield ? '<span class="tag hy" title="Marked high yield">High yield</span> ' : ''}<span class="tag">${esc(status(c))}</span></span></div>
           <p class="flash-side" style="margin:8px 0">${esc(c.front)}</p>
           <div id="bk-${esc(c.id)}"${open ? '' : ' hidden'} class="flash-back">${esc(c.back).replace(/\n/g, '<br>')}${c.references && c.references.length ? `<p class="muted small">${c.references.map(esc).join('; ')}</p>` : ''}${ObjPicker.show(c.objectives)}
             ${lesson ? `<p class="small"><a href="#/lesson/${encodeURIComponent(lesson.id)}" target="_blank" rel="noopener">Study the lesson: ${esc(lesson.title)}<span class="sr"> (opens in a new tab)</span></a></p>` : ''}${open ? relatedQuestions(c) : ''}</div>
@@ -185,6 +194,7 @@ const Cards = (() => {
     }
     el('bq').oninput = e => { v.q = e.target.value; v.shown = STEP; paint(); };
     el('bs').onchange = e => { v.subject = e.target.value; v.shown = STEP; paint(); };
+    el('bsort').onchange = e => { v.sort = e.target.value; try { localStorage.setItem(BYKEY, v.sort); } catch { /* not saved */ } v.shown = STEP; paint(); };
     el('bsus').onchange = e => { v.sus = e.target.checked; v.shown = STEP; paint(); };
     el('hy').onchange = e => { setHy(e.target.checked); browsePage(subjectArg); const again = document.getElementById('hy'); if (again) again.focus(); };
     el('ball').onchange = e => { v.all = e.target.checked; paint(); };

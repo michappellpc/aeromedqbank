@@ -220,6 +220,13 @@ Admins add programs under **Admin > Overview > Residency programs**. Residents p
 ## Lessons
 The **Lessons** tab has short teaching pages per subject with tables, charts, step flows and comparisons, plus a button to practice questions in that subject. Admins and reviewers write, preview, import and publish them under **Admin > Lessons** (`js/adminlessons.js`, renderer in `js/lessons.js`, rules in `js/lvalidate.js`). See **docs/LESSON-GUIDE.md**, including a ready-made prompt for drafting lessons. Sample lessons (unreviewed drafts) are in `data/lessons/`.
 
+## Sorting by topic or learning objective
+Most lists can be grouped three ways: by subject, by topic, or by learning objective (an ABPM content-outline domain, shown with its percent of the exam). The logic is `js/groupby.js` (tested in `tools/test-groupby.js`).
+- **Dashboard, Performance:** the Subject / Topic / Learning objective buttons. Objective rows show "% of exam".
+- **Lessons and Flashcards (members):** a "Group by" control; flashcard decks also group by topic, and Browse can sort the same ways.
+- **Admin Questions, Lessons and Flashcards:** a "Sort by" menu adds a heading row per group.
+A question tagged to two domains appears under both in grouped lists, and once (under its first domain) in a sorted table. Items with no outline tag go in "Not tagged to the outline yet". Lessons have no topic, so they offer subject and learning objective only. Nothing in the database changed.
+
 ## Features
 Tutor and timed modes, filters (board, subject, unused/incorrect/flagged), option cross-out, flagging, notes, question navigator, keyboard shortcuts (1-9/letters, ←/→, F, Enter), results by subject, test review, history, dark mode, progress backup.
 

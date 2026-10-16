@@ -74,5 +74,21 @@
     if (q && typeof q === 'object') memo.set(q, { key, set: out });
     return out;
   }
-  return { layout, rollup, partKey, REF, coverSet };
+
+  // The outline domains an item (a question, lesson or card) is tagged into, in outline order: [{ board, key, name, weight, order }]
+  const layoutCache = {};
+  const lay = b => layoutCache[b] || (layoutCache[b] = layout(b));
+  function domainsOf(item) {
+    const out = [], seen = new Set();
+    ((item && item.objectives) || []).forEach(r => {
+      const m = REF.exec(String(r)); if (!m) return;
+      const L = lay(m[1]); if (!L) return;
+      const raw = DATA[m[1]].items.find(i => i.code === m[2]); if (!raw) return;
+      const k = m[1] + ':' + raw.domain; if (seen.has(k)) return; seen.add(k);
+      const idx = L.domains.findIndex(d => d.key === raw.domain), d = L.domains[idx];
+      out.push({ board: m[1], key: raw.domain, name: d.name, weight: d.weight, order: idx });
+    });
+    return out.sort((a, b) => a.board.localeCompare(b.board) || a.order - b.order);
+  }
+  return { layout, rollup, partKey, REF, coverSet, domainsOf };
 });
