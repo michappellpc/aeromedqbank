@@ -425,6 +425,12 @@ eq  "a first try at the new wording counts, and the figure and the picks agree (
 eq  "someone who answered the old wording gets a fresh first try at the new one" "2,50" "$(root "insert into attempts (user_id, question_id, ok, client_id, chosen) values ('00000000-0000-0000-0001-000000000002','q-rw',false,'rw-new2','B');" >/dev/null; as a "select users||','||pct_correct from peer_stats() where question_id='q-rw';")"
 root "delete from attempts where question_id='q-rw'; delete from questions where id='q-rw';" >/dev/null
 as admin "select set_peer_min_users(${PM:-10}); commit;" >/dev/null
+echo; echo "When a question was first saved"
+root "insert into questions (id, boards, subject, stem, options, answer, explanation, tier, status) values ('q-new','{aem}','S','s','[{\"id\":\"A\",\"text\":\"x\"}]','A','why','free','draft');" >/dev/null
+eq  "a new question gets the date it was first saved" "t" "$(root "select created_at > now() - interval '1 minute' from questions where id='q-new'")"
+eq  "editing it, even its wording, does not change that date" "t" "$(root "select created_at as c0 into temp t0 from questions where id='q-new'; update questions set stem='changed', explanation='changed too' where id='q-new'; select (select created_at from questions where id='q-new') = (select c0 from t0);")"
+eq  "re-saving it with the same id (the upload tool's upsert) keeps the date" "t" "$(root "select created_at as c0 into temp t1 from questions where id='q-new'; insert into questions (id, boards, subject, stem, options, answer, explanation, tier, status) values ('q-new','{aem}','S','again','[{\"id\":\"A\",\"text\":\"x\"}]','A','why','free','draft') on conflict (id) do update set stem = excluded.stem; select (select created_at from questions where id='q-new') = (select c0 from t1);")"
+root "delete from questions where id='q-new';" >/dev/null
 echo; echo "Question feedback inbox"
 as a "insert into feedback (question_id, category, message, client_id, status, admin_note) values ('q-free','typo','There is a typo in option B','fb1','resolved','sneaky'); commit;" >/dev/null
 as b "insert into feedback (question_id, category, message, client_id) values ('q-free','wrong-answer','I think the key is wrong','fb2'); commit;" >/dev/null
