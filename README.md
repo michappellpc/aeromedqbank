@@ -237,6 +237,8 @@ The database returns at most 1,000 rows per call, however many are asked for. An
 
 **Practice from a lesson.** The lesson page's *Set up a practice test for this lesson* button opens New test (it no longer starts a quiz) with that lesson's board ticked and, if the lesson is tagged to the board outline, those learning objectives ticked under *Learning objectives*, otherwise its subject under *Subjects*. Everything stays editable before *Start test*. The route is `#/create/~l:<lesson id>`.
 
+**Oldest untouched first.** Admin > Questions > Sort by has *Oldest untouched first* and *Recently rewritten*. "Touched" means a person changed the question's wording, choices, answer, explanation or picture (`revised_at`); topic, tag, high yield and status changes, and bulk saves, do not count, which is why the plain *Updated* date cannot be used for this. A question never touched is dated by when it was first saved (`created_at`, recorded from now on). Questions already in the bank before `created_at` existed have no date, so they come first (in ID order) until someone rewrites them, and then they move to the other end. Re-run `supabase/schema.sql` once to add the column.
+
 ## Features
 Tutor and timed modes, filters (board, subject, unused/incorrect/flagged), option cross-out, flagging, notes, question navigator, keyboard shortcuts (1-9/letters, ←/→, F, Enter), results by subject, test review, history, dark mode, progress backup.
 

@@ -210,7 +210,7 @@ const Cloud = (() => {
     options: r.options, answer: r.answer, explanation: r.explanation, optionNotes: r.option_notes || undefined, references: r.refs || [], tier: r.tier, lessonId: r.lesson_id || undefined, objectives: r.objectives && r.objectives.length ? r.objectives : undefined, highYield: r.high_yield === true ? true : undefined
   });
 
-  const toEditorQuestion = r => ({ ...toQuestion(r), archived: !!r.archived, updatedAt: r.updated_at, updatedBy: r.updated_by || '' });
+  const toEditorQuestion = r => ({ ...toQuestion(r), archived: !!r.archived, createdAt: r.created_at || '', updatedAt: r.updated_at, updatedBy: r.updated_by || '' });
   // app question -> database row. reviewed_by is deliberately not sent: the database records who reviewed.
   const toRow = q => {
     const row = { id: q.id, status: q.status, boards: q.boards, subject: q.subject, topic: q.topic || null, difficulty: q.difficulty || null, stem: q.stem,

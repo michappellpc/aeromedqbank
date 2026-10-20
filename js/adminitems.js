@@ -102,7 +102,7 @@ const AdminItems = (() => {
   }
   // Sorting and filtering by the measured numbers
   const SORTS = [['attention', 'Measured: needs attention first'], ['mhard', 'Measured: hardest first'], ['measy', 'Measured: easiest first'], ['gap-easy', 'Furthest too easy for its label'], ['gap-hard', 'Furthest too hard for its label'],
-    ['disc-low', 'Weakest separation'], ['disc-high', 'Best separation'], ['many', 'Most answers'], ['few', 'Fewest answers'], ['rewritten', 'Recently rewritten'], ['oldwording', 'Longest since last changed']];
+    ['disc-low', 'Weakest separation'], ['disc-high', 'Best separation'], ['many', 'Most answers'], ['few', 'Fewest answers'], ['rewritten', 'Recently rewritten'], ['oldwording', 'Oldest untouched first']];
   const sorter = k => ({ attention: (a, b) => b.attention - a.attention, mhard: (a, b) => (a.pct ?? 101) - (b.pct ?? 101), measy: (a, b) => (b.pct ?? -1) - (a.pct ?? -1), 'gap-easy': (a, b) => (b.gap ?? -99) - (a.gap ?? -99), 'gap-hard': (a, b) => (a.gap ?? 99) - (b.gap ?? 99),
     'disc-low': (a, b) => (a.disc ?? 9) - (b.disc ?? 9), 'disc-high': (a, b) => (b.disc ?? -9) - (a.disc ?? -9), many: (a, b) => b.n - a.n, few: (a, b) => a.n - b.n, rewritten: (a, b) => String(b.revisedAt || '').localeCompare(String(a.revisedAt || '')) })[k] || null;
   const ready = () => !missing && !!rows;
