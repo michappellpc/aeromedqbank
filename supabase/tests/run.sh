@@ -414,6 +414,17 @@ eq  "rewriting the answer choices clears the picks"  "0" "$(root "update questio
 eq  "so nothing is shown for it any more"            "0" "$(as a "select count(*) from peer_choices() where question_id='q-opt';")"
 eq  "scores are untouched by clearing the picks"     "12" "$(root "select count(*) from attempts where question_id = 'q-opt';")"
 eq  "a pick cannot be longer than 3 characters"      "yes" "$(root "insert into attempts (user_id, question_id, ok, client_id, chosen) values ('00000000-0000-0000-0001-000000000001','q-opt',true,'zz','ABCDE');" 2>&1 | grep -q 'violates check' && echo yes)"
+echo; echo "Group figures after a rewrite (the % correct and the picks must describe the same tries)"
+PM=$(root "select value from app_settings where key='peer_min_users'"); as admin "select set_peer_min_users(1); commit;" >/dev/null     # small group, so allow a figure for one member
+root "insert into questions (id, boards, subject, stem, options, answer, explanation, tier, status) values ('q-rw','{aem}','S','old stem','[{\"id\":\"A\",\"text\":\"x\"},{\"id\":\"B\",\"text\":\"y\"}]','A','why','free','reviewed');
+  insert into attempts (user_id, question_id, ok, client_id, chosen, at) select ('00000000-0000-0000-0001-' || lpad(g::text, 12, '0'))::uuid, 'q-rw', g <= 2, 'rw' || g, case when g <= 2 then 'A' else 'B' end, now() - interval '2 days' from generate_series(1, 3) g;" >/dev/null
+eq  "before a rewrite both figures count all three first tries"  "3,67/3" "$(as a "select (select users||','||pct_correct from peer_stats() where question_id='q-rw')||'/'||(select sum(picks) from peer_choices() where question_id='q-rw');")"
+eq  "rewriting the wording starts the group figure afresh (nothing from the old wording is left)" "0/0" "$(root "update questions set stem = 'new stem', options = '[{\"id\":\"A\",\"text\":\"new x\"},{\"id\":\"B\",\"text\":\"new y\"}]' where id = 'q-rw'" >/dev/null; as a "select (select count(*) from peer_stats() where question_id='q-rw')||'/'||(select count(*) from peer_choices() where question_id='q-rw');")"
+root "insert into attempts (user_id, question_id, ok, client_id, chosen) values ('00000000-0000-0000-0001-000000000001','q-rw',true,'rw-new','A');" >/dev/null
+eq  "a first try at the new wording counts, and the figure and the picks agree (1 member, 1 pick)" "1,100/1" "$(as a "select (select users||','||pct_correct from peer_stats() where question_id='q-rw')||'/'||(select sum(picks) from peer_choices() where question_id='q-rw');")"
+eq  "someone who answered the old wording gets a fresh first try at the new one" "2,50" "$(root "insert into attempts (user_id, question_id, ok, client_id, chosen) values ('00000000-0000-0000-0001-000000000002','q-rw',false,'rw-new2','B');" >/dev/null; as a "select users||','||pct_correct from peer_stats() where question_id='q-rw';")"
+root "delete from attempts where question_id='q-rw'; delete from questions where id='q-rw';" >/dev/null
+as admin "select set_peer_min_users(${PM:-10}); commit;" >/dev/null
 echo; echo "Question feedback inbox"
 as a "insert into feedback (question_id, category, message, client_id, status, admin_note) values ('q-free','typo','There is a typo in option B','fb1','resolved','sneaky'); commit;" >/dev/null
 as b "insert into feedback (question_id, category, message, client_id) values ('q-free','wrong-answer','I think the key is wrong','fb2'); commit;" >/dev/null
