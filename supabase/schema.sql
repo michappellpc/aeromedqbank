@@ -1224,6 +1224,8 @@ begin
   with first_try as (
     select distinct on (a.user_id, a.question_id) a.user_id, a.question_id as qid, a.ok
     from public.attempts a join public.profiles p on p.id = a.user_id and p.active and p.role <> 'faculty'     -- faculty try questions to test them, so they are kept out of the group figures
+    join public.questions q0 on q0.id = a.question_id
+    where q0.revised_at is null or a.at >= q0.revised_at                  -- only tries at the current wording: a rewrite starts the figures afresh, like the picks below
     order by a.user_id, a.question_id, a.at, a.id
   )
   select f.qid, count(*)::int, round(100.0 * count(*) filter (where f.ok) / count(*), 0)
@@ -1243,6 +1245,8 @@ begin
   with first_try as (
     select distinct on (a.user_id, a.question_id) a.user_id, a.question_id as qid, a.chosen
     from public.attempts a join public.profiles p on p.id = a.user_id and p.active and p.role <> 'faculty'
+    join public.questions q0 on q0.id = a.question_id
+    where q0.revised_at is null or a.at >= q0.revised_at                  -- same rule as peer_stats, so the two always describe the same tries
     order by a.user_id, a.question_id, a.at, a.id
   ), counted as (
     select f.qid, f.chosen as pick, count(*)::int as n, sum(count(*)) over (partition by f.qid)::int as tot
