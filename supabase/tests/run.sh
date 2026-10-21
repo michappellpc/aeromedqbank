@@ -457,6 +457,15 @@ eq  "a lesson is in the main bank unless marked otherwise"      "main" "$(root "
 eq  "only 'main' and 'skills' are allowed as a lesson bank"      "yes" "$(root "update lessons set bank='other' where id='sl-def'" 2>&1 | grep -q 'violates check' && echo yes)"
 eq  "a member can read a live skills lesson (it follows the same lesson rules)" "sl-1" "$(as a "select id from lessons where id='sl-1'")"
 root "delete from lessons where id in ('sl-1','sl-main','sl-def');" >/dev/null
+echo; echo "Importing a skills lesson, and ids shared between lessons and questions"
+LJSON='[{"type":"text","text":"When this applies."}]'
+eq  "an editor can save a skills lesson (id skills-sick-call-001, no boards given so the app sends the default board)" "skills-sick-call-001,skills,draft" "$(as admin "insert into lessons (id, status, boards, subject, title, summary, position, blocks, refs, tier, bank) values ('skills-sick-call-001','draft','{aem}','Sick call','Sick call basics','One line.',1,'${LJSON}','{Ref}','free','skills'); commit; select id||','||bank||','||status from lessons where id='skills-sick-call-001';")"
+eq  "a question can use the very same id (lessons and questions are different tables, so ids never collide)" "skills-sick-call-001" "$(as admin "insert into questions (id, boards, subject, stem, options, answer, explanation, tier, status, bank) values ('skills-sick-call-001','{aem}','Sick call','s','[{\"id\":\"A\",\"text\":\"x\"}]','A','why','free','draft','skills'); commit; select id from questions where id='skills-sick-call-001';")"
+eq  "a second lesson with the same id is refused" "yes" "$(as admin "insert into lessons (id, boards, subject, title, bank) values ('skills-sick-call-001','{aem}','Sick call','Dup','skills');" 2>&1 | grep -q 'duplicate key' && echo yes)"
+eq  "a member cannot see the draft skills lesson" "0" "$(as a "select count(*) from lessons where id='skills-sick-call-001';")"
+eq  "a member cannot save a lesson at all" "yes" "$(as a "insert into lessons (id, boards, subject, title, bank) values ('skills-x','{aem}','S','T','skills');" 2>&1 | grep -q 'row-level security' && echo yes)"
+eq  "a lesson must still name at least one board in the database (the app supplies one for skills lessons)" "yes" "$(as admin "insert into lessons (id, boards, subject, title, bank) values ('skills-nb','{}','S','T','skills');" 2>&1 | grep -q 'violates check' && echo yes)"
+root "delete from lessons where id='skills-sick-call-001'; delete from questions where id='skills-sick-call-001';" >/dev/null
 echo; echo "Question feedback inbox"
 as a "insert into feedback (question_id, category, message, client_id, status, admin_note) values ('q-free','typo','There is a typo in option B','fb1','resolved','sneaky'); commit;" >/dev/null
 as b "insert into feedback (question_id, category, message, client_id) values ('q-free','wrong-answer','I think the key is wrong','fb2'); commit;" >/dev/null
