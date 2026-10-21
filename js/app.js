@@ -1,6 +1,6 @@
 'use strict';
 const $app = document.getElementById('app'), $timer = document.getElementById('timer');
-let bank = { boards: [], subjects: {}, questions: [], byId: {}, config: {}, lessons: [], lessonFiles: [], cards: [], cardFiles: [], cardsMissing: false, peer: {}, choices: {}, program: null };
+let bank = { boards: [], subjects: {}, questions: [], skills: [], byId: {}, config: {}, lessons: [], lessonFiles: [], cards: [], cardFiles: [], cardsMissing: false, peer: {}, choices: {}, program: null };
 MyCards.install(bank);
 const APP_VERSION = '1.3';
 let tick = null, ready = false, profile = null, refocus = null;
@@ -172,7 +172,8 @@ async function loadStatic(files) {
   if (bank.cardFiles.length) bank.cards = (await Promise.all(bank.cardFiles.map(f => fetch('data/' + f).then(r => r.json()).catch(() => [])))).flat().filter(c => c.status === 'reviewed' && !c.archived);
   if (bank.lessonFiles.length) bank.lessons = (await Promise.all(bank.lessonFiles.map(f => fetch('data/' + f).then(r => r.json()).catch(() => [])))).flat();
 }
-function setQuestions(list) { bank.questions = list; bank.byId = Object.fromEntries(list.map(q => [q.id, q])); }
+// The clinical skills bank is kept out of bank.questions on purpose, so none of the main bank's tests, counts, lists or statistics can include it. bank.byId finds either.
+function setQuestions(list) { bank.questions = list.filter(q => q.bank !== 'skills'); bank.skills = list.filter(q => q.bank === 'skills'); bank.byId = Object.fromEntries(list.map(q => [q.id, q])); if (typeof Skills !== 'undefined') Skills.syncNav(); }
 
 function zoomImage(src, alt) {
   const d = document.createElement('div'); d.className = 'modal zoom';
@@ -271,7 +272,7 @@ async function route() {
   if (p === '' || p === 'results') refreshPeer();
   const t = Store.data.active;
   if (p === 'test' && t) return renderTest();
-  ({ '': () => (profile && profile.role === 'faculty' ? Program.dashboard() : dashboard()), mine: dashboard, create: () => create(arg, arg2), flagged: flaggedPage, program: () => (arg === 'insights' ? Program.insightsPage('') : arg2 === 'insights' ? Program.insightsPage(arg) : arg2 === 'dashboard' ? Program.dashboard(arg) : Program.facultyPage(arg)), cards: () => Cards.page(arg, arg2), support: () => Support.page(arg), lessons: () => (arg ? Lessons.subjectPage(arg) : Lessons.indexPage()), lesson: () => Lessons.lessonPage(arg), history: historyPage, settings, admin: () => Admin.route(arg, arg2, arg3), results: () => results(arg), review: () => review(arg), highlights: Notebook.page, question: () => Notebook.question(arg) }[p] || dashboard)();
+  ({ '': () => (profile && profile.role === 'faculty' ? Program.dashboard() : dashboard()), mine: dashboard, create: () => create(arg, arg2), flagged: flaggedPage, program: () => (arg === 'insights' ? Program.insightsPage('') : arg2 === 'insights' ? Program.insightsPage(arg) : arg2 === 'dashboard' ? Program.dashboard(arg) : Program.facultyPage(arg)), cards: () => Cards.page(arg, arg2), skills: () => Skills.page(arg), support: () => Support.page(arg), lessons: () => (arg ? Lessons.subjectPage(arg) : Lessons.indexPage()), lesson: () => Lessons.lessonPage(arg), history: historyPage, settings, admin: () => Admin.route(arg, arg2, arg3), results: () => results(arg), review: () => review(arg), highlights: Notebook.page, question: () => Notebook.question(arg) }[p] || dashboard)();
   window.scrollTo(0, 0);
 }
 document.addEventListener('submit', e => { if (e.target.matches && e.target.matches('form.filters')) e.preventDefault(); });   // filter forms never submit (this replaces inline onsubmit handlers, which the Content-Security-Policy does not allow)
@@ -1117,7 +1118,7 @@ async function startSession() {
     await loadCards();
     bank.peer = await Cloud.peerStats(); bank.choices = await Cloud.peerChoices(); peerAt = Date.now();
     bank.program = await Cloud.myProgram();
-    Cloud.prefetchImages(bank.questions.filter(privImg).map(privImg));   // in the background, so pictures also work offline
+    Cloud.prefetchImages(bank.questions.concat(bank.skills || []).filter(privImg).map(privImg));   // in the background, so pictures also work offline
   } catch (e) {
     if (e.auth) return renderSignIn('Please sign in again.');
     $app.innerHTML = `<div class="card"><b>Could not load your questions.</b><p class="muted">${e.offline ? 'You are offline and this device has no saved copy yet. Connect once to download them.' : esc(e.message)}</p><button class="primary" id="retry">Try again</button> <button id="bo">Sign out</button></div>`;
@@ -1125,6 +1126,7 @@ async function startSession() {
     return;
   }
   Store.hooks.attempt = (id, ok, chosen) => Cloud.queueAttempt(id, ok, chosen);
+  Store.hooks.sattempt = (id, ok, chosen) => Cloud.queueSkillAttempt(id, ok, chosen);
   Store.hooks.mark = id => Cloud.queueMark(id);
   Store.hooks.test = rec => Cloud.queueTest(rec);
   Store.hooks.settings = () => Cloud.queueSettings();
@@ -1138,6 +1140,7 @@ async function startSession() {
   clearInterval(badgeTimer);
   const navAdmin = document.getElementById('nav-admin');
   navAdmin.hidden = !Admin.isEditor(); navAdmin.innerHTML = (profile.role === 'admin' ? 'Admin' : 'Questions') + '<span id="inbox-badge" class="navbadge" hidden></span>'; navAdmin.setAttribute('href', profile.role === 'admin' ? '#/admin' : '#/admin/questions');
+  Skills.syncNav();
   refreshInboxBadge(); badgeTimer = setInterval(refreshInboxBadge, 120000);
   if (!/^#\/[a-z]/.test(location.hash)) location.hash = '#/';       // keep a deep link (a lesson opened in a new tab, a bookmark, a reload); anything else, such as a reset-password token, goes to the dashboard
   route();
@@ -1172,13 +1175,13 @@ async function adminPage() {
     const progCell = (id, status) => (id ? `${esc(progName(id))}${status === 'pending' ? ' <span class="tag draft">pending</span>' : ''}` : '<span class="muted">-</span>');
     const act = mem.filter(m => m.active), counted = act.filter(m => m.role !== 'faculty'), tot = counted.reduce((x, m) => x + m.attempts, 0), cor = counted.reduce((x, m) => x + m.correct, 0);   // faculty answers are left out of the group totals
     const recent = await Cloud.rpc('admin_recent_activity').catch(() => null);
-    const live = qs.filter(q => q.status === 'reviewed' && !q.archived).length, archived = qs.filter(q => q.archived).length, drafts = qs.filter(q => q.status !== 'reviewed' && !q.archived).length;
+    const mainQs = qs.filter(q => q.bank !== 'skills'), skillQs = qs.filter(q => q.bank === 'skills'), live = mainQs.filter(q => q.status === 'reviewed' && !q.archived).length, archived = mainQs.filter(q => q.archived).length, drafts = mainQs.filter(q => q.status !== 'reviewed' && !q.archived).length, skillLive = skillQs.filter(q => q.status === 'reviewed' && !q.archived).length;
     const me = Cloud.session.email.toLowerCase();
     $app.innerHTML = `${Admin.tabs('overview')}<div class="grid">
       <div class="card stat"><b>${act.length}</b><span>Active members</span><small class="muted statnote">Approved accounts of every kind (members, reviewers, faculty, admins).</small></div>
       <div class="card stat"><b>${tot}</b><span>Questions done</span><small class="muted statnote">Every answer given, repeats counted. Active members only, faculty left out.</small></div>
       <div class="card stat"><b>${tot ? pct(cor, tot) + '%' : '-'}</b><span>Group correct</span><small class="muted statnote">The share of those answers that were right.</small></div>
-      <div class="card stat"><b>${live}</b><span>Live questions</span><small class="muted statnote">Reviewed and visible to members. Not counted: ${drafts} draft${drafts === 1 ? '' : 's'}, ${archived} archived.</small></div></div>
+      <div class="card stat"><b>${live}</b><span>Live questions</span><small class="muted statnote">Reviewed and visible to members. Not counted: ${drafts} draft${drafts === 1 ? '' : 's'}, ${archived} archived.${skillQs.length ? ` The clinical skills bank is separate: ${skillLive} live.` : ''}</small></div></div>
       <div class="card" id="recent"><div class="row spread"><h2 style="margin:0">Recent activity</h2><div><label for="rwin" class="sr">Time period</label><select id="rwin">${RECENT_WINDOWS.map(([h, t]) => `<option value="${h}">${t}</option>`).join('')}</select></div></div>
         <div class="grid" id="rstats" aria-live="polite" style="margin-top:10px"></div><p class="muted small" id="rnote"></p></div>
       <div class="card"><div class="row spread"><h2 style="margin:0">Members</h2><button id="csv">Download CSV</button></div>

@@ -82,10 +82,10 @@ const Cloud = (() => {
   }
 
   // ---- queue of changes not yet on the server ----
-  const blankQueue = () => ({ attempts: [], marks: {}, tests: {}, settings: null, reset: false, feedback: [], cards: {}, hl: {}, mine: {} });
+  const blankQueue = () => ({ attempts: [], sattempts: [], marks: {}, tests: {}, settings: null, reset: false, feedback: [], cards: {}, hl: {}, mine: {} });
   const queue = () => Object.assign(blankQueue(), jget(qKey()) || {});
   const saveQueue = q => jset(qKey(), q);
-  const pending = () => { const q = queue(); return q.attempts.length + Object.keys(q.marks).length + Object.keys(q.tests).length + (q.settings ? 1 : 0) + (q.reset ? 1 : 0) + (q.feedback || []).length + Object.keys(q.cards || {}).length + Object.keys(q.hl || {}).length + Object.keys(q.mine || {}).length; };
+  const pending = () => { const q = queue(); return q.attempts.length + (q.sattempts || []).length + Object.keys(q.marks).length + Object.keys(q.tests).length + (q.settings ? 1 : 0) + (q.reset ? 1 : 0) + (q.feedback || []).length + Object.keys(q.cards || {}).length + Object.keys(q.hl || {}).length + Object.keys(q.mine || {}).length; };
   const cid = () => (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2));
 
   function change(fn) { if (!cfg || !session) return; const q = queue(); fn(q); saveQueue(q); schedule(); }
@@ -105,6 +105,11 @@ const Cloud = (() => {
         }
       }
       q = queue(); q.attempts = q.attempts.slice(batch.length); saveQueue(q);
+    }
+    while ((q = queue()).sattempts && q.sattempts.length) {                       // clinical skills answers: their own table, never mixed with the main bank's
+      const batch = q.sattempts.slice(0, 200);
+      await api('/rest/v1/skill_attempts?on_conflict=user_id,client_id', { method: 'POST', headers: { Prefer: 'resolution=ignore-duplicates,return=minimal' }, body: batch });
+      q = queue(); q.sattempts = q.sattempts.slice(batch.length); saveQueue(q);
     }
     q = queue();
     const marks = Object.entries(q.marks).map(([question_id, m]) => ({ question_id, ...m }));
@@ -170,8 +175,12 @@ const Cloud = (() => {
       api('/rest/v1/user_settings?select=data&limit=1')
     ]);
     const Q = queue(), q = {};
+    const skillRows = await rpcAll('my_skills_progress').catch(() => []);                  // the clinical skills bank's own progress (none if the database is not upgraded)
     (prog || []).forEach(r => { q[r.question_id] = { ...blankStat(), seen: r.seen, correct: r.correct, wrong: r.wrong, last: r.last_ok ? 'c' : 'w' }; });
     Q.attempts.forEach(a => { const s = q[a.question_id] ||= blankStat(); s.seen++; a.ok ? s.correct++ : s.wrong++; s.last = a.ok ? 'c' : 'w'; });
+    const sq = {};
+    (skillRows || []).forEach(r => { sq[r.question_id] = { seen: r.seen, correct: r.correct, wrong: r.wrong, last: r.last_ok ? 'c' : 'w' }; });
+    (Q.sattempts || []).forEach(a => { const t = sq[a.question_id] ||= { seen: 0, correct: 0, wrong: 0, last: null }; t.seen++; a.ok ? t.correct++ : t.wrong++; t.last = a.ok ? 'c' : 'w'; });
     (marks || []).forEach(m => { const s = q[m.question_id] ||= blankStat(); s.flagged = m.flagged; s.note = m.note; });
     Object.entries(Q.marks).forEach(([id, m]) => { const s = q[id] ||= blankStat(); s.flagged = m.flagged; s.note = m.note; });
     const byId = new Map();
@@ -185,6 +194,7 @@ const Cloud = (() => {
       Object.entries(Q.mine || {}).forEach(([id, row]) => { if (!row) { delete m[id]; delete st['my:' + id]; return; } m[id] = mineFromRow(row); if (row.due) st['my:' + id] = { e: row.ease, i: row.interval_days, due: row.due, reps: row.reps, lapses: row.lapses, last: row.last_reviewed }; else delete st['my:' + id]; });
       d.mine = m; d.cards = { ...(d.cards || {}) }; Object.keys(d.cards).forEach(k => { if (k.startsWith('my:')) delete d.cards[k]; }); Object.assign(d.cards, st);
     }
+    d.sk = { ...(d.sk || {}), q: sq };
     d.q = q; d.tests = [...byId.values()].sort((a, b) => b.date - a.date);
     if (!Q.settings && settings && settings[0]) {
       const { active: remoteActive, parked: remoteParked, activeAt: remoteAt, ...rest } = settings[0].data || {};
@@ -205,7 +215,7 @@ const Cloud = (() => {
   }
 
   const toQuestion = r => ({
-    id: r.id, status: r.status, reviewedBy: r.reviewed_by || undefined, boards: r.boards, subject: r.subject, topic: r.topic || '',
+    id: r.id, bank: r.bank === 'skills' ? 'skills' : undefined, status: r.status, reviewedBy: r.reviewed_by || undefined, boards: r.boards, subject: r.subject, topic: r.topic || '',
     difficulty: r.difficulty || 2, stem: r.stem, image: r.image || undefined, imageAlt: r.image_alt || undefined,
     options: r.options, answer: r.answer, explanation: r.explanation, optionNotes: r.option_notes || undefined, references: r.refs || [], tier: r.tier, lessonId: r.lesson_id || undefined, objectives: r.objectives && r.objectives.length ? r.objectives : undefined, highYield: r.high_yield === true ? true : undefined
   });
@@ -213,10 +223,11 @@ const Cloud = (() => {
   const toEditorQuestion = r => ({ ...toQuestion(r), archived: !!r.archived, createdAt: r.created_at || '', updatedAt: r.updated_at, updatedBy: r.updated_by || '' });
   // app question -> database row. reviewed_by is deliberately not sent: the database records who reviewed.
   const toRow = q => {
-    const row = { id: q.id, status: q.status, boards: q.boards, subject: q.subject, topic: q.topic || null, difficulty: q.difficulty || null, stem: q.stem,
+    const row = { id: q.id, status: q.status, boards: q.boards && q.boards.length ? q.boards : ['aem'], subject: q.subject, topic: q.topic || null, difficulty: q.difficulty || null, stem: q.stem,
       image: q.image || null, image_alt: q.imageAlt || null, options: q.options, answer: q.answer, explanation: q.explanation, option_notes: q.optionNotes || null,
       refs: q.references || [], tier: q.tier || 'pro' };
     if (typeof q.archived === 'boolean') row.archived = q.archived;
+    if (q.bank === 'main' || q.bank === 'skills') row.bank = q.bank;         // only sent when set, so an older database is not troubled
     if (q.lessonId !== undefined) row.lesson_id = q.lessonId || null;      // only sent when set or cleared, so an older database is not troubled
     if (q.objectives !== undefined) row.objectives = q.objectives || [];     // same: only sent when set or cleared
     if (q.highYield !== undefined) row.high_yield = !!q.highYield;           // same
@@ -259,7 +270,7 @@ const Cloud = (() => {
   const ORDER = { peer_stats: 'question_id.asc', peer_choices: 'question_id.asc,chosen.asc', admin_question_stats: 'question_id.asc', admin_item_analysis: 'question_id.asc', admin_member_summary: 'email.asc',
     faculty_questions: 'question_id.asc', preview_questions: 'question_id.asc', faculty_question_totals: 'question_id.asc', preview_question_totals: 'question_id.asc',
     faculty_topics: 'subject.asc,topic.asc', preview_topics: 'subject.asc,topic.asc', faculty_roster: 'user_id.asc', preview_roster: 'user_id.asc', faculty_subject_stats: 'user_id.asc,subject.asc', preview_subjects: 'user_id.asc,subject.asc',
-    feedback_inbox: 'id.desc', my_threads: 'id.desc', my_progress: 'question_id.asc' };
+    feedback_inbox: 'id.desc', my_threads: 'id.desc', my_progress: 'question_id.asc', my_skills_progress: 'question_id.asc' };
   async function rpcAll(name, body = {}) {
     const order = ORDER[name], path = `/rest/v1/rpc/${name}`;
     if (!order) return api(path, { method: 'POST', body });
@@ -523,6 +534,7 @@ const Cloud = (() => {
     rpc: (name, args = {}) => rpcAll(name, args),
 
     // hooks called by the Store
+    queueSkillAttempt(question_id, ok, chosen) { change(q => (q.sattempts ||= []).push({ question_id, ok, ...(chosen ? { chosen: String(chosen).slice(0, 3) } : {}), client_id: cid(), at: new Date().toISOString() })); },
     queueAttempt(question_id, ok, chosen) { change(q => q.attempts.push({ question_id, ok, ...(chosen ? { chosen: String(chosen).slice(0, 3) } : {}), client_id: cid(), at: new Date().toISOString() })); },
     queueMark(question_id) { change(q => { const s = Store.qstat(question_id) || {}; q.marks[question_id] = { flagged: !!s.flagged, note: s.note || '', updated_at: new Date().toISOString() }; }); },
     queueTest(rec) { change(q => { q.tests[rec.id] = rec; }); },

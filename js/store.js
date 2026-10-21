@@ -2,7 +2,7 @@
 // In cloud mode Cloud.js listens to Store.hooks and sends changes to the account; Store.use() switches to a per-account key.
 const Store = (() => {
   let KEY = 'qbank.v1';
-  const blank = () => ({ q: {}, tests: [], active: null, settings: { theme: 'auto' }, cards: {}, cardsMeta: { day: '', newSeen: 0 }, hl: {}, mine: {} });
+  const blank = () => ({ q: {}, sk: { q: {}, last: null }, tests: [], active: null, settings: { theme: 'auto' }, cards: {}, cardsMeta: { day: '', newSeen: 0 }, hl: {}, mine: {} });
   const load = () => { try { return JSON.parse(localStorage.getItem(KEY)) || blank(); } catch { return blank(); } };
   let d = load();
   const hooks = {};   // attempt(id, ok), mark(id), test(rec), settings(), reset()
@@ -16,6 +16,11 @@ const Store = (() => {
     forget(key) { try { localStorage.removeItem(key); } catch {} d = blank(); },
     qstat: id => d.q[id] || null,
     record(id, ok, chosen) { const s = qs(id); s.seen++; ok ? s.correct++ : s.wrong++; s.last = ok ? 'c' : 'w'; save(); fire('attempt', id, ok, chosen); },
+    // clinical skills bank: its own progress, apart from q, tests and everything else: sk.q[id] = { seen, correct, wrong, last }; sk.last = the latest quiz { at, total, correct }
+    skillStat: id => ((d.sk || {}).q || {})[id] || null,
+    skillData: () => (d.sk ||= { q: {}, last: null }),
+    recordSkill(id, ok, chosen) { const sk = (d.sk ||= { q: {}, last: null }), s = (sk.q[id] ||= { seen: 0, correct: 0, wrong: 0, last: null }); s.seen++; ok ? s.correct++ : s.wrong++; s.last = ok ? 'c' : 'w'; save(); fire('sattempt', id, ok, chosen); },
+    setSkillLast(rec) { (d.sk ||= { q: {}, last: null }).last = rec; save(); },
     toggleFlag(id) { const s = qs(id); s.flagged = !s.flagged; save(); fire('mark', id); return s.flagged; },
     setNote(id, t) { qs(id).note = t; save(); fire('mark', id); },
     // flashcards: cards[id] = { e: ease, i: interval days, due: 'YYYY-MM-DD', reps, lapses, last }
@@ -42,6 +47,6 @@ const Store = (() => {
     touchActive() { d.activeAt = Date.now(); save(); fire('settings'); },
     exportJSON: () => JSON.stringify(d, null, 2),
     importJSON(t) { const o = JSON.parse(t); if (!o || typeof o !== 'object' || !o.q || !Array.isArray(o.tests)) throw new Error('Not a QBank export'); d = { ...blank(), ...o }; save(); },
-    reset() { const keep = { hl: d.hl, mine: d.mine, cards: Object.fromEntries(Object.entries(d.cards || {}).filter(([k]) => k.startsWith('my:'))) }; if (d.settings && (d.settings.stressFree !== undefined || d.settings.highYield !== undefined)) keep.settings = { ...blank().settings, ...(d.settings.stressFree !== undefined ? { stressFree: d.settings.stressFree } : {}), ...(d.settings.highYield !== undefined ? { highYield: d.settings.highYield } : {}) }; d = { ...blank(), ...keep }; save(); fire('reset'); }   // progress goes; highlights, your own cards and the Stress Free and High yield choices stay
+    reset() { const keep = { hl: d.hl, mine: d.mine, sk: d.sk, cards: Object.fromEntries(Object.entries(d.cards || {}).filter(([k]) => k.startsWith('my:'))) }; if (d.settings && (d.settings.stressFree !== undefined || d.settings.highYield !== undefined)) keep.settings = { ...blank().settings, ...(d.settings.stressFree !== undefined ? { stressFree: d.settings.stressFree } : {}), ...(d.settings.highYield !== undefined ? { highYield: d.settings.highYield } : {}) }; d = { ...blank(), ...keep }; save(); fire('reset'); }   // progress goes; highlights, your own cards and the Stress Free and High yield choices stay
   };
 })();

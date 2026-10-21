@@ -10,6 +10,7 @@
     "properties": {
       "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$", "description": "Unique. Example: aem-hypoxia-014" },
       "status": { "enum": ["draft", "reviewed"], "description": "chat-written or unchecked questions MUST be draft. Only a physician reviewer sets reviewed." },
+      "bank": { "enum": ["main", "skills"], "description": "Optional. \"skills\" puts the question in the separate clinical skills upkeep bank (its subject is a free-text topic group and boards are not needed). Leave out for the main bank." },
       "reviewedBy": { "type": "string", "description": "Reviewer initials or name. Required in practice when status is reviewed." },
       "boards": { "type": "array", "minItems": 1, "items": { "enum": ["aem", "om", "pm"] } },
       "subject": { "type": "string", "description": "Must match a subject in data/manifest.json for one of the boards." },
