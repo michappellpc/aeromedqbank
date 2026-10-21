@@ -4,6 +4,7 @@
 // test history, performance tables, group averages or faculty views. Loaded after app.js; uses its globals (bank, Store, esc, $app, pageTitle, shuffle, pct, imgTag...).
 const Skills = (() => {
   const live = () => (bank.skills || []).filter(q => !q.archived && (!isDraft(q) || showDrafts()));
+  const liveLessons = () => (bank.skillLessons || []).filter(l => !l.archived && (!isDraft(l) || showDrafts()));
   const stat = id => Store.skillStat(id);
   const sd = () => Store.skillData();
   const subjectsOf = list => [...new Set(list.map(q => q.subject || 'Other'))].sort((a, b) => a.localeCompare(b));
@@ -16,7 +17,7 @@ const Skills = (() => {
   function syncNav() {
     const a = document.getElementById('nav-skills'); if (!a) return;
     let editor = false; try { editor = !!(typeof Admin !== 'undefined' && Admin.isEditor && Admin.isEditor()); } catch { /* not signed in yet */ }
-    a.hidden = !(live().length || editor);
+    a.hidden = !(live().length || liveLessons().length || editor);
   }
 
   function page(arg) {
@@ -32,9 +33,10 @@ const Skills = (() => {
     const subs = subjectsOf(L);
     const rows = subs.map(s => { const qs = L.filter(q => (q.subject || 'Other') === s), n = qs.filter(seenOf).length, a = qs.reduce((x, q) => x + ((stat(q.id) || {}).seen || 0), 0), c = qs.reduce((x, q) => x + ((stat(q.id) || {}).correct || 0), 0);
       return `<tr><th scope="row">${esc(s)}</th><td>${n}/${qs.length}</td><td>${a ? pct(c, a) + '%' : '<span class="muted">-</span>'}</td></tr>`; }).join('');
-    const last = d.last;
+    const last = d.last, LL = liveLessons();
+    const lessonsCard = LL.length ? `<div class="card" id="sk-lessons"><h2>Lessons</h2><p class="muted small">Short reviews to read before or after a quiz.</p>${subjectsOf(LL).map(sub => `<h3 class="skgroup">${esc(sub)}</h3><ul class="sklessons">${Lessons.sorted(LL.filter(l => (l.subject || 'Other') === sub)).map(l => `<li><a href="#/lesson/${encodeURIComponent(l.id)}">${esc(l.title)}</a>${l.summary ? `<span class="muted small"> ${esc(l.summary)}</span>` : ''}${isDraft(l) ? ' <span class="tag draft" title="Only admins and reviewers can see drafts">Draft</span>' : ''}</li>`).join('')}</ul>`).join('')}</div>` : '';
     $app.innerHTML = `<div class="pagehead"><div><h2 class="pagetitle">Clinical skills</h2><p class="muted">Short practice for keeping clinical skills sharp. This is a separate bank: nothing you do here appears on your dashboard, in your test history, in your scores or in group averages.</p></div></div>
-      ${!L.length ? '<div class="card"><p class="muted">No clinical skills questions are available yet.</p></div>' : `
+      ${!L.length ? `<div class="card"><p class="muted">No clinical skills questions are available yet.</p></div>${lessonsCard}` : `
       ${last ? `<div class="card notice" role="status">Your last skills quiz: <b>${last.correct} of ${last.total}</b> correct. <a href="#/skills/done">See the answers</a></div>` : ''}
       ${act ? `<div class="card continue"><div class="contbody"><b>Continue your skills quiz</b><span class="muted">Question ${act.idx + 1} of ${act.qids.length}</span></div><a class="btn primary" href="#/skills/quiz">Continue</a></div>` : ''}
       <div class="grid"><div class="card stat"><b>${seen}/${L.length}</b><span class="muted">Questions answered at least once</span></div><div class="card stat"><b>${answered ? pct(right, answered) + '%' : '-'}</b><span class="muted">Correct (${answered} answer${answered === 1 ? '' : 's'}, repeats counted)</span></div></div>
@@ -44,7 +46,8 @@ const Skills = (() => {
           <div><label for="sk-n">How many</label><input id="sk-n" type="number" min="1" max="200" value="10"></div></div>
         <p class="muted small" id="sk-avail" aria-live="polite"></p>
         <button class="primary" id="sk-go">Start quiz</button></form>
-      <div class="card"><h2>Your progress</h2><div class="scroll" role="region" tabindex="0" aria-label="Clinical skills progress table"><table><caption class="sr">Your clinical skills progress by topic</caption><thead><tr><th scope="col">Topic</th><th scope="col">Answered</th><th scope="col">Correct</th></tr></thead><tbody>${rows}</tbody></table></div></div>`}`;
+      <div class="card"><h2>Your progress</h2><div class="scroll" role="region" tabindex="0" aria-label="Clinical skills progress table"><table><caption class="sr">Your clinical skills progress by topic</caption><thead><tr><th scope="col">Topic</th><th scope="col">Answered</th><th scope="col">Correct</th></tr></thead><tbody>${rows}</tbody></table></div></div>
+      ${lessonsCard}`}`;
     if (!L.length) return;
     const f = document.getElementById('skf'), picked = () => [...f.querySelectorAll('[name=sub]:checked')].map(e => e.value);
     const pool = () => { const subsel = picked(), k = keep[document.getElementById('sk-f').value]; return L.filter(q => subsel.includes(q.subject || 'Other') && k(q)); };
