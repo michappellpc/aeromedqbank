@@ -26,7 +26,7 @@ if (check.status !== 0) die('\nFix the errors above first. Nothing was uploaded.
 const man = JSON.parse(fs.readFileSync(path.join(dataDir, 'manifest.json'), 'utf8'));
 const tierOverride = val('--tier'); if (tierOverride && !['free', 'pro'].includes(tierOverride)) die('--tier must be free or pro');
 const rows = man.files.flatMap(f => JSON.parse(fs.readFileSync(path.join(dataDir, f), 'utf8'))).map(q => ({
-  id: q.id, status: q.status, reviewed_by: q.reviewedBy || null, boards: q.boards, subject: q.subject, topic: q.topic || null,
+  id: q.id, ...(q.bank === 'skills' ? { bank: 'skills' } : {}), status: q.status, reviewed_by: q.reviewedBy || null, boards: q.boards, subject: q.subject, topic: q.topic || null,
   difficulty: q.difficulty || null, stem: q.stem, image: q.image || null, image_alt: q.imageAlt || null, options: q.options, answer: q.answer,
   explanation: q.explanation, option_notes: q.optionNotes || null, refs: q.references || [], tier: tierOverride || q.tier || 'pro', updated_at: new Date().toISOString()
 }));

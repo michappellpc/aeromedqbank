@@ -6,7 +6,7 @@
 })(typeof self !== 'undefined' ? self : this, function () {
   const STATUS = ['draft', 'reviewed'], TIERS = ['free', 'pro'];
   // The only fields a question may have; anything else is dropped on save.
-  const FIELDS = ['id', 'status', 'reviewedBy', 'boards', 'subject', 'topic', 'difficulty', 'stem', 'image', 'imageAlt', 'options', 'answer', 'explanation', 'optionNotes', 'references', 'tier', 'lessonId', 'objectives', 'highYield', 'archived'];
+  const FIELDS = ['id', 'status', 'reviewedBy', 'boards', 'subject', 'topic', 'difficulty', 'stem', 'image', 'imageAlt', 'options', 'answer', 'explanation', 'optionNotes', 'references', 'tier', 'lessonId', 'objectives', 'highYield', 'archived', 'bank'];
   const norm = s => String(s).toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
 
   // The "length tell": the correct answer is the longest choice and clearly longer than the rest, which gives it away.
@@ -50,7 +50,9 @@
     if (!q.id) err('missing id'); else if (!/^[a-z0-9][a-z0-9-]*$/.test(q.id)) err('id must be lowercase letters, digits and hyphens'); else if (ctx.ids.has(q.id)) err('duplicate id'); else ctx.ids.add(q.id);
     if (!STATUS.includes(q.status)) err('status must be "draft" or "reviewed"');
     if (q.status === 'reviewed' && !q.reviewedBy && !ctx.recordsReviewer) warn('reviewed but no reviewedBy');
-    if (!Array.isArray(q.boards) || !q.boards.length || q.boards.some(b => !boardIds.has(b))) err('invalid boards (use aem, om, pm)');
+    if (q.bank != null && !['main', 'skills'].includes(q.bank)) err('bank must be "main" or "skills"');
+    if (q.bank === 'skills') { if (!q.subject || !String(q.subject).trim()) err('missing subject (the topic group, such as "ECG interpretation")'); }        // clinical skills questions have their own free-text topic groups and no board
+    else if (!Array.isArray(q.boards) || !q.boards.length || q.boards.some(b => !boardIds.has(b))) err('invalid boards (use aem, om, pm)');
     else if (!q.subject) err('missing subject')
     else if (!q.boards.some(b => (ctx.subjects[b] || []).includes(q.subject))) err(`subject "${q.subject}" is not listed for board(s) ${q.boards.join(', ')} in the manifest`);
     if (q.difficulty != null && ![1, 2, 3].includes(q.difficulty)) err('difficulty must be 1, 2 or 3');
@@ -101,6 +103,7 @@
   function normalize(q) {
     const clean = {}, dropped = [];
     for (const k of Object.keys(q)) FIELDS.includes(k) ? (clean[k] = q[k]) : dropped.push(k);
+    if (typeof clean.bank === 'string') { clean.bank = clean.bank.trim().toLowerCase(); if (['clinical skills', 'clinical-skills', 'clinical_skills', 'skill'].includes(clean.bank)) clean.bank = 'skills'; else if (clean.bank === '') delete clean.bank; }
     for (const k of ['id', 'topic', 'stem', 'explanation', 'imageAlt', 'reviewedBy', 'lessonId']) if (typeof clean[k] === 'string') clean[k] = clean[k].trim();
     if (Array.isArray(clean.options)) clean.options = clean.options.map(o => ({ id: o && o.id, text: typeof (o && o.text) === 'string' ? o.text.trim() : o && o.text }));
     if (Array.isArray(clean.references)) clean.references = clean.references.map(r => String(r).trim()).filter(Boolean);

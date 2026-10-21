@@ -431,6 +431,26 @@ eq  "a new question gets the date it was first saved" "t" "$(root "select create
 eq  "editing it, even its wording, does not change that date" "t" "$(root "select created_at as c0 into temp t0 from questions where id='q-new'; update questions set stem='changed', explanation='changed too' where id='q-new'; select (select created_at from questions where id='q-new') = (select c0 from t0);")"
 eq  "re-saving it with the same id (the upload tool's upsert) keeps the date" "t" "$(root "select created_at as c0 into temp t1 from questions where id='q-new'; insert into questions (id, boards, subject, stem, options, answer, explanation, tier, status) values ('q-new','{aem}','S','again','[{\"id\":\"A\",\"text\":\"x\"}]','A','why','free','draft') on conflict (id) do update set stem = excluded.stem; select (select created_at from questions where id='q-new') = (select c0 from t1);")"
 root "delete from questions where id='q-new';" >/dev/null
+echo; echo "Clinical skills bank (kept completely apart from the main bank's figures)"
+root "insert into questions (id, boards, subject, stem, options, answer, explanation, tier, status, bank) values ('sk-1','{aem}','ECG','skills stem','[{\"id\":\"A\",\"text\":\"x\"},{\"id\":\"B\",\"text\":\"y\"}]','A','why','free','reviewed','skills');" >/dev/null
+eq  "a question is in the main bank unless marked otherwise"  "main/skills" "$(root "select (select bank from questions where id='q-free')||'/'||(select bank from questions where id='sk-1')")"
+eq  "only 'main' and 'skills' are allowed as a bank"          "yes" "$(root "update questions set bank='other' where id='sk-1'" 2>&1 | grep -q 'violates check' && echo yes)"
+BEFORE=$(as admin "select attempts from admin_member_summary() where email='a@x';")
+eq  "a member can record an answer to a skills question"      "1" "$(as a "insert into skill_attempts (question_id, ok, client_id, chosen) values ('sk-1', true, 'sk-a1', 'A'); commit; select count(*) from skill_attempts;")"
+eq  "a skills answer cannot be written into the main attempts" "yes" "$(as a "insert into attempts (user_id, question_id, ok, client_id) values ('${U[a]}','sk-1',true,'sk-bad');" 2>&1 | grep -q 'row-level security' && echo yes)"
+eq  "a main question cannot be answered into the skills table" "yes" "$(as a "insert into skill_attempts (question_id, ok, client_id) values ('q-free', true, 'sk-bad2');" 2>&1 | grep -q 'row-level security' && echo yes)"
+eq  "nobody can record a skills answer for someone else"        "yes" "$(as a "insert into skill_attempts (user_id, question_id, ok, client_id) values ('${U[b]}','sk-1',true,'sk-bad3');" 2>&1 | grep -q 'row-level security' && echo yes)"
+eq  "an inactive person cannot record one"                     "yes" "$(as c "insert into skill_attempts (question_id, ok, client_id) values ('sk-1', true, 'sk-c1');" 2>&1 | grep -q 'row-level security' && echo yes)"
+eq  "another member cannot read your skills answers"           "0" "$(as b "select count(*) from skill_attempts;")"
+eq  "my_skills_progress shows the skills bank's own progress"  "sk-1,1,1,0,true" "$(as a "select question_id||','||seen||','||correct||','||wrong||','||last_ok from my_skills_progress();")"
+eq  "my_progress (the main bank) never includes a skills question" "0" "$(as a "select count(*) from my_progress() where question_id='sk-1';")"
+eq  "group averages never include a skills question"           "0" "$(as admin "select set_peer_min_users(1); commit;" >/dev/null; as a "select (select count(*) from peer_stats() where question_id='sk-1') + (select count(*) from peer_choices() where question_id='sk-1');")"
+as admin "select set_peer_min_users(${PM:-10}); commit;" >/dev/null
+eq  "the member summary's answered count is unchanged by skills answers" "$BEFORE" "$(as admin "select attempts from admin_member_summary() where email='a@x';")"
+eq  "the admin question stats show the skills question with its own answers and its bank" "skills,1,1" "$(as admin "select bank||','||attempts||','||correct from admin_question_stats() where question_id='sk-1';")"
+eq  "and a main question still shows as main"                    "main" "$(as admin "select bank from admin_question_stats() where question_id='q-free';")"
+eq  "recent activity does not count skills answers"             "0" "$(as admin "select count(*) from attempts where question_id='sk-1';")"
+root "delete from questions where id='sk-1';" >/dev/null
 echo; echo "Question feedback inbox"
 as a "insert into feedback (question_id, category, message, client_id, status, admin_note) values ('q-free','typo','There is a typo in option B','fb1','resolved','sneaky'); commit;" >/dev/null
 as b "insert into feedback (question_id, category, message, client_id) values ('q-free','wrong-answer','I think the key is wrong','fb2'); commit;" >/dev/null

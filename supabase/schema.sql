@@ -171,6 +171,11 @@ alter table public.questions add column if not exists revised_at timestamptz;
 -- With revised_at (the last wording change) this tells the admin which questions have gone longest without a person touching them.
 alter table public.questions add column if not exists created_at timestamptz;
 alter table public.questions alter column created_at set default now();
+-- Which bank a question belongs to: 'main' (the board-prep bank) or 'skills' (clinical skills upkeep). Skills questions are kept out of every main-bank list, count and
+-- statistic: members' answers to them go in their own table (skill_attempts), never in attempts.
+alter table public.questions add column if not exists bank text not null default 'main';
+alter table public.questions drop constraint if exists questions_bank_check;
+alter table public.questions add constraint questions_bank_check check (bank in ('main', 'skills'));
 -- A lesson chosen by hand for this question's "Study this" link. Null = pick the best match automatically. Metadata, not wording: changing it keeps a live question live.
 alter table public.questions add column if not exists lesson_id text references public.lessons (id) on delete set null;
 
@@ -254,6 +259,21 @@ create table if not exists public.attempts (          -- one row per answered qu
 alter table public.attempts add column if not exists chosen text check (chosen is null or char_length(chosen) between 1 and 3);
 create index if not exists attempts_question_idx on public.attempts (question_id);
 create index if not exists attempts_user_idx on public.attempts (user_id, at);
+
+-- Answers to clinical skills questions. A separate table on purpose: every main-bank figure (dashboard, history, group averages, faculty and admin views) reads
+-- attempts, so nothing here can ever reach them.
+create table if not exists public.skill_attempts (
+  id          bigint generated always as identity primary key,
+  user_id     uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  question_id text not null references public.questions (id) on delete cascade,
+  ok          boolean not null,
+  client_id   text not null,
+  at          timestamptz not null default now(),
+  chosen      text check (chosen is null or char_length(chosen) between 1 and 3),
+  unique (user_id, client_id)
+);
+create index if not exists skill_attempts_user_idx on public.skill_attempts (user_id, question_id);
+alter table public.skill_attempts enable row level security;
 
 create table if not exists public.question_marks (    -- flag + private note per question
   user_id     uuid not null default auth.uid() references auth.users (id) on delete cascade,
@@ -431,9 +451,17 @@ create policy card_reviews_own on public.card_reviews  for all    to authenticat
 create policy revisions_read   on public.question_revisions for select to authenticated using (public.can_edit());
 create policy highlights_own   on public.highlights    for all to authenticated using (user_id = auth.uid() and public.is_active()) with check (user_id = auth.uid() and public.is_active());
 create policy my_cards_own     on public.my_cards      for all to authenticated using (user_id = auth.uid() and public.is_active()) with check (user_id = auth.uid() and public.is_active());
+create or replace function public.is_skills_question(qid text) returns boolean
+  language sql stable security definer set search_path = public as
+$$ select exists (select 1 from public.questions where id = qid and bank = 'skills') $$;
 create policy attempts_read   on public.attempts       for select to authenticated using (user_id = auth.uid() and public.is_active());
 create policy attempts_insert on public.attempts       for insert to authenticated
-  with check (user_id = auth.uid() and public.is_active() and at <= now() + interval '5 minutes');
+  with check (user_id = auth.uid() and public.is_active() and at <= now() + interval '5 minutes' and not public.is_skills_question(question_id));    -- skills answers go in skill_attempts
+drop policy if exists skill_attempts_read   on public.skill_attempts;
+drop policy if exists skill_attempts_insert on public.skill_attempts;
+create policy skill_attempts_read   on public.skill_attempts for select to authenticated using (user_id = auth.uid() and public.is_active());
+create policy skill_attempts_insert on public.skill_attempts for insert to authenticated
+  with check (user_id = auth.uid() and public.is_active() and at <= now() + interval '5 minutes' and public.is_skills_question(question_id));
 create policy marks_own       on public.question_marks for all    to authenticated using (user_id = auth.uid() and public.is_active()) with check (user_id = auth.uid() and public.is_active());
 create policy tests_own       on public.tests          for all    to authenticated using (user_id = auth.uid() and public.is_active()) with check (user_id = auth.uid() and public.is_active());
 create policy settings_own    on public.user_settings  for all    to authenticated using (user_id = auth.uid() and public.is_active()) with check (user_id = auth.uid() and public.is_active());
@@ -454,6 +482,7 @@ grant select, insert, update, delete on public.my_cards       to authenticated;
 grant select, insert, update, delete on public.programs       to authenticated;
 grant select, insert                 on public.feedback       to authenticated;
 grant select, insert                 on public.attempts       to authenticated;
+grant select, insert                 on public.skill_attempts to authenticated;
 grant select, insert, update, delete on public.question_marks, public.tests, public.user_settings to authenticated;
 grant all on all tables    in schema public to service_role;
 grant all on all sequences in schema public to service_role;
@@ -595,6 +624,16 @@ $$
   from public.attempts a where a.user_id = auth.uid() group by a.question_id
 $$;
 
+-- One row per clinical skills question the signed-in member has answered (the skills bank's own progress; never mixed with my_progress).
+create or replace function public.my_skills_progress()
+  returns table (question_id text, seen int, correct int, wrong int, last_ok boolean)
+  language sql stable security invoker set search_path = public as
+$$
+  select a.question_id, count(*)::int, (count(*) filter (where a.ok))::int, (count(*) filter (where not a.ok))::int,
+         (array_agg(a.ok order by a.at desc, a.id desc))[1]
+  from public.skill_attempts a where a.user_id = auth.uid() group by a.question_id
+$$;
+
 create or replace function public.touch_seen() returns void
   language sql security definer set search_path = public as
 $$ update public.profiles set last_seen = now() where id = auth.uid() $$;
@@ -628,16 +667,21 @@ end $$;
 
 drop function if exists public.admin_question_stats();
 create function public.admin_question_stats()
-  returns table (question_id text, subject text, status text, archived boolean, attempts bigint, correct bigint, pct_correct numeric)
+  returns table (question_id text, subject text, status text, archived boolean, attempts bigint, correct bigint, pct_correct numeric, bank text)
   language plpgsql stable security definer set search_path = public as
 $$
 begin
   if not public.can_edit() then raise exception 'editors only'; end if;
   return query
-    select q.id, q.subject, q.status, q.archived, count(a.id), count(a.id) filter (where a.ok),
-           case when count(a.id) = 0 then null else round(100.0 * count(a.id) filter (where a.ok) / count(a.id), 1) end
-    from public.questions q
-    left join public.attempts a on a.question_id = q.id and not exists (select 1 from public.profiles f where f.id = a.user_id and f.role = 'faculty')   -- faculty tests are not residents' performance
+    with ans as (
+      select a.question_id as qid, a.ok from public.attempts a
+        where not exists (select 1 from public.profiles f where f.id = a.user_id and f.role = 'faculty')   -- faculty tests are not residents' performance
+      union all
+      select k.question_id, k.ok from public.skill_attempts k                                              -- a skills question's own answers, shown only on its own row
+    )
+    select q.id, q.subject, q.status, q.archived, count(a.qid), count(a.qid) filter (where a.ok),
+           case when count(a.qid) = 0 then null else round(100.0 * count(a.qid) filter (where a.ok) / count(a.qid), 1) end, q.bank
+    from public.questions q left join ans a on a.qid = q.id
     group by q.id order by q.id;
 end $$;
 
@@ -1276,6 +1320,7 @@ create trigger questions_options_changed after update of options on public.quest
 revoke execute on all functions in schema public from public, anon;
 grant execute on function public.is_active(), public.is_admin(), public.can_edit(), public.has_plan(text) to authenticated;
 grant execute on function public.my_progress(), public.touch_seen(), public.reset_my_progress() to authenticated;
+grant execute on function public.my_skills_progress(), public.is_skills_question(text) to authenticated;
 grant execute on function public.admin_member_summary(), public.admin_question_stats(), public.admin_item_analysis(boolean, boolean) to authenticated;
 grant execute on function public.admin_recent_activity(int[]) to authenticated;
 grant execute on function public.signup_open() to anon, authenticated;

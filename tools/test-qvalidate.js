@@ -12,6 +12,11 @@ const errs = r => r.filter(x => x.level === 'error').map(x => x.msg), warns = r 
 console.log('Rules');
 t('a good question has no errors or warnings', run(good()).length === 0, JSON.stringify(run(good())));
 t('missing stem', errs(run({ ...good(), stem: ' ' })).includes('missing stem'));
+t('a clinical skills question needs no board and takes any topic group', errs(run({ ...good(), bank: 'skills', boards: undefined, subject: 'ECG interpretation' })).length === 0);
+t('a clinical skills question still needs a topic group', errs(run({ ...good(), bank: 'skills', boards: undefined, subject: ' ' })).some(m => /missing subject/.test(m)));
+t('a main bank question still needs a valid board and subject', errs(run({ ...good(), boards: undefined })).some(m => /invalid boards/.test(m)) && errs(run({ ...good(), subject: 'ECG interpretation' })).some(m => /not listed for board/.test(m)));
+t('the bank must be main or skills', errs(run({ ...good(), bank: 'other' })).includes('bank must be "main" or "skills"'));
+t('normalize understands "Clinical skills" as the skills bank and keeps main when left out', Q.normalize({ ...good(), bank: ' Clinical Skills ' }).clean.bank === 'skills' && Q.normalize(good()).clean.bank === undefined);
 t('answer must be one of the options', errs(run({ ...good(), answer: 'D' })).includes('answer does not match an option id'));
 t('subject must belong to the board', errs(run({ ...good(), subject: 'Toxicology' })).some(m => /not listed for board/.test(m)));
 t('a subject from ANY chosen board is enough', errs(run({ ...good(), boards: ['aem', 'om'], subject: 'Toxicology' })).length === 0);

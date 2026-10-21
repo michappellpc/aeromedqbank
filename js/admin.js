@@ -8,7 +8,7 @@ const Admin = (() => {
   const withLesson = () => { if (wlKey !== cache.list || wlSet === null) { wlKey = cache.list; wlSet = Links.withLesson(cache.list, bank.lessons || []); } return wlSet; };
   const hyOk = x => !view.hy || (view.hy === 'yes') === !!x.highYield;     // the High yield filter
   const tagOk = x => !view.tag || (view.tag === 'nolesson' ? !withLesson().has(x.id) : (view.tag === 'none') === !((x.objectives || []).length));
-  const view = { q: '', board: '', subject: '', status: '', show: 'active', tier: '', check: '', diff: '', sort: '', tag: '', hy: '', picks: (() => { try { return localStorage.getItem('qbank.picks') === '1'; } catch { return false; } })(), flag: '', data: '', min: '', max: '', page: 0, sel: new Set(), open: new Set() };
+  const view = { bank: 'main', q: '', board: '', subject: '', status: '', show: 'active', tier: '', check: '', diff: '', sort: '', tag: '', hy: '', picks: (() => { try { return localStorage.getItem('qbank.picks') === '1'; } catch { return false; } })(), flag: '', data: '', min: '', max: '', page: 0, sel: new Set(), open: new Set() };
   const SIZES = [50, 100, 250, 500, 0];                       // rows per page; 0 shows them all
   let size = 50; try { const raw = localStorage.getItem('qbank.admin.pagesize'); if (raw !== null && SIZES.includes(+raw)) size = +raw; } catch {}
   const sizeBox = () => `<div><label for="fpp">Per page</label><select id="fpp">${SIZES.map(n => `<option value="${n}"${n === size ? ' selected' : ''}>${n || 'All'}</option>`).join('')}</select></div>`;
@@ -161,6 +161,7 @@ const Admin = (() => {
         <div><label for="fsh">Show</label><select id="fsh"><option value="active">Active</option><option value="archived">Archived</option><option value="all">Both</option></select></div>
         <div><label for="ft">Tier</label><select id="ft"><option value="">All</option><option value="free">Free</option><option value="pro">Pro</option></select></div>
         <div><label for="fot">Outline tags</label><select id="fot"><option value="">All</option><option value="none">Not tagged yet (${cache.list.filter(x => !x.archived && !(x.objectives || []).length).length})</option><option value="some">Tagged</option><option value="nolesson">No lesson linked yet (${cache.list.filter(x => !x.archived && !withLesson().has(x.id)).length})</option></select></div><div><label for="fhy">High yield</label><select id="fhy"><option value="">All</option><option value="yes">High yield only (${cache.list.filter(x => !x.archived && x.highYield).length})</option><option value="no">Not marked yet</option></select></div><div><label for="fd">Difficulty</label><select id="fd"><option value="">All</option><option value="1">Easy</option><option value="2">Medium</option><option value="3">Hard</option></select></div>
+        <div><label for="fbk">Bank</label><select id="fbk"><option value="main">Main bank</option><option value="skills">Clinical skills</option><option value="both">Both</option></select></div>
         <div><label for="fo">Sort by</label><select id="fo"><option value="">ID</option><option value="hard">Label: hardest first</option><option value="easy">Label: easiest first</option><option value="pc-low">% correct: lowest first</option><option value="pc-high">% correct: highest first</option><option value="n-most">Answered by the most people</option><option value="n-least">Answered by the fewest people</option><option value="g-subject">Subject (outline order)</option><option value="g-topic">Subject, then topic</option><option value="g-objective">Learning objective (percent of the exam)</option>${AdminItems.SORTS.map(([v, t]) => `<option value="${v}">${t}</option>`).join('')}</select></div>
         <div><label for="fl">Checks</label><select id="fl"><option value="">All questions</option><option value="long">Correct answer much longer</option></select></div>
         <div><label for="ffl">Flag</label><select id="ffl"><option value="">Any</option><option value="any">Has any flag</option>${AdminItems.FLAGS.map(f => `<option value="${f}">${esc(ItemStats.FLAG_TEXT[f][0])}</option>`).join('')}</select></div>
@@ -168,10 +169,11 @@ const Admin = (() => {
         <div><label for="fmin">% correct from</label><input id="fmin" type="number" min="0" max="100" value="${esc(view.min)}"></div><div><label for="fmax">to</label><input id="fmax" type="number" min="0" max="100" value="${esc(view.max)}"></div>${sizeBox()}<div class="fpick"><label class="chk"><input type="checkbox" id="fpk"${view.picks ? ' checked' : ''}> Show what members picked under each question</label></div></form></div>
       <div id="bulk"></div><div class="card" id="qres"></div>`;
     const set = (id, v) => { document.getElementById(id).value = v; };
-    const fillSubjects = () => { const s = document.getElementById('fs'); s.innerHTML = '<option value="">All</option>' + subjectsFor(view.board ? [view.board] : []).map(x => `<option${x === view.subject ? ' selected' : ''}>${esc(x)}</option>`).join(''); };
-    fillSubjects(); set('ffl', view.flag); set('fdt', view.data); set('fst', view.status); set('fsh', view.show); set('ft', view.tier); set('fl', view.check || ''); set('fd', view.diff); set('fo', view.sort); set('fot', view.tag); set('fhy', view.hy);
+    const fillSubjects = () => { const s = document.getElementById('fs'); const skillSubs = [...new Set(cache.list.filter(q => q.bank === 'skills' && q.subject).map(q => q.subject))].sort((a, b) => a.localeCompare(b)), mainSubs = subjectsFor(view.board ? [view.board] : []); s.innerHTML = '<option value="">All</option>' + (view.bank === 'skills' ? skillSubs : view.bank === 'both' ? [...mainSubs, ...skillSubs] : mainSubs).map(x => `<option${x === view.subject ? ' selected' : ''}>${esc(x)}</option>`).join(''); };
+    fillSubjects(); set('fbk', view.bank); set('ffl', view.flag); set('fdt', view.data); set('fst', view.status); set('fsh', view.show); set('ft', view.tier); set('fl', view.check || ''); set('fd', view.diff); set('fo', view.sort); set('fot', view.tag); set('fhy', view.hy);
     const on = (id, ev, fn) => document.getElementById(id).addEventListener(ev, fn);
     on('fq', 'input', e => { view.q = e.target.value; view.page = 0; paint(); });
+    on('fbk', 'change', e => { view.bank = e.target.value; view.subject = ''; view.page = 0; fillSubjects(); paint(); paintSections(); });
     on('fb', 'change', e => { view.board = e.target.value; view.subject = ''; view.page = 0; fillSubjects(); paint(); });
     on('fs', 'change', e => { view.subject = e.target.value; view.page = 0; paint(); });
     on('fst', 'change', e => { view.status = e.target.value; view.page = 0; paint(); });
@@ -193,7 +195,7 @@ const Admin = (() => {
       view.board = ''; set('fb', ''); fillSubjects(); view.subject = b.dataset.sec; set('fs', view.subject); view.diff = b.dataset.lab || ''; set('fd', view.diff); view.status = ''; set('fst', ''); view.show = 'active'; set('fsh', 'active'); view.page = 0; paint(); document.getElementById('flt').scrollIntoView({ block: 'start' });
     });
     on('backup', 'click', () => backup(c.list));
-    on('bankmap', 'click', () => bankMap(c.list));
+    on('bankmap', 'click', () => bankMap(c.list.filter(q => q.bank !== 'skills')));
     on('tpapply', 'click', () => applyTopics({ noun: 'question', items: cache.list, patch: Cloud.patchQuestions, after: () => { refresh(); list(); } }));
     on('hyapply', 'click', () => applyHighYield({ noun: 'question', items: cache.list, patch: Cloud.patchQuestions, after: () => { refresh(); list(); } }));
     on('aicopy', 'click', () => Handoff.open({ kind: 'questions', coverage: Links.coverage(cache.list.filter(x => !x.archived)), vocab: cache.list.filter(x => !x.archived), items: lastRows, selected: [], importHash: '#/admin/questions/import', describe: describeView(),
@@ -204,15 +206,15 @@ const Admin = (() => {
   let lastRows = [];                                   // what the list is showing right now, in order: this is what Copy sends
   const describeView = () => {
     const bn = id => (bank.boards.find(b => b.id === id) || {}).name || id, p = [];
-    if (view.q) p.push(`search "${view.q}"`); if (view.board) p.push(bn(view.board)); if (view.subject) p.push(view.subject); if (view.diff) p.push(['', 'Easy', 'Medium', 'Hard'][view.diff]);
+    if (view.bank !== 'main') p.push(view.bank === 'skills' ? 'clinical skills bank' : 'both banks'); if (view.q) p.push(`search "${view.q}"`); if (view.board) p.push(bn(view.board)); if (view.subject) p.push(view.subject); if (view.diff) p.push(['', 'Easy', 'Medium', 'Hard'][view.diff]);
     if (view.status) p.push(view.status === 'reviewed' ? 'live' : view.status); if (view.show !== 'active') p.push(view.show === 'all' ? 'including archived' : 'archived'); if (view.tier) p.push(view.tier + ' tier'); if (view.hy) p.push(view.hy === 'yes' ? 'high yield' : 'not marked high yield'); if (view.tag) p.push(view.tag === 'none' ? 'no outline tags yet' : view.tag === 'nolesson' ? 'no lesson linked yet' : 'has outline tags');
     if (view.flag) p.push(view.flag === 'any' ? 'has a flag' : 'flag: ' + ItemStats.FLAG_TEXT[view.flag][0]); if (view.data) p.push(view.data === 'judged' ? 'enough answers' : 'too few answers'); if (view.min !== '' || view.max !== '') p.push(`${view.min || 0}% to ${view.max || 100}% correct`);
     return p.length ? 'filters: ' + p.join(', ') : 'no filters';
   };
   const secOpen = () => { try { return localStorage.getItem('qbank.secsum') !== 'closed'; } catch { return true; } };      // the table can be minimized, and stays that way
   const paintSections = () => {
-    const b = document.getElementById('secbody'); if (b) b.innerHTML = AdminItems.sectionTable(cache.list);
-    const line = document.getElementById('secline'); if (line) line.textContent = AdminItems.summaryLine(cache.list);
+    const b = document.getElementById('secbody'); if (b) b.innerHTML = AdminItems.sectionTable(cache.list.filter(q => q.bank !== 'skills'));
+    const line = document.getElementById('secline'); if (line) line.textContent = AdminItems.summaryLine(cache.list.filter(q => q.bank !== 'skills'));
   };
   const measured = q => {                               // the filters that use the measured numbers
     if (!view.flag && !view.data && view.min === '' && view.max === '') return true;
@@ -224,7 +226,7 @@ const Admin = (() => {
   const filtered = () => {
     const w = view.q.trim().toLowerCase();
     return cache.list.filter(q =>
-      (view.show === 'all' || (view.show === 'archived') === q.archived) && (!view.board || q.boards.includes(view.board)) && (!view.subject || q.subject === view.subject) &&
+      (view.bank === 'both' || (q.bank || 'main') === view.bank) && (view.show === 'all' || (view.show === 'archived') === q.archived) && (!view.board || q.boards.includes(view.board)) && (!view.subject || q.subject === view.subject) &&
       (!view.status || q.status === view.status) && (!view.tier || q.tier === view.tier) && (view.check !== 'long' || QValidate.lengthTell(q)) && (!view.diff || (q.difficulty || 2) === +view.diff) && tagOk(q) && hyOk(q) && measured(q) &&
       (!w || q.id.includes(w) || (q.topic || '').toLowerCase().includes(w) || q.stem.toLowerCase().includes(w)));
   };
@@ -245,7 +247,7 @@ const Admin = (() => {
       const s = cache.stats.get(q.id), gh = head ? head(q) : '';
       return `${gh ? `<tr class="grouprow"><th scope="colgroup" colspan="${extra ? 9 : 8}">${esc(gh)}</th></tr>` : ''}<tr${q.archived ? ' class="dim"' : ''}><td><input type="checkbox" data-sel="${esc(q.id)}" aria-label="Select ${esc(q.id)}"${view.sel.has(q.id) ? ' checked' : ''}></td>
         <td><a href="#/admin/questions/edit/${esc(q.id)}">${esc(q.id)}</a><div class="muted small">${esc((q.stem || '').slice(0, 70))}${q.stem && q.stem.length > 70 ? '...' : ''}</div>${view.picks ? picksLine(q) : ''}</td>
-        <td>${esc(q.subject)}<div class="muted small">${esc(q.topic || '')}</div></td><td>${tag(q)}${q.highYield ? ' <span class="tag hy" title="Marked high yield">High yield</span>' : ''}${QValidate.lengthTell(q) ? ' <span class="tag" title="The correct answer is much longer than the other choices">Long answer</span>' : ''}</td><td>${['', 'Easy', 'Medium', 'Hard'][q.difficulty || 2]}</td><td>${esc(q.tier)}</td>
+        <td>${esc(q.subject)}<div class="muted small">${esc(q.topic || '')}</div></td><td>${tag(q)}${q.bank === 'skills' ? ' <span class="tag" title="Clinical skills bank: kept apart from the main bank">Clinical skills</span>' : ''}${q.highYield ? ' <span class="tag hy" title="Marked high yield">High yield</span>' : ''}${QValidate.lengthTell(q) ? ' <span class="tag" title="The correct answer is much longer than the other choices">Long answer</span>' : ''}</td><td>${['', 'Easy', 'Medium', 'Hard'][q.difficulty || 2]}</td><td>${esc(q.tier)}</td>
         <td>${s && s.attempts ? `${s.attempts} &middot; ${Math.round(s.pct)}%` : '-'}</td><td>${day(q.updatedAt)}<div class="muted small">${esc(q.updatedBy)}</div></td>${extra ? `<td><button type="button" data-open="${esc(q.id)}" aria-expanded="${view.open.has(q.id)}" aria-label="${view.open.has(q.id) ? 'Hide' : 'Show'} the numbers for ${esc(q.id)}">${view.open.has(q.id) ? 'Hide' : 'Details'}</button></td>` : ''}</tr>${extra && view.open.has(q.id) ? `<tr class="detailrow"><td></td><td colspan="8">${AdminItems.detail(AdminItems.get(q.id))}</td></tr>` : ''}`;
     }).join('')}</tbody></table></div>
       <div class="row spread" style="margin-top:10px"><span class="muted" aria-live="polite">${rows.length} question${rows.length === 1 ? '' : 's'}${pages > 1 ? `, page ${view.page + 1} of ${pages}` : ''}</span>
@@ -396,21 +398,22 @@ const Admin = (() => {
       <form id="qf" novalidate>
         <div class="fgrid">
           <div><label for="f-id">Question id</label><input id="f-id" type="text" value="${esc(q0.id)}"${isNew ? '' : ' readonly'} autocomplete="off"><p class="hint">Lowercase letters, digits and hyphens, like aem-altitude-014.${isNew ? ' Suggested automatically.' : ' It cannot be changed.'}</p></div>
+          <div><label for="f-bank">Question bank</label><select id="f-bank"><option value="main"${q0.bank !== 'skills' ? ' selected' : ''}>Main bank (board prep)</option><option value="skills"${q0.bank === 'skills' ? ' selected' : ''}>Clinical skills upkeep</option></select><p class="hint">Clinical skills questions are a separate bank for keeping skills sharp. Members see them on their own Clinical skills page, and they never appear in the main bank's tests, scores, dashboard, group averages or faculty views.</p></div>
           <div><label for="f-status">Status</label><select id="f-status"><option value="draft"${q0.status === 'draft' ? ' selected' : ''}>Draft (hidden from members)</option><option value="reviewed"${q0.status === 'reviewed' ? ' selected' : ''}>Reviewed (live for members)</option></select>
             <p class="hint"><b>Draft</b> questions are visible only to admins and reviewers. <b>Reviewed</b> questions are live for members, and choosing it records you as the reviewer. Changing the wording of a reviewed question hides it again until it is reviewed.</p></div>
           <div><label for="f-tier">Who can see it</label><select id="f-tier"><option value="pro"${q0.tier === 'pro' ? ' selected' : ''}>Pro members</option><option value="free"${q0.tier === 'free' ? ' selected' : ''}>Free members too</option></select></div>
           <div><label class="chk"><input type="checkbox" id="f-hy"${q0.highYield ? ' checked' : ''}> High yield</label><p class="hint">Marks this as one of the questions most worth a member's time. Members can switch on High yield only to practice just these. It does not change what they see otherwise.</p></div>
-          <div><label for="f-lesson">Lesson to study (optional)</label><select id="f-lesson"><option value="">Choose the best match automatically</option>${lessonOptions(q0)}</select><p class="hint">Normally the app picks the best lesson itself and improves as you add lessons. Choose one here only to override it.</p></div>
+          <div id="ls-div"><label for="f-lesson">Lesson to study (optional)</label><select id="f-lesson"><option value="">Choose the best match automatically</option>${lessonOptions(q0)}</select><p class="hint">Normally the app picks the best lesson itself and improves as you add lessons. Choose one here only to override it.</p></div>
           <div><label for="f-diff">Difficulty</label><select id="f-diff">${[1, 2, 3].map(n => `<option value="${n}"${(q0.difficulty || 2) === n ? ' selected' : ''}>${['', 'Easy', 'Medium', 'Hard'][n]}</option>`).join('')}</select></div>
         </div>
-        <fieldset><legend>Board</legend><div class="row">${boardBoxes}</div></fieldset>
-        <div class="fgrid"><div><label for="f-subject">Subject</label><select id="f-subject"></select></div><div><label for="f-topic">Topic (optional)</label><input id="f-topic" type="text" value="${esc(q0.topic || '')}" autocomplete="off"></div></div>
+        <fieldset id="bd-fs"><legend>Board</legend><div class="row">${boardBoxes}</div></fieldset>
+        <div class="fgrid"><div id="sj-main"><label for="f-subject">Subject</label><select id="f-subject"></select></div><div id="sj-sk" hidden><label for="f-subject-sk">Topic group</label><input id="f-subject-sk" type="text" list="sk-subs" value="${esc(q0.bank === 'skills' ? q0.subject : '')}" autocomplete="off" placeholder="e.g. ECG interpretation"><datalist id="sk-subs">${[...new Set(c.list.filter(x => x.bank === 'skills' && x.subject).map(x => x.subject))].sort().map(x => `<option value="${esc(x)}">`).join('')}</datalist><p class="hint">How members group these questions on the Clinical skills page. Reuse an existing group where you can.</p></div><div><label for="f-topic">Topic (optional)</label><input id="f-topic" type="text" value="${esc(q0.topic || '')}" autocomplete="off"></div></div>
         <label for="f-stem">Question</label><textarea id="f-stem" rows="6">${esc(q0.stem)}</textarea>
         <fieldset id="optset"><legend>Answer choices</legend><p class="hint">Choose the correct one with the round button. Write a short note for every choice.</p><div id="optrows">${optRows(opts0, ans0)}</div>
           <button type="button" id="addopt"${opts0.length >= 6 ? ' disabled' : ''}>Add a choice</button></fieldset>
         <label for="f-expl">Explanation (why the answer is right, and the teaching point)</label><textarea id="f-expl" rows="5">${esc(q0.explanation)}</textarea>
         <label for="f-refs">References (one per line)</label><textarea id="f-refs" rows="3">${esc((q0.references || []).join('\n'))}</textarea>
-        <fieldset><legend>Board outline items (optional)</legend><p class="hint">The ABPM outline items this question covers. Members see them with the explanation, and Program insights uses them instead of guessing. Changing them never sends a live question back to Draft.</p><div id="f-obj"></div></fieldset>
+        <fieldset id="ob-fs"><legend>Board outline items (optional)</legend><p class="hint">The ABPM outline items this question covers. Members see them with the explanation, and Program insights uses them instead of guessing. Changing them never sends a live question back to Draft.</p><div id="f-obj"></div></fieldset>
         <fieldset><legend>Picture (optional)</legend><div id="imgprev" class="imgprev"></div>
           <label for="f-img">Add or replace the picture (PNG, JPEG, WebP or GIF, under 2 MB)</label><input id="f-img" type="file" accept="image/png,image/jpeg,image/webp,image/gif">
           <label for="f-alt">Describe the picture for someone who cannot see it</label><input id="f-alt" type="text" value="${esc(q0.imageAlt || '')}" autocomplete="off"><div style="margin-top:8px"><button type="button" id="rmimg">Remove the picture</button></div></fieldset>
@@ -425,6 +428,8 @@ const Admin = (() => {
       el('f-subject').innerHTML = '<option value="">Choose a subject</option>' + subs.map(s => `<option${s === keep ? ' selected' : ''}>${esc(s)}</option>`).join('');
     };
     fillSubjects(q0.subject);
+    const applyBank = () => { const sk = el('f-bank').value === 'skills'; ['bd-fs', 'ob-fs', 'ls-div', 'sj-main'].forEach(i => { el(i).hidden = sk; }); el('sj-sk').hidden = !sk; };
+    el('f-bank').onchange = () => { applyBank(); sugg(); }; applyBank(); el('f-subject-sk').oninput = () => sugg();
     const objPick = ObjPicker.mount(el('f-obj'), { value: q0.objectives || [], boards: () => [...document.querySelectorAll('input[name=board]:checked')].map(e => e.value), subject: () => el('f-subject').value, topic: () => el('f-topic').value.trim(), text: () => el('f-stem').value + ' ' + el('f-expl').value });
     const readOpts = () => [...document.querySelectorAll('.orow')].map(r => { const t = r.querySelectorAll('input[type=text]'); return { text: t[0].value, note: t[1].value }; });
     const readAns = () => +((document.querySelector('input[name=ans]:checked') || { value: 0 }).value);
@@ -434,7 +439,7 @@ const Admin = (() => {
     };
     bindOpts();
     el('addopt').onclick = () => { const o = readOpts(); if (o.length < 6) { o.push({ text: '', note: '' }); paintOpts(o, readAns()); document.getElementById('ot' + (o.length - 1)).focus(); } };
-    const sugg = () => { if (isNew && !idTouched) el('f-id').value = suggestId(c.list, [...document.querySelectorAll('input[name=board]:checked')].map(e => e.value), el('f-subject').value); };
+    const sugg = () => { if (isNew && !idTouched) el('f-id').value = el('f-bank').value === 'skills' ? suggestId(c.list, ['skills'], el('f-subject-sk').value) : suggestId(c.list, [...document.querySelectorAll('input[name=board]:checked')].map(e => e.value), el('f-subject').value); };
     document.querySelectorAll('input[name=board]').forEach(b => b.onchange = () => { fillSubjects(el('f-subject').value); sugg(); });
     el('f-subject').onchange = sugg; el('f-id').oninput = () => { idTouched = true; };
     if (isNew) sugg();
@@ -458,10 +463,10 @@ const Admin = (() => {
     el('rmimg').onclick = () => { pendingFile = null; removeImage = true; el('f-img').value = ''; el('f-alt').value = ''; paintImg(); };
 
     function read() {
-      const o = readOpts(), a = readAns(), boards = [...document.querySelectorAll('input[name=board]:checked')].map(e => e.value);
+      const sk = el('f-bank').value === 'skills', o = readOpts(), a = readAns(), boards = sk ? (q0.boards && q0.boards.length ? q0.boards : ['aem']) : [...document.querySelectorAll('input[name=board]:checked')].map(e => e.value);
       const notes = {}; o.forEach((x, i) => { if (x.note.trim()) notes[LETTERS[i]] = x.note.trim(); });
       const keepImg = !removeImage && (pendingFile || q0.image);
-      return { id: el('f-id').value.trim(), status: el('f-status').value, boards, subject: el('f-subject').value, topic: el('f-topic').value.trim(), difficulty: +el('f-diff').value, tier: el('f-tier').value, ...(el('f-lesson').value || q0.lessonId ? { lessonId: el('f-lesson').value } : {}), ...(el('f-hy').checked || q0.highYield ? { highYield: el('f-hy').checked } : {}), ...(objPick.get().length || (q0.objectives || []).length ? { objectives: objPick.get() } : {}),
+      return { id: el('f-id').value.trim(), ...(sk || q0.bank === 'skills' ? { bank: sk ? 'skills' : 'main' } : {}), status: el('f-status').value, boards, subject: sk ? el('f-subject-sk').value.trim() : el('f-subject').value, topic: el('f-topic').value.trim(), difficulty: +el('f-diff').value, tier: el('f-tier').value, ...(el('f-lesson').value || q0.lessonId ? { lessonId: el('f-lesson').value } : {}), ...(el('f-hy').checked || q0.highYield ? { highYield: el('f-hy').checked } : {}), ...(objPick.get().length || (q0.objectives || []).length ? { objectives: objPick.get() } : {}),
         stem: el('f-stem').value, options: o.map((x, i) => ({ id: LETTERS[i], text: x.text })), answer: LETTERS[a], explanation: el('f-expl').value, optionNotes: Object.keys(notes).length ? notes : undefined,
         references: el('f-refs').value.split('\n'), image: keepImg ? (pendingFile ? 'private:pending.png' : q0.image) : null, imageAlt: keepImg ? el('f-alt').value.trim() : '' };
     }
