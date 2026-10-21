@@ -451,6 +451,12 @@ eq  "the admin question stats show the skills question with its own answers and 
 eq  "and a main question still shows as main"                    "main" "$(as admin "select bank from admin_question_stats() where question_id='q-free';")"
 eq  "recent activity does not count skills answers"             "0" "$(as admin "select count(*) from attempts where question_id='sk-1';")"
 root "delete from questions where id='sk-1';" >/dev/null
+echo; echo "Clinical skills lessons"
+root "insert into lessons (id, boards, subject, title, status, bank) values ('sl-1','{aem}','TCCC','Care under fire','reviewed','skills'), ('sl-main','{aem}','S','A main lesson','reviewed','main');" >/dev/null
+eq  "a lesson is in the main bank unless marked otherwise"      "main" "$(root "insert into lessons (id, boards, subject, title) values ('sl-def','{aem}','S','Default'); select bank from lessons where id='sl-def'")"
+eq  "only 'main' and 'skills' are allowed as a lesson bank"      "yes" "$(root "update lessons set bank='other' where id='sl-def'" 2>&1 | grep -q 'violates check' && echo yes)"
+eq  "a member can read a live skills lesson (it follows the same lesson rules)" "sl-1" "$(as a "select id from lessons where id='sl-1'")"
+root "delete from lessons where id in ('sl-1','sl-main','sl-def');" >/dev/null
 echo; echo "Question feedback inbox"
 as a "insert into feedback (question_id, category, message, client_id, status, admin_note) values ('q-free','typo','There is a typo in option B','fb1','resolved','sneaky'); commit;" >/dev/null
 as b "insert into feedback (question_id, category, message, client_id) values ('q-free','wrong-answer','I think the key is wrong','fb2'); commit;" >/dev/null

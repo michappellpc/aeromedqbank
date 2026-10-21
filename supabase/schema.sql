@@ -187,6 +187,10 @@ alter table public.flashcards add column if not exists objectives text[] not nul
 -- It is a label, not wording, so changing it never sends a live item back to Draft (the guards above only watch the content columns).
 alter table public.questions  add column if not exists high_yield boolean not null default false;
 alter table public.lessons    add column if not exists high_yield boolean not null default false;
+-- Lessons for the clinical skills bank (see questions.bank): 'main' (board prep) or 'skills'. A skills lesson is shown on the Clinical skills page, never in the main Lessons tab.
+alter table public.lessons add column if not exists bank text not null default 'main';
+alter table public.lessons drop constraint if exists lessons_bank_check;
+alter table public.lessons add constraint lessons_bank_check check (bank in ('main', 'skills'));
 alter table public.flashcards add column if not exists high_yield boolean not null default false;
 do $$ declare t text; begin
   foreach t in array array['questions','lessons','flashcards'] loop

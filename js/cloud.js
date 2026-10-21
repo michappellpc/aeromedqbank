@@ -240,11 +240,11 @@ const Cloud = (() => {
   const toEditorCard = r => ({ ...toCard(r), archived: !!r.archived, updatedAt: r.updated_at, updatedBy: r.updated_by || '' });
   const toCardRow = c => { const row = { id: c.id, status: c.status, boards: c.boards, subject: c.subject, topic: c.topic || null, front: c.front, back: c.back, lesson_id: c.lessonId || null, refs: c.references || [] }; if (typeof c.archived === 'boolean') row.archived = c.archived; if (c.objectives !== undefined) row.objectives = c.objectives || []; if (c.highYield !== undefined) row.high_yield = !!c.highYield; return row; };
   // ---- lessons ----
-  const toLesson = r => ({ id: r.id, status: r.status, reviewedBy: r.reviewed_by || undefined, boards: r.boards, subject: r.subject, title: r.title, summary: r.summary || '',
+  const toLesson = r => ({ id: r.id, bank: r.bank === 'skills' ? 'skills' : undefined, status: r.status, reviewedBy: r.reviewed_by || undefined, boards: r.boards, subject: r.subject, title: r.title, summary: r.summary || '',
     order: r.position, blocks: r.blocks || [], references: r.refs || [], tier: r.tier, objectives: r.objectives && r.objectives.length ? r.objectives : undefined, highYield: r.high_yield === true ? true : undefined });
   const toEditorLesson = r => ({ ...toLesson(r), archived: !!r.archived, updatedAt: r.updated_at, updatedBy: r.updated_by || '' });
-  const toLessonRow = l => { const row = { id: l.id, status: l.status, boards: l.boards, subject: l.subject, title: l.title, summary: l.summary || '', position: l.order === undefined ? 100 : l.order,
-    blocks: l.blocks, refs: l.references || [], tier: l.tier || 'pro' }; if (typeof l.archived === 'boolean') row.archived = l.archived; if (l.objectives !== undefined) row.objectives = l.objectives || []; if (l.highYield !== undefined) row.high_yield = !!l.highYield; return row; };
+  const toLessonRow = l => { const row = { id: l.id, status: l.status, boards: l.boards && l.boards.length ? l.boards : ['aem'], subject: l.subject, title: l.title, summary: l.summary || '', position: l.order === undefined ? 100 : l.order,
+    blocks: l.blocks, refs: l.references || [], tier: l.tier || 'pro' }; if (typeof l.archived === 'boolean') row.archived = l.archived; if (l.bank === 'main' || l.bank === 'skills') row.bank = l.bank; if (l.objectives !== undefined) row.objectives = l.objectives || []; if (l.highYield !== undefined) row.high_yield = !!l.highYield; return row; };
   const noOwnTable = e => e && (e.status === 404 || e.status === 400) && /highlights|my_cards|schema cache|relation/i.test(e.message || '');
   const hlToRow = h => ({ id: h.id, user_id: uid(), kind: h.k, item_id: h.i, field: h.f, start_pos: h.a, end_pos: h.b, text_hl: h.t });
   const hlFromRow = r => ({ id: r.id, k: r.kind, i: r.item_id, f: r.field, a: r.start_pos, b: r.end_pos, t: r.text_hl });

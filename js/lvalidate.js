@@ -5,7 +5,7 @@
   if (typeof module === 'object' && module.exports) module.exports = factory(); else root.LValidate = factory();
 })(typeof self !== 'undefined' ? self : this, function () {
   const STATUS = ['draft', 'reviewed'], TIERS = ['free', 'pro'];
-  const FIELDS = ['id', 'status', 'reviewedBy', 'boards', 'subject', 'title', 'summary', 'order', 'blocks', 'references', 'tier', 'objectives', 'highYield', 'archived'];
+  const FIELDS = ['id', 'status', 'reviewedBy', 'boards', 'subject', 'title', 'summary', 'order', 'blocks', 'references', 'tier', 'objectives', 'highYield', 'archived', 'bank'];
   const KINDS = ['pearl', 'key', 'warning', 'tip'];
   const LIMITS = { blocks: 80, text: 4000, cols: 12, rows: 40, cats: 24, series: 4, items: 12, steps: 12 };
   const isStr = v => typeof v === 'string';
@@ -81,7 +81,9 @@
       if (!Array.isArray(l.objectives) || l.objectives.length > 12 || l.objectives.some(o => typeof o !== 'string' || !/^(aem|om|pm):[TK][0-9]+(\.[A-Za-z0-9]+)*$/.test(o))) err(`objectives must be a list of at most 12 board outline items such as "aem:K1.E.1"${Array.isArray(l.objectives) ? ' (not understood: ' + l.objectives.filter(o => typeof o !== 'string' || !/^(aem|om|pm):[TK][0-9]+(\\.[A-Za-z0-9]+)*$/.test(o)).slice(0, 3).map(o => JSON.stringify(o)).join(', ') + ')' : ''}`);
       else { l.objectives.forEach(o => { if (ctx.knownObjective && !ctx.knownObjective(o)) warn(`objective "${o}" is not an item in the board outline`); else if (Array.isArray(l.boards) && l.boards.length && !l.boards.includes(o.split(':')[0])) warn(`objective "${o}" is from a board this lesson is not listed for`); }); }
     }
-    if (!Array.isArray(l.boards) || !l.boards.length || l.boards.some(b => !boardIds.has(b))) err('invalid boards (use aem, om, pm)');
+    if (l.bank != null && !['main', 'skills'].includes(l.bank)) err('bank must be "main" or "skills"');
+    if (l.bank === 'skills') { if (!l.subject || !String(l.subject).trim()) err('missing subject (the topic group, such as "TCCC")'); }          // clinical skills lessons have their own free-text topic groups and no board
+    else if (!Array.isArray(l.boards) || !l.boards.length || l.boards.some(b => !boardIds.has(b))) err('invalid boards (use aem, om, pm)');
     else if (!l.subject) err('missing subject');
     else if (!l.boards.some(b => (ctx.subjects[b] || []).includes(l.subject))) err(`subject "${l.subject}" is not listed for board(s) ${l.boards.join(', ')} in the manifest`);
     if (!str(l.title, 160)) err('needs a title (up to 160 characters)');
@@ -103,6 +105,7 @@
   function normalize(l) {
     const clean = {}, dropped = [];
     Object.keys(l || {}).forEach(k => { if (FIELDS.includes(k)) clean[k] = l[k]; else dropped.push(k); });
+    if (typeof clean.bank === 'string') { clean.bank = clean.bank.trim().toLowerCase(); if (['clinical skills', 'clinical-skills', 'clinical_skills', 'skill'].includes(clean.bank)) clean.bank = 'skills'; else if (clean.bank === '') delete clean.bank; }
     if (clean.status === undefined) clean.status = 'draft';
     if (clean.tier === undefined) clean.tier = 'pro';
     ['id', 'title', 'summary'].forEach(k => { if (isStr(clean[k])) clean[k] = clean[k].trim(); });

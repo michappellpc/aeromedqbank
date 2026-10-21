@@ -82,7 +82,7 @@ const Lessons = (() => {
   const board = id => (bank.boards.find(b => b.id === id) || { name: id }).name;
   const enc = encodeURIComponent;
   const staff = () => typeof profile !== 'undefined' && profile && (profile.role === 'admin' || profile.role === 'reviewer');
-  const tags = l => l.boards.map(b => `<span class="tag">${X(board(b))}</span>`).join('') + (l.highYield ? '<span class="tag hy" title="Marked high yield">High yield</span>' : '') + (l.status !== 'reviewed' ? '<span class="tag draft" title="Only admins and reviewers can see drafts">Draft</span>' : '');
+  const tags = l => (l.bank === 'skills' ? '<span class="tag">Clinical skills</span>' : l.boards.map(b => `<span class="tag">${X(board(b))}</span>`).join('')) + (l.highYield ? '<span class="tag hy" title="Marked high yield">High yield</span>' : '') + (l.status !== 'reviewed' ? '<span class="tag draft" title="Only admins and reviewers can see drafts">Draft</span>' : '');
   const hyList = list => (hyOn() ? list.filter(l => l.highYield) : list);     // High yield only
   const sorted = list => list.slice().sort((a, b) => (a.order ?? 100) - (b.order ?? 100) || a.title.localeCompare(b.title));
   const done = () => { bindZoom(); hydrateImages(); };
@@ -143,21 +143,24 @@ const Lessons = (() => {
     document.getElementById('hy').onchange = e => { setHy(e.target.checked); objectivePage(key); const again = document.getElementById('hy'); if (again) again.focus(); };
   }
 
+  // A lesson from either bank (the main Lessons tab only ever lists the main bank's)
+  const find = id => (bank.lessons || []).find(x => x.id === id) || (bank.skillLessons || []).find(x => x.id === id);
+
   function lessonPage(id) {
     id = decodeURIComponent(id || '');
-    const l = (bank.lessons || []).find(x => x.id === id);
+    const l = find(id), sk = !!(l && l.bank === 'skills');
     if (!l) { pageTitle('Lessons'); $app.innerHTML = '<div class="card"><h2>Lesson not found</h2><p class="muted">It may have been removed. <a href="#/lessons">Back to lessons</a></p></div>'; return; }
     pageTitle(l.title);
-    const sib = sorted(bank.lessons.filter(x => x.subject === l.subject)), at = sib.findIndex(x => x.id === l.id), prev = sib[at - 1], next = sib[at + 1];
-    const lc = Links.cardsForLesson(l, bank.cards || []);
+    const sib = sorted((sk ? bank.skillLessons : bank.lessons).filter(x => x.subject === l.subject)), at = sib.findIndex(x => x.id === l.id), prev = sib[at - 1], next = sib[at + 1];
+    const lc = sk ? [] : Links.cardsForLesson(l, bank.cards || []);
     const heads = l.blocks.map((b, i) => b.type === 'heading' ? [i, b.text] : null).filter(Boolean);
-    $app.innerHTML = `<p class="crumb"><a href="#/lessons">Lessons</a> &rsaquo; <a href="#/lessons/${enc(l.subject)}">${X(l.subject)}</a></p>
+    $app.innerHTML = `<p class="crumb">${sk ? `<a href="#/skills">Clinical skills</a> &rsaquo; ${X(l.subject)}` : `<a href="#/lessons">Lessons</a> &rsaquo; <a href="#/lessons/${enc(l.subject)}">${X(l.subject)}</a>`}</p>
       <div class="lessonlayout${heads.length > 1 ? '' : ' solo'}"><article class="card lesson"><header><h2 class="pagetitle">${X(l.title)}</h2><p>${tags(l)}<span class="tag hltag" data-hll="${X(l.id)}"${Store.hlIn('l', l.id).length ? '' : ' hidden'}>&#9998; Highlighted</span></p>${l.summary ? `<p class="lsummary">${inline(l.summary)}</p>` : ''}</header>
         <div class="marktools lessontools" role="group" aria-label="Highlight this lesson"><button type="button" id="lh-hl" title="Highlight the selected text">Highlight</button><button type="button" id="lh-clear" title="Remove every highlight you made in this lesson">Clear highlights</button><a class="btn" href="#/highlights">My highlights</a><span class="muted small">Select text, then press Highlight. It is saved to your account.</span></div>
         <div class="lbody">${render(l.blocks)}</div>
-        ${l.references && l.references.length ? `<section class="lrefs"><h3 class="lh">References</h3><ul>${l.references.map(r => `<li>${X(r)}</li>`).join('')}</ul></section>` : ''}${typeof ObjPicker !== 'undefined' ? ObjPicker.show(l.objectives) : ''}
-        ${`<section class="lrelated" aria-labelledby="lrel-h"><h3 class="lh" id="lrel-h">Practice and review</h3><div class="row"><a class="btn primary" id="lq-go" href="#/create/~l:${enc(l.id)}">Set up a practice test for this lesson</a>${lc.length ? `<a class="btn" href="#/cards/browse/~l:${enc(l.id)}">Review ${lc.length} flashcard${lc.length === 1 ? '' : 's'}</a>` : ''}</div></section>`}
-        <footer class="row spread lfoot"><span>${prev ? `<a class="btn" href="#/lesson/${enc(prev.id)}">&larr; ${X(prev.title)}</a>` : ''}</span><a class="btn primary" href="#/create/${enc(l.subject)}">Practice questions in this subject</a><span>${next ? `<a class="btn" href="#/lesson/${enc(next.id)}">${X(next.title)} &rarr;</a>` : ''}</span></footer></article>
+        ${l.references && l.references.length ? `<section class="lrefs"><h3 class="lh">References</h3><ul>${l.references.map(r => `<li>${X(r)}</li>`).join('')}</ul></section>` : ''}${!sk && typeof ObjPicker !== 'undefined' ? ObjPicker.show(l.objectives) : ''}
+        ${`<section class="lrelated" aria-labelledby="lrel-h"><h3 class="lh" id="lrel-h">Practice and review</h3><div class="row">${sk ? '<a class="btn primary" id="lq-go" href="#/skills">Practice clinical skills questions</a>' : `<a class="btn primary" id="lq-go" href="#/create/~l:${enc(l.id)}">Set up a practice test for this lesson</a>`}${lc.length ? `<a class="btn" href="#/cards/browse/~l:${enc(l.id)}">Review ${lc.length} flashcard${lc.length === 1 ? '' : 's'}</a>` : ''}</div></section>`}
+        <footer class="row spread lfoot"><span>${prev ? `<a class="btn" href="#/lesson/${enc(prev.id)}">&larr; ${X(prev.title)}</a>` : ''}</span>${sk ? '<a class="btn primary" href="#/skills">Back to clinical skills</a>' : `<a class="btn primary" href="#/create/${enc(l.subject)}">Practice questions in this subject</a>`}<span>${next ? `<a class="btn" href="#/lesson/${enc(next.id)}">${X(next.title)} &rarr;</a>` : ''}</span></footer></article>
         ${heads.length > 1 ? `<nav class="card ltoc" aria-label="In this lesson"><h2 class="navh">In this lesson</h2><ul>${heads.map(([i, t]) => `<li><button type="button" class="linkish" data-jump="lh-${i}">${X(t)}</button></li>`).join('')}</ul></nav>` : ''}</div>`;
     $app.querySelectorAll('[data-jump]').forEach(b => b.onclick = () => { const el = document.getElementById(b.dataset.jump); if (el) { el.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' }); el.setAttribute('tabindex', '-1'); el.focus({ preventScroll: true }); } });
     const hb = document.getElementById('lh-hl'); hb.onmousedown = e => e.preventDefault(); hb.onclick = () => HlUI.highlightSelected();
@@ -165,5 +168,5 @@ const Lessons = (() => {
     cb.onclick = async () => { if (!Store.hlIn('l', l.id).length) return toast('There are no highlights in this lesson.'); if (await ask('Remove every highlight you made in this lesson?', 'Remove')) { HlUI.clearIn($app, 'l', l.id); toast('Highlights removed.'); } };
     done(); HlUI.tagLesson($app.querySelector('article.lesson .lbody'), l.id); HlUI.paintAll($app, true);
   }
-  return { render, chart, inline, indexPage, subjectPage, lessonPage, done, tags, sorted };
+  return { render, chart, inline, indexPage, subjectPage, lessonPage, done, tags, sorted, find };
 })();

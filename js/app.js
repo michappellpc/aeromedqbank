@@ -1,6 +1,6 @@
 'use strict';
 const $app = document.getElementById('app'), $timer = document.getElementById('timer');
-let bank = { boards: [], subjects: {}, questions: [], skills: [], byId: {}, config: {}, lessons: [], lessonFiles: [], cards: [], cardFiles: [], cardsMissing: false, peer: {}, choices: {}, program: null };
+let bank = { boards: [], subjects: {}, questions: [], skills: [], skillLessons: [], byId: {}, config: {}, lessons: [], lessonFiles: [], cards: [], cardFiles: [], cardsMissing: false, peer: {}, choices: {}, program: null };
 MyCards.install(bank);
 const APP_VERSION = '1.3';
 let tick = null, ready = false, profile = null, refocus = null;
@@ -159,7 +159,7 @@ function applyTheme() {
 // Boards and subjects are not sensitive, so they always come from the static manifest. Questions come from the
 // private database in cloud mode, or from the static files (the pilot/demo mode) when accounts are not configured.
 async function loadMeta() {
-  if (window.__QBANK_DATA) { const m = window.__QBANK_DATA; bank.config = m.config || {}; bank.boards = m.boards; bank.subjects = m.subjects; bank.lessons = m.lessons || []; bank.cards = m.cards || []; return m.questions; }
+  if (window.__QBANK_DATA) { const m = window.__QBANK_DATA; bank.config = m.config || {}; bank.boards = m.boards; bank.subjects = m.subjects; setLessons(m.lessons || []); bank.cards = m.cards || []; return m.questions; }
   const base = 'data/';
   const m = await (await fetch(base + 'manifest.json')).json();
   bank.config = await fetch(base + 'config.json').then(r => r.json()).catch(() => ({}));
@@ -170,9 +170,11 @@ async function loadStatic(files) {
   const lists = Array.isArray(files) && typeof files[0] === 'object' ? [files] : await Promise.all(files.map(f => fetch('data/' + f).then(r => r.json())));
   setQuestions(lists.flat());
   if (bank.cardFiles.length) bank.cards = (await Promise.all(bank.cardFiles.map(f => fetch('data/' + f).then(r => r.json()).catch(() => [])))).flat().filter(c => c.status === 'reviewed' && !c.archived);
-  if (bank.lessonFiles.length) bank.lessons = (await Promise.all(bank.lessonFiles.map(f => fetch('data/' + f).then(r => r.json()).catch(() => [])))).flat();
+  if (bank.lessonFiles.length) setLessons((await Promise.all(bank.lessonFiles.map(f => fetch('data/' + f).then(r => r.json()).catch(() => [])))).flat());
 }
 // The clinical skills bank is kept out of bank.questions on purpose, so none of the main bank's tests, counts, lists or statistics can include it. bank.byId finds either.
+// Same for lessons: bank.lessons is the main bank's; clinical skills lessons are kept in bank.skillLessons and shown on the Clinical skills page.
+function setLessons(list) { list = list || []; bank.lessons = list.filter(l => l.bank !== 'skills'); bank.skillLessons = list.filter(l => l.bank === 'skills'); if (typeof Skills !== 'undefined') Skills.syncNav(); }
 function setQuestions(list) { bank.questions = list.filter(q => q.bank !== 'skills'); bank.skills = list.filter(q => q.bank === 'skills'); bank.byId = Object.fromEntries(list.map(q => [q.id, q])); if (typeof Skills !== 'undefined') Skills.syncNav(); }
 
 function zoomImage(src, alt) {
@@ -264,10 +266,10 @@ async function route() {
   const [p, arg, arg2, arg3] = location.hash.replace(/^#\/?/, '').split('/');
   if (Cloud.enabled && p !== 'admin' && Admin.changed) {      // questions were edited on the Admin pages; load the new set before practicing
     Admin.changed = false;
-    try { setQuestions(await Cloud.questions()); bank.lessons = await Cloud.lessons(); await loadCards(); } catch {}
+    try { setQuestions(await Cloud.questions()); setLessons(await Cloud.lessons()); await loadCards(); } catch {}
     if (location.hash.replace(/^#\/?/, '').split('/')[0] !== p) return;   // the person moved on while it loaded
   }
-  document.querySelectorAll('nav a').forEach(l => l.classList.toggle('on', !l.closest('#progmenu') && ( l.getAttribute('href').split('/').slice(0, 2).join('/') === '#/' + (p === 'test' ? 'create' : p === 'lesson' ? 'lessons' : p === 'mine' ? '' : p === 'results' || p === 'review' ? 'history' : p === 'question' ? 'highlights' : p))));
+  document.querySelectorAll('nav a').forEach(l => l.classList.toggle('on', !l.closest('#progmenu') && ( l.getAttribute('href').split('/').slice(0, 2).join('/') === '#/' + (p === 'test' ? 'create' : p === 'lesson' ? ((bank.skillLessons || []).some(x => x.id === decodeURIComponent(arg || '')) ? 'skills' : 'lessons') : p === 'mine' ? '' : p === 'results' || p === 'review' ? 'history' : p === 'question' ? 'highlights' : p))));
   document.getElementById('nav-more').classList.toggle('on', !!document.querySelector('#secgroup a.on'));
   if (p === '' || p === 'results') refreshPeer();
   const t = Store.data.active;
@@ -1114,7 +1116,7 @@ async function startSession() {
     profile = await Cloud.profile();
     if (!profile || !profile.active) return renderBlocked(Cloud.session.email);
     setQuestions(await Cloud.questions());
-    bank.lessons = await Cloud.lessons().catch(() => []);
+    setLessons(await Cloud.lessons().catch(() => []));
     await loadCards();
     bank.peer = await Cloud.peerStats(); bank.choices = await Cloud.peerChoices(); peerAt = Date.now();
     bank.program = await Cloud.myProgram();

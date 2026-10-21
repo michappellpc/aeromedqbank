@@ -10,6 +10,11 @@ const eq = (a, b) => { if (JSON.stringify(a) !== JSON.stringify(b)) throw new Er
 const errs = (l, c) => LV.check(l, ctx(c)).filter(r => r.level === 'error').map(r => r.msg);
 const withBlock = b => ({ ...base(), blocks: [{ type: 'text', text: 'intro' }, b] });
 
+t('a clinical skills lesson needs no board and takes any topic group', () => eq(errs({ ...base(), bank: 'skills', boards: undefined, subject: 'TCCC' }), []));
+t('a clinical skills lesson still needs a topic group', () => { if (!errs({ ...base(), bank: 'skills', boards: undefined, subject: ' ' }).some(m => /missing subject/.test(m))) throw new Error('no error'); });
+t('a main bank lesson still needs a valid board and a listed subject', () => { if (!errs({ ...base(), boards: undefined }).some(m => /invalid boards/.test(m)) || !errs({ ...base(), subject: 'TCCC' }).some(m => /not listed for board/.test(m))) throw new Error('rules loosened'); });
+t('the bank must be main or skills', () => { if (!errs({ ...base(), bank: 'other' }).includes('bank must be "main" or "skills"')) throw new Error('no error'); });
+t('normalize understands "Clinical skills" as the skills bank', () => { eq(LV.normalize({ ...base(), bank: ' Clinical Skills ' }).clean.bank, 'skills'); eq(LV.normalize(base()).clean.bank, undefined); });
 t('a plain lesson passes', () => eq(errs(base()), []));
 t('missing id', () => { const l = base(); delete l.id; if (!errs(l).some(m => /missing id/.test(m))) throw new Error('no error'); });
 t('bad id', () => { if (!errs({ ...base(), id: 'Bad Id' }).some(m => /lowercase/.test(m))) throw new Error('no error'); });

@@ -782,3 +782,4 @@ section.rep-sec:not(.card){padding:0 2px}
 .skillq .opt:focus-within{outline:3px solid var(--accent);outline-offset:2px}.skillq .opt input.sr{position:absolute}
 .skres{list-style:none;margin:10px 0;padding:0}.skres li{padding:6px 0;border-top:1px solid var(--line)}
 form#skf fieldset.plain{border:0;padding:0;margin:0 0 10px}form#skf legend{font-weight:600;padding:0;margin-bottom:6px}
+.skgroup{margin:14px 0 4px;font-size:1rem}.sklessons{list-style:none;margin:0;padding:0}.sklessons li{padding:6px 0;border-top:1px solid var(--line)}

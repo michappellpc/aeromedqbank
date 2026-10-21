@@ -16,7 +16,7 @@ const Notebook = (() => {
       if (/^note-/.test(h.f)) return (q.optionNotes || {})[h.f.slice(5)] || '';
       return '';
     }
-    const l = (bank.lessons || []).find(x => x.id === h.i); if (!l) return '';
+    const l = Lessons.find(h.i); if (!l) return '';
     const box = document.createElement('div'); box.innerHTML = Lessons.render(l.blocks); HlUI.tagLesson(box, l.id);
     const z = box.querySelector(`[data-hf="${CSS.escape(h.f)}"]`); return z ? z.textContent : '';
   }
@@ -31,7 +31,7 @@ const Notebook = (() => {
     all.forEach(h => { const key = h.k + '|' + h.i; (groups.get(key) || groups.set(key, []).get(key)).push(h); });
     const w = view.q.trim().toLowerCase();
     const items = [...groups.entries()].map(([key, hs]) => {
-      const [k, i] = key.split('|'), q = k === 'q' ? bank.byId[i] : null, l = k === 'l' ? (bank.lessons || []).find(x => x.id === i) : null;
+      const [k, i] = key.split('|'), q = k === 'q' ? bank.byId[i] : null, l = k === 'l' ? Lessons.find(i) : null;
       hs.sort((a, b) => FIELD_ORDER(a.f) - FIELD_ORDER(b.f) || (a.a - b.a));
       return { k, i, q, l, hs, at: Math.max(...hs.map(h => h.at || 0)) };
     }).filter(g => (view.kind === 'all' || view.kind === g.k) && (!w || g.hs.some(h => h.t.toLowerCase().includes(w)) || (g.q && g.q.stem.toLowerCase().includes(w)) || (g.l && g.l.title.toLowerCase().includes(w))))
