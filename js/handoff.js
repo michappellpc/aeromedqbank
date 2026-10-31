@@ -208,7 +208,7 @@
       try { await root.navigator.clipboard.writeText(d._text); root.toast && root.toast('Copied. Paste it into your chat.'); }
       catch { E('hf-prev').readOnly = false; E('hf-prev').focus(); E('hf-prev').select(); root.toast && root.toast('Could not copy automatically. The message is selected: press Ctrl+C (or Cmd+C).'); }
     };
-    E('hf-dl').onclick = () => { const a = doc.createElement('a'); a.href = root.URL.createObjectURL(new root.Blob([d._text], { type: 'text/plain' })); a.download = `for-ai-${kind}-${new Date().toISOString().slice(0, 10)}.txt`; a.click(); };
+    E('hf-dl').onclick = () => { const a = doc.createElement('a'); a.href = root.URL.createObjectURL(new root.Blob([d._text], { type: 'text/plain' })); a.download = `copy-${kind}-${new Date().toISOString().slice(0, 10)}.txt`; a.click(); };
     const imp = E('hf-imp'); if (imp) imp.onclick = () => close();
     try { const saved = +root.localStorage.getItem('qbank.hfsize.' + kind); E('hf-size-sel').value = String(SIZES[kind].includes(saved) ? saved : CHUNK[kind]); } catch { E('hf-size-sel').value = String(CHUNK[kind]); }   // the last choice is remembered
     E('hf-size-sel').addEventListener('change', () => { try { root.localStorage.setItem('qbank.hfsize.' + kind, E('hf-size-sel').value); } catch { /* not saved */ } E('hf-part').value = '0'; });
