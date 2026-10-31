@@ -36,7 +36,7 @@ const AXE = fs.readFileSync(require.resolve('axe-core/axe.min.js'), 'utf8');
     ok('the switch now says Reviewer', /Reviewer/.test(await p.innerText('#viewsw-cur')));
     ok('the menu link reads Questions, like a real reviewer sees', /^Questions/.test((await p.innerText('#nav-admin')).trim()) && await p.getAttribute('#nav-admin', 'href') === '#/admin/questions');
     const tabs = (await p.locator('.tabs a').allInnerTexts()).map(x => x.trim());
-    ok('the Admin tabs are a reviewer\'s: no Overview', !tabs.includes('Overview') && tabs.includes('Questions') && tabs.includes('Lessons') && tabs.includes('Flashcards') && tabs.includes('Inbox'), tabs.join(','));
+    ok('the Admin tabs are a reviewer\'s: no Overview', !tabs.includes('Overview') && tabs.includes('Questions') && tabs.includes('Lessons') && tabs.includes('Flashcards') && !tabs.includes('Inbox') && tabs.includes('Performance'), tabs.join(','));
     await p.evaluate(() => { location.hash = '#/admin'; }); await p.waitForTimeout(500);
     ok('the Overview page is not reachable in the reviewer view (it goes back to Questions)', /#\/admin\/questions/.test(await hash(p)));
     await p.reload(); await p.waitForSelector('.tabs'); await p.waitForTimeout(700);

@@ -142,8 +142,8 @@ eq  "reviewer can read an archived question"     "1" "$(as rev "select count(*) 
 eq  "admin can read an archived question"        "1" "$(as admin "select count(*) from questions where id='q-arch';")"
 eq  "member cannot see an archived question"     "0" "$(as a "select count(*) from questions where id='q-arch';")"
 eq  "...but keeps their own history for it"      "q-arch|1" "$(as a "select question_id||'|'||seen from my_progress() where question_id='q-arch';")"
-eq  "reviewer can add a question"                "r-new" "$(as rev "insert into questions (id,boards,subject,stem,options,answer,explanation) values ('r-new','{aem}','S','s','[]','A','e') returning id;")"
-eq  "reviewer can edit a question"               "changed" "$(as rev "update questions set stem='changed' where id='q-free'; select stem from questions where id='q-free';")"
+has "reviewer cannot add a question directly"    "row-level security" "$(as rev "insert into questions (id,boards,subject,stem,options,answer,explanation) values ('r-new','{aem}','S','s','[]','A','e') returning id;")"
+eq  "reviewer cannot edit a question directly"    "stem" "$(as rev "update questions set stem='changed' where id='q-free'; select stem from questions where id='q-free';")"
 eq  "reviewer cannot read the approved list"     "0" "$(as rev "select count(*) from allowed_emails;")"
 has "reviewer cannot change the approved list"   "row-level security" "$(as rev "insert into allowed_emails (email) values ('sneaky@x');")"
 eq  "reviewer sees only their own profile"       "1" "$(as rev "select count(*) from profiles;")"
@@ -162,13 +162,13 @@ has "an invented role is refused"                "violates check constraint" "$(
 
 echo "Review integrity (enforced by the database, not the browser)"
 eq  "the database records who saved"             "admin@x" "$(as admin "insert into questions (id,boards,subject,stem,options,answer,explanation) values ('t1','{aem}','S','s','[]','A','e'); select updated_by from questions where id='t1';")"
-eq  "a reviewer's name cannot be forged"         "rev@x" "$(as rev "insert into questions (id,boards,subject,stem,options,answer,explanation,status,reviewed_by) values ('t2','{aem}','S','s','[]','A','e','reviewed','someone.else@x'); select reviewed_by from questions where id='t2';")"
+eq  "an admin's name cannot be forged"            "admin@x" "$(as admin "insert into questions (id,boards,subject,stem,options,answer,explanation,status,reviewed_by) values ('t2','{aem}','S','s','[]','A','e','reviewed','someone.else@x'); select reviewed_by from questions where id='t2';")"
 eq  "a draft never carries a reviewer"           "none" "$(as admin "insert into questions (id,boards,subject,stem,options,answer,explanation,status,reviewed_by) values ('t3','{aem}','S','s','[]','A','e','draft','ghost'); select coalesce(reviewed_by,'none') from questions where id='t3';")"
 eq  "editing a reviewed question sends it back to draft" "draft/none" "$(as admin "insert into questions (id,boards,subject,stem,options,answer,explanation,status) values ('t4','{aem}','S','s','[]','A','e','reviewed'); update questions set stem='edited' where id='t4'; select status||'/'||coalesce(reviewed_by,'none') from questions where id='t4';")"
 eq  "changing only the tier does not undo the review" "reviewed/admin@x" "$(as admin "insert into questions (id,boards,subject,stem,options,answer,explanation,status) values ('t5','{aem}','S','s','[]','A','e','reviewed'); update questions set tier='free' where id='t5'; select status||'/'||reviewed_by from questions where id='t5';")"
-eq  "fixing a typo and approving in one save is allowed" "reviewed/rev@x" "$(as admin "insert into questions (id,boards,subject,stem,options,answer,explanation) values ('t6','{aem}','S','s','[]','A','e'); select set_config('request.jwt.claims','{\"sub\":\"${U[rev]}\"}',true) \gset
+eq  "fixing a typo and approving in one save is allowed" "reviewed/admin@x" "$(as admin "insert into questions (id,boards,subject,stem,options,answer,explanation) values ('t6','{aem}','S','s','[]','A','e'); select set_config('request.jwt.claims','{\"sub\":\"${U[admin]}\"}',true) \gset
 update questions set stem='fixed typo', status='reviewed' where id='t6'; select status||'/'||reviewed_by from questions where id='t6';")"
-eq  "nobody can rewrite the reviewer afterwards"  "rev@x" "$(as admin "insert into questions (id,boards,subject,stem,options,answer,explanation,status) values ('t7','{aem}','S','s','[]','A','e','draft'); select set_config('request.jwt.claims','{\"sub\":\"${U[rev]}\"}',true) \gset
+eq  "nobody can rewrite the reviewer afterwards"  "admin@x" "$(as admin "insert into questions (id,boards,subject,stem,options,answer,explanation,status) values ('t7','{aem}','S','s','[]','A','e','draft'); select set_config('request.jwt.claims','{\"sub\":\"${U[admin]}\"}',true) \gset
 update questions set status='reviewed' where id='t7'; select set_config('request.jwt.claims','{\"sub\":\"${U[admin]}\"}',true) \gset
 update questions set reviewed_by='admin@x' where id='t7'; select reviewed_by from questions where id='t7';")"
 eq  "the upload tool keeps exactly what it sends" "reviewed/Dr Smith/upload tool" "$(psql -X -q -t -A -d $DB <<SQL 2>&1
@@ -253,10 +253,10 @@ eq  "nobody signed out sees a lesson"               "permission denied for table
 eq  "an unlisted person sees no lesson"             "0" "$(as c "select count(*) from lessons;")"
 eq  "a reviewer sees every lesson, draft and archived" "6" "$(as rev "select count(*) from lessons;")"
 eq  "a member cannot write a lesson"                "yes" "$(as a "insert into lessons (id,boards,subject,title) values ('m1','{aem}','S','t');" 2>&1 | grep -q 'row-level security' && echo yes)"
-eq  "a reviewer can write a lesson"                 "r1" "$(as rev "insert into lessons (id,boards,subject,title) values ('r1','{aem}','S','t') returning id;")"
+has "a reviewer cannot write a lesson directly"     "row-level security" "$(as rev "insert into lessons (id,boards,subject,title) values ('r1','{aem}','S','t') returning id;")"
 eq  "a lesson picture follows the lesson to members" "1" "$(as a "select count(*) from storage.objects where bucket_id='question-images' and name='lesson.png';")"
 eq  "a draft lesson's picture stays hidden"          "0" "$(as a "select count(*) from storage.objects where bucket_id='question-images' and name='lessondraft.png';")"
-eq  "marking a lesson reviewed records the reviewer" "rev@x" "$(as rev "update lessons set status='reviewed' where id='l-draft'; select reviewed_by from lessons where id='l-draft';" | tail -n 1)"
+eq  "marking a lesson reviewed records the reviewer" "admin@x" "$(as admin "update lessons set status='reviewed' where id='l-draft'; select reviewed_by from lessons where id='l-draft';" | tail -n 1)"
 eq  "editing a reviewed lesson sends it back to draft" "draft/none" "$(as admin "update lessons set status='reviewed' where id='l-free'; update lessons set title='Changed' where id='l-free'; select status||'/'||coalesce(reviewed_by,'none') from lessons where id='l-free';" | tail -n 1)"
 echo; echo "Group averages"
 root "insert into auth.users (id, email) select ('00000000-0000-0000-0001-' || lpad(g::text, 12, '0'))::uuid, 'peer' || g || '@site.com' from generate_series(1, 12) g;
@@ -475,15 +475,15 @@ eq  "an unlisted person cannot send one"             "yes" "$(as c "insert into 
 eq  "anonymous visitors cannot send one"             "yes" "$(as anon "insert into feedback (message, client_id) values ('hello there','x2');" 2>&1 | grep -q 'permission denied' && echo yes)"
 eq  "a message must have some text"                  "yes" "$(as a "insert into feedback (message, client_id) values ('hi','x3');" 2>&1 | grep -q 'violates check' && echo yes)"
 eq  "a repeated send does not duplicate it"          "1" "$(as a "insert into feedback (question_id, message, client_id) values ('q-free','There is a typo in option B','fb1') on conflict (user_id, client_id) do nothing; commit;" >/dev/null; root "select count(*) from feedback where client_id='fb1'")"
-eq  "a member cannot open the inbox"                 "yes" "$(as a "select * from feedback_inbox();" 2>&1 | grep -q 'editors only' && echo yes)"
+eq  "a member cannot open the inbox"                 "yes" "$(as a "select * from feedback_inbox();" 2>&1 | grep -q 'admins only' && echo yes)"
 eq  "an admin sees both messages with who sent them" "2,a@x" "$(as admin "select count(*)||','||min(reporter) from feedback_inbox();")"
-eq  "a reviewer sees the messages but not who sent them" "2,none" "$(as rev "select count(*)||','||coalesce(min(reporter),'none') from feedback_inbox();")"
+has "a reviewer cannot open the inbox" "admins only" "$(as rev "select count(*) from feedback_inbox();")"
 eq  "the inbox shows the question's opening words"    "stem" "$(as admin "select distinct question_stem from feedback_inbox() where question_id='q-free';")"
-eq  "the unread count is 2 for editors"              "2" "$(as rev "select feedback_unread_count();")"
+eq  "the unread count is 2 for admins"               "2" "$(as admin "select feedback_unread_count();")"
 eq  "and 0 for members"                              "0" "$(as a "select feedback_unread_count();")"
-eq  "an editor can mark a message resolved with a note" "resolved/fixed in v2" "$(FID=$(root "select id from feedback where client_id='fb1'"); as rev "select feedback_set($FID, 'resolved', 'fixed in v2'); commit;" >/dev/null; root "select status||'/'||admin_note from feedback where client_id='fb1'")"
+eq  "an editor can mark a message resolved with a note" "resolved/fixed in v2" "$(FID=$(root "select id from feedback where client_id='fb1'"); as admin "select feedback_set($FID, 'resolved', 'fixed in v2'); commit;" >/dev/null; root "select status||'/'||admin_note from feedback where client_id='fb1'")"
 eq  "the unread count drops"                         "1" "$(as admin "select feedback_unread_count();")"
-eq  "a member cannot change a message's status"      "yes" "$(as a "select feedback_set(1, 'read');" 2>&1 | grep -q 'editors only' && echo yes)"
+eq  "a member cannot change a message's status"      "yes" "$(as a "select feedback_set(1, 'read');" 2>&1 | grep -q 'admins only' && echo yes)"
 eq  "a member cannot edit their message directly"    "yes" "$(as a "update feedback set message = 'changed later';" 2>&1 | grep -q 'permission denied' && echo yes)"
 root "insert into feedback (user_id, message, client_id) select '00000000-0000-0000-0000-0000000000b2', 'bulk message ' || g, 'bulk' || g from generate_series(1, 29) g;" >/dev/null
 eq  "a member is limited to 30 messages a day"       "yes" "$(as b "insert into feedback (message, client_id) values ('one too many','lim1');" 2>&1 | grep -q 'too many messages' && echo yes)"
@@ -498,9 +498,9 @@ eq  "nobody signed out sees a card"                        "permission denied fo
 eq  "a reviewer sees every card, draft and archived"       "3" "$(as rev "select count(*) from flashcards;")"
 eq  "a member cannot add a card"                           "yes" "$(as a "insert into flashcards (id, boards, subject, front, back) values ('c-x','{aem}','S','f','b');" 2>&1 | grep -q 'row-level security' && echo yes)"
 eq  "a member cannot change a card"                        "0" "$(as a "update flashcards set back = 'hacked' where id = 'c-live' returning id;" | grep -c c-live)"
-eq  "a reviewer can add a card, and it starts as draft"   "draft" "$(as rev "insert into flashcards (id, boards, subject, front, back) values ('c-rev','{aem}','S','f','b') returning status;")"
-eq  "marking it reviewed records who did it"              "rev@x" "$(as rev "insert into flashcards (id, boards, subject, front, back) values ('c-rev','{aem}','S','f','b'); update flashcards set status = 'reviewed' where id = 'c-rev' returning reviewed_by;")"
-eq  "changing a reviewed card's text sends it back to draft" "draft" "$(as rev "insert into flashcards (id, boards, subject, front, back, status) values ('c-rev','{aem}','S','f','b','draft'); update flashcards set status = 'reviewed' where id = 'c-rev'; update flashcards set back = 'new back' where id = 'c-rev' returning status;")"
+has "a reviewer cannot add a card directly"         "row-level security" "$(as rev "insert into flashcards (id, boards, subject, front, back) values ('c-rev','{aem}','S','f','b') returning status;")"
+eq  "marking it reviewed records who did it"              "admin@x" "$(as admin "insert into flashcards (id, boards, subject, front, back) values ('c-rev','{aem}','S','f','b'); update flashcards set status = 'reviewed' where id = 'c-rev' returning reviewed_by;")"
+eq  "changing a reviewed card's text sends it back to draft" "draft" "$(as admin "insert into flashcards (id, boards, subject, front, back, status) values ('c-rev','{aem}','S','f','b','draft'); update flashcards set status = 'reviewed' where id = 'c-rev'; update flashcards set back = 'new back' where id = 'c-rev' returning status;")"
 eq  "a card needs a front and a back"                      "yes" "$(root "insert into flashcards (id, boards, subject, front, back) values ('c-bad','{aem}','S','   ','b');" | grep -q 'violates check constraint' && echo yes)"
 eq  "a very long back is refused"                          "yes" "$(root "insert into flashcards (id, boards, subject, front, back) values ('c-long','{aem}','S','f','$(printf 'x%.0s' $(seq 1 1501))');" | grep -q 'violates check constraint' && echo yes)"
 eq  "a member can save their own review"                   "1" "$(as a "insert into card_reviews (user_id, card_id, due, reps) values ('${U[a]}','c-live', current_date + 3, 1); commit;" >/dev/null; root "select count(*) from card_reviews where user_id='${U[a]}'")"
@@ -517,8 +517,8 @@ SID=$(root "select id from feedback where client_id='sup1'")
 eq  "a support message has no question and a plain category" "support||other" "$(root "select kind||'|'||coalesce(question_id,'')||'|'||category from feedback where client_id='sup1'")"
 eq  "the team sees it with its subject"                "support,Upgrading my plan" "$(as admin "select kind||','||subject from feedback_inbox() where id = $SID;")"
 eq  "it counts as new for the team"                    "new" "$(root "select status from feedback where id = $SID")"
-eq  "a member cannot reply as the team"                "yes" "$(as a "select thread_team_reply($SID, 'I am the team');" 2>&1 | grep -q 'editors only' && echo yes)"
-eq  "a reviewer can reply"                             "read/true" "$(as rev "select thread_team_reply($SID, 'You can upgrade from the Support page or ask us here.'); commit;" >/dev/null; root "select status||'/'||member_unread from feedback where id = $SID")"
+eq  "a member cannot reply as the team"                "yes" "$(as a "select thread_team_reply($SID, 'I am the team');" 2>&1 | grep -q 'admins only' && echo yes)"
+eq  "an admin can reply"                             "read/true" "$(as admin "select thread_team_reply($SID, 'You can upgrade from the Support page or ask us here.'); commit;" >/dev/null; root "select status||'/'||member_unread from feedback where id = $SID")"
 eq  "the member sees an unread reply"                  "1" "$(as a "select my_unread_replies();")"
 eq  "in their own conversations list"                  "Upgrading my plan,true,1" "$(as a "select subject||','||member_unread||','||replies from my_threads() where id = $SID;")"
 eq  "the conversation reads member then team"          "member,team" "$(as a "select string_agg(sender, ',' order by created_at) from my_thread_messages($SID);")"
@@ -526,10 +526,10 @@ eq  "another member cannot read it"                    "0" "$(as b "select count
 eq  "another member cannot reply into it"              "yes" "$(as b "select thread_member_reply($SID, 'hi');" 2>&1 | grep -q 'no such conversation' && echo yes)"
 eq  "opening it clears the unread mark"                "0" "$(as a "select my_thread_seen($SID); commit;" >/dev/null; as a "select my_unread_replies();")"
 eq  "the member can answer back, which reopens it for the team" "new/2" "$(as a "select thread_member_reply($SID, 'Thank you, that worked.'); commit;" >/dev/null; root "select f.status||'/'||(select count(*) from feedback_messages m where m.feedback_id=f.id) from feedback f where f.id = $SID")"
-eq  "admins see which teammate replied"                "rev@x" "$(as admin "select author from thread_messages($SID) where sender='team';")"
-eq  "reviewers do not see who replied"                 "none" "$(as rev "select coalesce(author,'none') from thread_messages($SID) where sender='team';")"
+eq  "admins see which teammate replied"                "admin@x" "$(as admin "select author from thread_messages($SID) where sender='team';")"
+has "reviewers cannot open a conversation"             "admins only" "$(as rev "select * from thread_messages($SID);")"
 eq  "the team's inbox counts the replies"              "2" "$(as admin "select replies from feedback_inbox() where id = $SID;")"
-eq  "an empty reply is refused"                        "yes" "$(as rev "select thread_team_reply($SID, '   ');" 2>&1 | grep -q '1 to 1500' && echo yes)"
+eq  "an empty reply is refused"                        "yes" "$(as admin "select thread_team_reply($SID, '   ');" 2>&1 | grep -q '1 to 1500' && echo yes)"
 eq  "a member cannot read the reply table directly"    "yes" "$(as a "select * from feedback_messages;" 2>&1 | grep -q 'permission denied' && echo yes)"
 eq  "anonymous visitors cannot call the conversation functions" "yes" "$(as anon "select * from my_threads();" 2>&1 | grep -q 'permission denied' && echo yes)"
 root "insert into feedback_messages (feedback_id, sender, author_id, message) select $SID, 'member', '00000000-0000-0000-0000-0000000000a1', 'filler ' || g from generate_series(1, 30) g;" >/dev/null
@@ -773,8 +773,8 @@ root "insert into questions (id, boards, subject, stem, options, answer, explana
   insert into flashcards (id, boards, subject, front, back, status) values ('hy-c','{aem}','S','HY front','HY back','reviewed');" >/dev/null
 eq  "high yield starts off, on questions, lessons and flashcards" "false,false,false" "$(root "select (select high_yield from questions where id='hy-q')||','||(select high_yield from lessons where id='hy-l')||','||(select high_yield from flashcards where id='hy-c')")"
 eq  "an admin can mark a live question high yield, and it stays live" "true/reviewed" "$(as admin "update questions set high_yield = true where id='hy-q'; select high_yield||'/'||status from questions where id='hy-q';")"
-eq  "a reviewer can mark a live lesson high yield, and it stays live" "true/reviewed" "$(as rev "update lessons set high_yield = true where id='hy-l'; select high_yield||'/'||status from lessons where id='hy-l';")"
-eq  "a reviewer can mark a live flashcard high yield, and it stays live" "true/reviewed" "$(as rev "update flashcards set high_yield = true where id='hy-c'; select high_yield||'/'||status from flashcards where id='hy-c';")"
+eq  "a reviewer cannot change a lesson's high yield flag directly" "false/reviewed" "$(as rev "update lessons set high_yield = true where id='hy-l'; select high_yield||'/'||status from lessons where id='hy-l';")"
+eq  "a reviewer cannot change a card's high yield flag directly" "false/reviewed" "$(as rev "update flashcards set high_yield = true where id='hy-c'; select high_yield||'/'||status from flashcards where id='hy-c';")"
 root "update questions set high_yield = true where id='hy-q'; update lessons set high_yield = true where id='hy-l'; update flashcards set high_yield = true where id='hy-c';" >/dev/null
 eq  "a member sees the flag on a live question"  "t" "$(as a "select high_yield from questions where id='hy-q';")"
 eq  "a member sees the flag on a live lesson"    "t" "$(as a "select high_yield from lessons where id='hy-l';")"
@@ -789,7 +789,59 @@ root "delete from questions where id='hy-q'; delete from lessons where id='hy-l'
 eq  "changing only the topic keeps a live question live" "reviewed/admin@x/Tidy" "$(as admin "insert into questions (id,boards,subject,topic,stem,options,answer,explanation,status) values ('tp-q','{aem}','S','Old topic','s','[]','A','e','reviewed'); update questions set topic='Tidy' where id='tp-q'; select status||'/'||reviewed_by||'/'||topic from questions where id='tp-q';")"
 eq  "changing the topic and the wording still sends it back to draft" "draft" "$(as admin "insert into questions (id,boards,subject,topic,stem,options,answer,explanation,status) values ('tp-q3','{aem}','S','Old topic','s','[]','A','e','reviewed'); update questions set topic='Other', stem='edited again' where id='tp-q3'; select status from questions where id='tp-q3';")"
 eq  "changing the subject still sends a live question back to draft" "draft" "$(as admin "insert into questions (id,boards,subject,topic,stem,options,answer,explanation,status) values ('tp-q2','{aem}','S','T','s','[]','A','e','reviewed'); update questions set subject='S2' where id='tp-q2'; select status from questions where id='tp-q2';")"
-eq  "changing only a card's topic keeps a live card live" "reviewed/Tidy" "$(as rev "insert into flashcards (id, boards, subject, topic, front, back, status) values ('tp-c','{aem}','S','Old','f','b','draft'); update flashcards set status = 'reviewed' where id = 'tp-c'; update flashcards set topic = 'Tidy' where id = 'tp-c'; select status||'/'||topic from flashcards where id='tp-c';")"
+eq  "changing only a card's topic keeps a live card live" "reviewed/Tidy" "$(as admin "insert into flashcards (id, boards, subject, topic, front, back, status) values ('tp-c','{aem}','S','Old','f','b','draft'); update flashcards set status = 'reviewed' where id = 'tp-c'; update flashcards set topic = 'Tidy' where id = 'tp-c'; select status||'/'||topic from flashcards where id='tp-c';")"
 root "delete from questions where id in ('tp-q','tp-q2','tp-q3'); delete from flashcards where id='tp-c';" >/dev/null
+
+echo; echo "Reviewer proposals (a reviewer's changes wait for an admin)"
+root "insert into questions (id, boards, subject, stem, options, answer, explanation, tier, status) values ('cr-live','{aem}','S','old stem','[{\"id\":\"A\",\"text\":\"x\"}]','A','why','free','reviewed');
+  insert into lessons (id, boards, subject, title, tier, status, blocks) values ('cr-les','{aem}','S','Old title','free','reviewed','[]');
+  insert into flashcards (id, boards, subject, front, back, status) values ('cr-card','{aem}','S','old front','old back','reviewed');" >/dev/null
+has "a reviewer cannot change a live question directly"      "stem" "$(as rev "update questions set stem='sneaky' where id='cr-live'; select stem from questions where id='cr-live';")"
+has "a reviewer cannot delete a question"                    "0" "$(as rev "delete from questions where id='cr-live'; select count(*) - 1 from questions where id='cr-live';")"
+has "a reviewer cannot write the proposals table directly"   "permission denied" "$(as rev "insert into change_requests (kind,item_id,action,payload) values ('question','cr-live','edit','{}');")"
+as rev "select submit_change('question','cr-live','edit','{\"id\":\"cr-live\",\"stem\":\"new stem\",\"status\":\"draft\",\"archived\":true}'::jsonb,'fixed a typo'); commit;" >/dev/null
+eq  "a proposal does not change the live question"           "old stem/reviewed" "$(root "select stem||'/'||status from questions where id='cr-live'")"
+eq  "a reviewer cannot unpublish or archive through a proposal" "reviewed/false" "$(root "select payload->>'status'||'/'||(payload->>'archived') from change_requests where item_id='cr-live'")"
+eq  "the proposal remembers who wrote it, and when the live item was saved" "rev@x/true" "$(root "select author_email||'/'||(base_updated_at is not null) from change_requests where item_id='cr-live'")"
+eq  "saving again replaces the open proposal"                 "1/newer stem" "$(as rev "select submit_change('question','cr-live','edit','{\"id\":\"cr-live\",\"stem\":\"newer stem\"}'::jsonb,''); commit;" >/dev/null; root "select count(*)||'/'||min(payload->>'stem') from change_requests where item_id='cr-live' and status='pending'")"
+eq  "a reviewer sees their own proposals"                     "1" "$(as rev "select count(*) from change_requests;")"
+eq  "a member sees none"                                     "0" "$(as a "select count(*) from change_requests;")"
+eq  "the menu count for the reviewer is their own"           "1" "$(as rev "select pending_change_count();")"
+eq  "the menu count for a member is zero"                    "0" "$(as a "select pending_change_count();")"
+has "a member cannot send a proposal"                        "editors only" "$(as a "select submit_change('question','cr-live','edit','{\"id\":\"cr-live\"}'::jsonb);")"
+has "a proposal must match its item"                         "does not match" "$(as rev "select submit_change('question','cr-live','edit','{\"id\":\"other\"}'::jsonb);")"
+has "a new item cannot reuse a live id"                      "already exists" "$(as rev "select submit_change('question','cr-live','new','{\"id\":\"cr-live\"}'::jsonb);")"
+has "a reviewer cannot accept their own change"              "admins only" "$(as rev "select accept_change((select id from change_requests where item_id='cr-live' and status='pending'));")"
+has "a reviewer cannot reject a change"                      "admins only" "$(as rev "select reject_change((select id from change_requests where item_id='cr-live' and status='pending'));")"
+eq  "an admin sees every open proposal"                      "1" "$(as admin "select count(*) from change_requests where status='pending';")"
+eq  "accepting an edit to a live question keeps it live, with the new wording" "newer stem/reviewed" "$(as admin "select accept_change((select id from change_requests where item_id='cr-live' and status='pending')); commit;" >/dev/null; root "select stem||'/'||status from questions where id='cr-live'")"
+eq  "the proposal is marked accepted, by whom"               "accepted/admin@x" "$(root "select status||'/'||decided_by from change_requests where item_id='cr-live'")"
+has "a decided change cannot be decided again"               "already decided" "$(as admin "select accept_change((select id from change_requests where item_id='cr-live'));")"
+eq  "an admin editing the wording directly still sends it to draft (only accepting a proposal skips that)" "draft" "$(as admin "update questions set stem='direct edit' where id='cr-live'; select status from questions where id='cr-live';")"
+root "update questions set status='reviewed', stem='newer stem' where id='cr-live'" >/dev/null
+# a new question: always arrives as a draft, goes live only when the admin chooses
+as rev "select submit_change('question','cr-new','new','{\"id\":\"cr-new\",\"boards\":[\"aem\"],\"subject\":\"S\",\"stem\":\"brand new\",\"options\":[{\"id\":\"A\",\"text\":\"x\"}],\"answer\":\"A\",\"explanation\":\"e\",\"status\":\"reviewed\",\"tier\":\"free\"}'::jsonb,'please add'); commit;" >/dev/null
+eq  "a new item is not in the bank until accepted"            "0" "$(root "select count(*) from questions where id='cr-new'")"
+eq  "and it was forced to a draft proposal"                  "draft" "$(root "select payload->>'status' from change_requests where item_id='cr-new'")"
+has "a second person cannot propose the same new id"         "already proposed" "$(as admin "select submit_change('question','cr-new','new','{\"id\":\"cr-new\"}'::jsonb);")"
+eq  "the admin edits it first, then accepts and publishes: their wording wins" "admin wording/reviewed/admin@x" "$(as admin "select accept_change((select id from change_requests where item_id='cr-new' and status='pending'), '{\"id\":\"cr-new\",\"boards\":[\"aem\"],\"subject\":\"S\",\"stem\":\"admin wording\",\"options\":[{\"id\":\"A\",\"text\":\"x\"}],\"answer\":\"A\",\"explanation\":\"e\",\"tier\":\"free\"}'::jsonb, 'reviewed'); commit;" >/dev/null; root "select stem||'/'||status||'/'||reviewed_by from questions where id='cr-new'")"
+eq  "members now see it"                                       "1" "$(as a "select count(*) from questions where id='cr-new';")"
+# rejecting
+as rev "select submit_change('question','cr-live','edit','{\"id\":\"cr-live\",\"stem\":\"bad idea\"}'::jsonb,''); commit;" >/dev/null
+eq  "rejecting leaves the live question as it was"           "newer stem/rejected/not clear" "$(as admin "select reject_change((select id from change_requests where item_id='cr-live' and status='pending'), 'not clear'); commit;" >/dev/null; root "select (select stem from questions where id='cr-live')||'/'||status||'/'||decision_note from change_requests where item_id='cr-live' and status='rejected'")"
+eq  "the reviewer can read why"                               "rejected/not clear" "$(as rev "select status||'/'||decision_note from change_requests where item_id='cr-live' and status='rejected';")"
+# withdrawing
+as rev "select submit_change('question','cr-live','edit','{\"id\":\"cr-live\",\"stem\":\"second thoughts\"}'::jsonb,''); commit;" >/dev/null
+eq  "a reviewer can take back their open proposal"           "0" "$(as rev "select withdraw_change((select id from change_requests where item_id='cr-live' and status='pending')); commit;" >/dev/null; root "select count(*) from change_requests where item_id='cr-live' and status='pending'")"
+# lessons and cards
+as rev "select submit_change('lesson','cr-les','edit','{\"id\":\"cr-les\",\"title\":\"New title\"}'::jsonb,''); select submit_change('card','cr-card','edit','{\"id\":\"cr-card\",\"back\":\"new back\"}'::jsonb,''); commit;" >/dev/null
+eq  "lesson and card proposals leave the live items alone"    "Old title/old back" "$(root "select (select title from lessons where id='cr-les')||'/'||(select back from flashcards where id='cr-card')")"
+eq  "accepting them updates both and keeps them live"        "New title/reviewed/new back/reviewed" "$(as admin "select accept_change(id) from change_requests where status='pending' and kind in ('lesson','card'); commit;" >/dev/null; root "select (select title||'/'||status from lessons where id='cr-les')||'/'||(select back||'/'||status from flashcards where id='cr-card')")"
+eq  "a reviewer's proposal cannot set who reviewed it"       "none" "$(as rev "select submit_change('card','cr-card','edit','{\"id\":\"cr-card\",\"reviewed_by\":\"forged@x\"}'::jsonb,''); commit;" >/dev/null; root "select coalesce(payload->>'reviewed_by','none') from change_requests where item_id='cr-card' and status='pending'")"
+root "delete from change_requests; delete from questions where id in ('cr-live','cr-new'); delete from lessons where id='cr-les'; delete from flashcards where id='cr-card';" >/dev/null
+echo "Reviewers do not see members"
+eq  "a reviewer cannot see attempts, profiles or members" "0/1" "$(as rev "select (select count(*) from attempts)||'/'||(select count(*) from profiles);")"
+has "a reviewer cannot open a conversation list"          "admins only" "$(as rev "select * from feedback_inbox();")"
+eq  "the reviewer's unread count is zero"                 "0" "$(as rev "select feedback_unread_count();")"
 
 echo; echo "$PASS passed, $FAIL failed"; [[ $FAIL -eq 0 ]]

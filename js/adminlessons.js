@@ -56,7 +56,7 @@ const AdminLessons = (() => {
     const subjects = subjectsFor([]);
     $app.innerHTML = `${tabs('lessons')}
       <div class="card"><div class="row spread"><div><h2 style="margin:0">Lessons</h2><p class="muted" style="margin:4px 0 0">${n.live} live for members &middot; ${n.draft} draft (hidden) &middot; ${n.arch} archived</p></div>
-        <div class="row"><a class="btn primary" href="#/admin/lessons/new">Add a lesson</a><a class="btn" href="#/admin/lessons/import">Import from a chat</a><button id="aicopy" type="button" aria-label="Copy these lessons to paste into a chat" title="Copy the lessons you are looking at, to paste into a chat">Copy</button><button id="hyapply" type="button" title="Paste the answer you got for the Sort by high yield Copy task">Apply high yield list</button><button id="backup">Download backup</button></div></div></div>
+        <div class="row"><a class="btn primary" href="#/admin/lessons/new">Add a lesson</a><a class="btn" href="#/admin/lessons/import">Import from a chat</a><button id="aicopy" type="button" aria-label="Copy these lessons to paste into a chat" title="Copy the lessons you are looking at, to paste into a chat">Copy</button>${Admin.role() === 'admin' ? '<button id="hyapply" type="button" title="Paste the answer you got for the Sort by high yield Copy task">Apply high yield list</button>' : ''}<button id="backup">Download backup</button></div></div></div>
       <div class="card"><form id="flt" class="filters" aria-label="Filter lessons">
         <div><label for="fq">Search</label><input id="fq" type="search" value="${esc(view.q)}" placeholder="title or id"></div>
         <div><label for="fbk">Bank</label><select id="fbk"><option value="main">Main bank</option><option value="skills">Clinical skills</option><option value="both">Both</option></select></div>
@@ -70,7 +70,7 @@ const AdminLessons = (() => {
     on('fsort', 'change', e => { view.sort = e.target.value; paint(); });
     on('fst', 'change', e => { view.status = e.target.value; paint(); }); on('fot', 'change', e => { view.tag = e.target.value; paint(); }); on('fhy', 'change', e => { view.hy = e.target.value; paint(); }); on('fsh', 'change', e => { view.show = e.target.value; paint(); });
     on('backup', 'click', () => backup(c.list));
-    on('hyapply', 'click', () => Admin.applyHighYield({ noun: 'lesson', items: cache.list, patch: Cloud.patchLessons, after: () => { refresh(); list(); } }));
+    if (Admin.role() === 'admin') on('hyapply', 'click', () => Admin.applyHighYield({ noun: 'lesson', items: cache.list, patch: Cloud.patchLessons, after: () => { refresh(); list(); } }));
     on('aicopy', 'click', () => Handoff.open({ kind: 'lessons', coverage: Links.coverage(cache.list.filter(x => !x.archived)), items: lastRows, selected: [...view.sel], importHash: '#/admin/lessons/import',
       describe: (() => { const p = []; if (view.q) p.push(`search "${view.q}"`); if (view.subject) p.push(view.subject); if (view.status) p.push(view.status === 'reviewed' ? 'live' : 'draft'); if (view.hy) p.push(view.hy === 'yes' ? 'high yield' : 'not marked high yield'); if (view.show !== 'active') p.push(view.show === 'all' ? 'including archived' : 'archived'); return p.length ? 'filters: ' + p.join(', ') : 'no filters'; })() }));
     paint();
@@ -95,6 +95,7 @@ const AdminLessons = (() => {
       <button data-b="review">Publish (mark reviewed)</button><button data-b="draft">Hide (mark draft)</button>${allArch ? '<button data-b="restore">Restore</button>' : '<button data-b="archive">Archive</button>'}
       <button data-b="hy" title="Mark these as worth a member's time first">Mark high yield</button><button data-b="nohy">Remove high yield</button>
       <button data-b="free">Set: free members too</button><button data-b="pro">Set: pro members only</button>${allArch ? '<button data-b="delete" class="danger">Delete permanently</button>' : ''}<button data-b="clear" class="linkish">Clear</button></div>`;
+    if (Admin.role() !== 'admin') box.querySelectorAll('[data-b]').forEach(b => { if (!['copy', 'clear'].includes(b.dataset.b)) b.remove(); });      // a reviewer proposes changes; only an admin publishes, archives or deletes
     box.querySelectorAll('[data-b]').forEach(b => b.onclick = () => bulk(b.dataset.b, ids));
   }
   async function bulk(kind, ids) {
@@ -116,12 +117,13 @@ const AdminLessons = (() => {
 
   // ------------------------------------------------------------------ editor
   async function form(id) {
+    const ed = Changes.consume('lesson');            // a reviewer's proposal being finished or edited, if that is why the form opened
     pageTitle(id ? 'Edit lesson' : 'New lesson');
     const c = await ensure(); if (!c) return;
     const isNew = !id, orig = isNew ? null : c.list.find(l => l.id === id);
     if (!isNew && !orig) { $app.innerHTML = tabs('lessons') + note('That lesson was not found. <a href="#/admin/lessons">Back to the list</a>', 'muted'); return; }
-    const l0 = isNew ? { id: '', status: 'draft', tier: 'pro', boards: ['aem'], subject: '', title: '', summary: '', order: 100, blocks: [TEMPLATES.text], references: [] } : JSON.parse(JSON.stringify(orig));
-    let idTouched = !isNew;
+    const l0 = ed ? JSON.parse(JSON.stringify(ed.item)) : isNew ? { id: '', status: 'draft', tier: 'pro', boards: ['aem'], subject: '', title: '', summary: '', order: 100, blocks: [TEMPLATES.text], references: [] } : JSON.parse(JSON.stringify(orig));
+    let idTouched = !isNew || !!ed;
     const boardBoxes = bank.boards.map(b => `<label class="chk"><input type="checkbox" name="board" value="${esc(b.id)}"${l0.boards.includes(b.id) ? ' checked' : ''}> ${esc(b.name)}</label>`).join('');
     $app.innerHTML = `${tabs('lessons')}
       <div class="card"><div class="row spread"><h2 style="margin:0">${isNew ? 'New lesson' : 'Edit ' + esc(l0.title)}</h2><a href="#/admin/lessons">Back to the list</a></div>
@@ -150,6 +152,7 @@ const AdminLessons = (() => {
       </form></div>`;
     const el = i => document.getElementById(i), boardsChecked = () => [...document.querySelectorAll('input[name=board]:checked')].map(e => e.value);
     const fillSubjects = keep => { el('f-subject').innerHTML = '<option value="">Choose a subject</option>' + subjectsFor(boardsChecked()).map(s => `<option${s === keep ? ' selected' : ''}>${esc(s)}</option>`).join(''); };
+    Changes.shapeForm($app, 'lesson', ed);
     fillSubjects(l0.subject);
     const applyBank = () => { const sk = el('f-bank').value === 'skills'; ['bd-fs', 'ob-fs', 'sj-main'].forEach(i => { el(i).hidden = sk; }); el('sj-sk').hidden = !sk; };
     const objPick = ObjPicker.mount(el('f-obj'), { value: l0.objectives || [], boards: boardsChecked, subject: () => el('f-subject').value, topic: () => '', text: () => el('f-title').value + ' ' + el('f-summary').value + ' ' + (parse().blocks || []).map(b => [b.text, b.title, b.heading].filter(x => typeof x === 'string').join(' ')).join(' ') });
@@ -193,7 +196,8 @@ const AdminLessons = (() => {
       if (errors.length) return showErrors(errors.map(m => m.charAt(0).toUpperCase() + m.slice(1)));
       const btn = el('save'); btn.disabled = true;
       try {
-        if (!isNew) { const now = await Cloud.lessonUpdatedAt(clean.id); if (now && orig.updatedAt && now !== orig.updatedAt && !(await ask('Someone else saved this lesson after you opened it. Saving now will replace their changes.', 'Replace their changes'))) { btn.disabled = false; return; } }
+        if (!isNew && !ed) { const now = await Cloud.lessonUpdatedAt(clean.id); if (now && orig.updatedAt && now !== orig.updatedAt && !(await ask('Someone else saved this lesson after you opened it. Saving now will replace their changes.', 'Replace their changes'))) { btn.disabled = false; return; } }
+        if (await Changes.send('lesson', clean, ed, { isNew, note: Changes.noteValue($app), status: clean.status })) return;      // a reviewer's save is a proposal
         await Cloud.saveLessons([clean]); refresh();
         const fresh = ((await ensure(true)) || { list: [] }).list.find(x => x.id === clean.id);
         let msg = isNew ? 'Saved as a draft.' : 'Saved.';
@@ -233,11 +237,16 @@ const AdminLessons = (() => {
         <div class="scroll" role="region" tabindex="0" aria-label="Import check results"><table><caption class="sr">Result for each lesson</caption><thead><tr><th scope="col">Lesson</th><th scope="col">Result</th><th scope="col">Details</th></tr></thead><tbody>${items.map(x => `<tr><td>${esc(x.clean.title || '(no title)')}<div class="muted small">${esc(x.clean.id || '(no id)')} &middot; ${esc(x.clean.subject || '')}</div></td>
           <td>${x.errors.length ? '<span class="tag archived">Needs fixes</span>' : x.replaces ? '<span class="tag draft">Replaces existing</span>' : '<span class="tag reviewed">New</span>'}</td>
           <td>${x.errors.map(m => `<div class="bad">Fix: ${esc(m)}</div>`).join('')}${x.warns.map(m => `<div class="muted">Note: ${esc(m)}</div>`).join('')}${x.dropped.length ? `<div class="muted">Ignored: ${esc(x.dropped.join(', '))}</div>` : ''}</td></tr>`).join('')}</tbody></table></div>
-        <div class="row" style="margin-top:12px"><button class="primary" id="go"${good.length ? '' : ' disabled'}>Save ${good.length} lesson${good.length === 1 ? '' : 's'}</button></div></div>`;
+        <div class="row" style="margin-top:12px"><button class="primary" id="go"${good.length ? '' : ' disabled'}>${Changes.isReviewer() ? 'Send for approval:' : 'Save'} ${good.length} lesson${good.length === 1 ? '' : 's'}</button></div></div>`;
       el('go').onclick = async () => {
-        if (live.length && !(await ask(`${live.length} live lesson${live.length === 1 ? '' : 's'} will be replaced and hidden from members until reviewed again. Continue?`, 'Replace and continue'))) return;
+        if (!Changes.isReviewer() && live.length && !(await ask(`${live.length} live lesson${live.length === 1 ? '' : 's'} will be replaced and hidden from members until reviewed again. Continue?`, 'Replace and continue'))) return;
         el('go').disabled = true;
-        try { await Cloud.saveLessons(good.map(x => x.clean)); refresh(); out.innerHTML = `<div class="card"><p><b>Saved ${good.length} lesson${good.length === 1 ? '' : 's'}</b> as drafts.${bad ? ` ${bad} were skipped because they needed fixes.` : ''}</p><a class="btn primary" href="#/admin/lessons">Go to the list</a></div>`; el('paste').value = ''; toast(`Saved ${good.length}.`); }
+        try {
+          if (Changes.isReviewer()) {      // a reviewer's import is a batch of proposals for an admin to accept
+            for (const x of good) await Cloud.submitChange('lesson', x.clean, existing.has(x.clean.id) ? 'edit' : 'new', '');
+            Changes.refreshAll(); out.innerHTML = `<div class="card"><p><b>Sent ${good.length} lesson${good.length === 1 ? '' : 's'} for approval.</b> Members see no change until an admin accepts ${good.length === 1 ? 'it' : 'them'}.${bad ? ` ${bad} were skipped because they needed fixes.` : ''}</p><a class="btn primary" href="#/admin/changes">See my changes</a></div>`; el('paste').value = ''; toast('Sent for approval.'); return;
+          }
+          await Cloud.saveLessons(good.map(x => x.clean)); refresh(); out.innerHTML = `<div class="card"><p><b>Saved ${good.length} lesson${good.length === 1 ? '' : 's'}</b> as drafts.${bad ? ` ${bad} were skipped because they needed fixes.` : ''}</p><a class="btn primary" href="#/admin/lessons">Go to the list</a></div>`; el('paste').value = ''; toast(`Saved ${good.length}.`); }
         catch (e) { el('go').disabled = false; toast(e.offline ? 'No connection. Nothing was saved.' : 'Could not save: ' + e.message); }
       };
     }
@@ -245,5 +254,5 @@ const AdminLessons = (() => {
     el('pfile').addEventListener('change', async e => { const f = e.target.files[0]; if (!f) return; if (f.size > 5 * 1024 * 1024) { el('res').innerHTML = '<div class="card"><div class="errbox" role="alert">That file is too large.</div></div>'; return; } el('paste').value = await f.text(); analyse(); });
   }
 
-  return { route(b, c) { if (b === 'new') return form(null); if (b === 'edit' && c) return form(decodeURIComponent(c)); if (b === 'import') return importPage(); return list(); }, refresh };
+  return { formFor: form, route(b, c) { if (b === 'new') return form(null); if (b === 'edit' && c) return form(decodeURIComponent(c)); if (b === 'import') return importPage(); return list(); }, refresh };
 })();

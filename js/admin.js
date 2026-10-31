@@ -22,8 +22,9 @@ const Admin = (() => {
   const LETTERS = ['A', 'B', 'C', 'D', 'E', 'F'];
 
   function tabs(active) {
-    const items = role() === 'admin' ? [['overview', '#/admin', 'Overview'], ['questions', '#/admin/questions', 'Questions'], ['lessons', '#/admin/lessons', 'Lessons'], ['cards', '#/admin/cards', 'Flashcards'], ['inbox', '#/admin/inbox', 'Inbox']] : [['questions', '#/admin/questions', 'Questions'], ['lessons', '#/admin/lessons', 'Lessons'], ['cards', '#/admin/cards', 'Flashcards'], ['inbox', '#/admin/inbox', 'Inbox']];
-    return `<div class="tabs" role="navigation" aria-label="Admin sections">${items.map(([k, h, t]) => `<a href="${h}"${k === active ? ' aria-current="page" class="on"' : ''}>${t}${k === 'inbox' && Admin.unread ? ` <span class="navbadge inline">${Admin.unread}</span>` : ''}</a>`).join('')}</div>`;
+    const items = role() === 'admin' ? [['overview', '#/admin', 'Overview'], ['questions', '#/admin/questions', 'Questions'], ['lessons', '#/admin/lessons', 'Lessons'], ['cards', '#/admin/cards', 'Flashcards'], ['changes', '#/admin/changes', 'Changes'], ['inbox', '#/admin/inbox', 'Inbox']]
+      : [['questions', '#/admin/questions', 'Questions'], ['lessons', '#/admin/lessons', 'Lessons'], ['cards', '#/admin/cards', 'Flashcards'], ['performance', '#/admin/performance', 'Performance'], ['changes', '#/admin/changes', 'My changes']];
+    return `<div class="tabs" role="navigation" aria-label="Admin sections">${items.map(([k, h, t]) => `<a href="${h}"${k === active ? ' aria-current="page" class="on"' : ''}>${t}${k === 'inbox' && Admin.unread ? ` <span class="navbadge inline">${Admin.unread}</span>` : ''}${k === 'changes' && Admin.waiting ? ` <span class="navbadge inline">${Admin.waiting}</span>` : ''}</a>`).join('')}</div>`;
   }
 
   function askText(msg, expected, yes) {          // a confirmation that needs a word typed, for irreversible actions
@@ -151,7 +152,7 @@ const Admin = (() => {
     $app.innerHTML = `${tabs('questions')}
       <div class="card"><div class="row spread"><div><h2 style="margin:0">Questions</h2>
         <p class="muted" style="margin:4px 0 0">${n.rev} live for members &middot; ${n.all - n.arch - n.rev} draft (hidden) &middot; ${n.arch} archived</p></div>
-        <div class="row"><a class="btn primary" href="#/admin/questions/new">Add a question</a><a class="btn" href="#/admin/questions/import">Import from a chat</a><button id="aicopy" type="button" aria-label="Copy every question the filters show, to paste into a chat" title="Copy every question the filters show, to paste into a chat">Copy</button><button id="hyapply" type="button" title="Paste the answer you got for the Sort by high yield Copy task">Apply high yield list</button><button id="tpapply" type="button" title="Paste the answer you got for the Tidy topic names Copy task">Apply topic list</button><button id="backup">Download backup</button><button id="bankmap" type="button" title="Every question reduced to its categories and tags, with how the bank covers the board outline against the exam weights">Bank map</button></div></div></div>
+        <div class="row"><a class="btn primary" href="#/admin/questions/new">Add a question</a><a class="btn" href="#/admin/questions/import">Import from a chat</a><button id="aicopy" type="button" aria-label="Copy every question the filters show, to paste into a chat" title="Copy every question the filters show, to paste into a chat">Copy</button>${role() === 'admin' ? '<button id="hyapply" type="button" title="Paste the answer you got for the Sort by high yield Copy task">Apply high yield list</button><button id="tpapply" type="button" title="Paste the answer you got for the Tidy topic names Copy task">Apply topic list</button>' : ''}<button id="backup">Download backup</button><button id="bankmap" type="button" title="Every question reduced to its categories and tags, with how the bank covers the board outline against the exam weights">Bank map</button></div></div></div>
       <details class="card" id="secsum"${secOpen() ? ' open' : ''}><summary><h2 style="display:inline;margin:0">Sections by difficulty</h2> <span class="muted small" id="secline"></span><span class="collapser"><span class="c-open">Minimize &#9650;</span><span class="c-closed">Show table &#9660;</span></span></summary>${AdminItems.missing ? '<p class="muted small">The percent correct appears after the latest <code>supabase/schema.sql</code> is run in Supabase.</p>' : ''}<div id="secbody" style="margin-top:8px"></div></details>
       <div class="card"><form id="flt" class="filters" aria-label="Filter questions">
         <div><label for="fq">Search</label><input id="fq" type="search" value="${esc(view.q)}" placeholder="id, topic, or words in the question"></div>
@@ -196,8 +197,8 @@ const Admin = (() => {
     });
     on('backup', 'click', () => backup(c.list));
     on('bankmap', 'click', () => bankMap(c.list.filter(q => q.bank !== 'skills')));
-    on('tpapply', 'click', () => applyTopics({ noun: 'question', items: cache.list, patch: Cloud.patchQuestions, after: () => { refresh(); list(); } }));
-    on('hyapply', 'click', () => applyHighYield({ noun: 'question', items: cache.list, patch: Cloud.patchQuestions, after: () => { refresh(); list(); } }));
+    if (role() === 'admin') on('tpapply', 'click', () => applyTopics({ noun: 'question', items: cache.list, patch: Cloud.patchQuestions, after: () => { refresh(); list(); } }));
+    if (role() === 'admin') on('hyapply', 'click', () => applyHighYield({ noun: 'question', items: cache.list, patch: Cloud.patchQuestions, after: () => { refresh(); list(); } }));
     on('aicopy', 'click', () => Handoff.open({ kind: 'questions', coverage: Links.coverage(cache.list.filter(x => !x.archived)), vocab: cache.list.filter(x => !x.archived), items: lastRows, selected: [], importHash: '#/admin/questions/import', describe: describeView(),
       stats: AdminItems.ready() ? q => ItemStats.statLine(AdminItems.get(q.id)) : null, lessons: bank.lessons || [], currentLesson: lessonLinkFor }));
     paint();
@@ -271,6 +272,7 @@ const Admin = (() => {
       <button data-b="review">Mark reviewed (publish)</button><button data-b="draft">Mark draft (hide)</button>${allArch ? '<button data-b="restore">Restore</button>' : '<button data-b="archive">Archive</button>'}
       <button data-b="hy" title="Mark these as worth a member's time first">Mark high yield</button><button data-b="nohy">Remove high yield</button>
       <button data-b="free">Set tier: free</button><button data-b="pro">Set tier: pro</button>${AdminItems.ready() ? `<button data-b="relabel" title="Change each label to the difficulty members actually find">Set label from data</button>` : ''}${AdminItems.ready() ? '<button data-b="csv">CSV of selected</button>' : ''}<button data-b="copy" title="Copy the selected questions to paste into a chat">Copy selected</button>${allArch ? '<button data-b="delete" class="danger">Delete permanently</button>' : ''}<button data-b="clear" class="linkish">Clear</button></div>`;
+    if (role() !== 'admin') box.querySelectorAll('[data-b]').forEach(b => { if (!['copy', 'clear', 'csv'].includes(b.dataset.b)) b.remove(); });      // a reviewer cannot publish, archive or delete: they propose changes
     box.querySelectorAll('[data-b]').forEach(b => b.onclick = () => bulk(b.dataset.b, ids, anyArch));
   }
 
@@ -335,7 +337,9 @@ const Admin = (() => {
       if (a === 'lessons' && typeof AdminLessons !== 'undefined') return AdminLessons.route(b, c);
       if (a === 'cards' && typeof AdminCards !== 'undefined') return AdminCards.route(b, c);
       if (a === 'difficulty') return (location.hash = '#/admin/questions');       // the difficulty numbers now live on the Questions page
-      if (a === 'inbox' && typeof Inbox !== 'undefined') return Inbox.page();
+      if (a === 'changes') return Changes.route(b, c);
+      if (a === 'performance') return role() === 'admin' ? (location.hash = '#/admin') : ReviewPerf.page();
+      if (a === 'inbox' && typeof Inbox !== 'undefined') return role() === 'admin' ? Inbox.page() : (location.hash = '#/admin/questions');       // messages from members are for admins only
       if (a !== 'questions') return list();
       if (!b) return list();
       if (b === 'import' && Admin.importPage) return Admin.importPage();
@@ -372,12 +376,14 @@ const Admin = (() => {
   }
 
   Admin.formPage = async function (id) {
+    const ed = Changes.consume('question');            // a reviewer's proposal being finished or edited, if that is why the form opened
     pageTitle(id ? 'Edit question' : 'New question');
     const c = await ensure(); if (!c) return;
     const isNew = !id, orig = isNew ? null : c.list.find(q => q.id === id);
     if (!isNew && !orig) { $app.innerHTML = tabs('questions') + note('That question was not found. It may have been deleted. <a href="#/admin/questions">Back to the list</a>', 'muted'); return; }
-    const q0 = isNew ? blank() : JSON.parse(JSON.stringify(orig));
-    let pendingFile = null, removeImage = false, idTouched = !isNew, previewOn = false, revealOn = false;
+    const q0 = ed ? JSON.parse(JSON.stringify(ed.item)) : isNew ? blank() : JSON.parse(JSON.stringify(orig));
+    if (ed && !(q0.options || []).length) q0.options = blank().options;
+    let pendingFile = null, removeImage = false, idTouched = !isNew || !!ed, previewOn = false, revealOn = false;
 
     const optRows = (opts, ans) => opts.map((o, i) => `<div class="orow" data-i="${i}">
       <input type="radio" name="ans" value="${i}" id="ans${i}" aria-label="Choice ${LETTERS[i]} is the correct answer"${i === ans ? ' checked' : ''}>
@@ -423,6 +429,7 @@ const Admin = (() => {
       </form><div id="prev" class="card" hidden></div></div>`;
 
     const $ = s => document.querySelector(s), el = id => document.getElementById(id);
+    Changes.shapeForm($app, 'question', ed);
     const fillSubjects = keep => {
       const boards = [...document.querySelectorAll('input[name=board]:checked')].map(e => e.value), subs = subjectsFor(boards);
       el('f-subject').innerHTML = '<option value="">Choose a subject</option>' + subs.map(s => `<option${s === keep ? ' selected' : ''}>${esc(s)}</option>`).join('');
@@ -491,11 +498,12 @@ const Admin = (() => {
       if (errors.length) return showErrors(errors.map(m => m.charAt(0).toUpperCase() + m.slice(1)));
       const btn = el('save'); btn.disabled = true;
       try {
-        if (!isNew) {   // someone else may have saved while this page was open
+        if (!isNew && !ed) {   // someone else may have saved while this page was open
           const now = await Cloud.questionUpdatedAt(clean.id);
           if (now && orig.updatedAt && now !== orig.updatedAt && !(await ask('Someone else saved this question after you opened it. Saving now will replace their changes.', 'Replace their changes'))) { btn.disabled = false; return; }
         }
         if (pendingFile) { const name = `${clean.id}-${Date.now().toString(36)}.${IMG_TYPES[pendingFile.type]}`; await Cloud.uploadImage(name, pendingFile); clean.image = 'private:' + name; }
+        if (await Changes.send('question', clean, ed, { isNew, note: Changes.noteValue($app), status: clean.status })) return;      // a reviewer's save is a proposal
         await Cloud.saveQuestions([clean]); refresh();
         const fresh = ((await ensure(true)) || { list: [] }).list.find(x => x.id === clean.id);
         let msg = isNew ? 'Saved as a draft.' : 'Saved.';
@@ -526,7 +534,7 @@ const Admin = (() => {
       <p>Paste the whole reply you got back, or choose the file. The questions are checked first, and nothing is saved until you press Save.</p>
       <label for="paste">Pasted questions</label><textarea id="paste" rows="10" spellcheck="false" placeholder="Paste here"></textarea>
       <label for="pfile">Or choose a JSON file</label><input id="pfile" type="file" accept=".json,application/json,text/plain">
-      <label class="chk" style="margin-top:10px"><input type="checkbox" id="keep"> Keep review status and archived flags from the file (only for restoring a backup)</label></div>
+      <label class="chk"${Changes.isReviewer() ? ' hidden' : ''} style="margin-top:10px"><input type="checkbox" id="keep"> Keep review status and archived flags from the file (only for restoring a backup)</label></div>
       <div id="res" aria-live="polite"></div>`;
     const el = id => document.getElementById(id);
     let timer = null;
@@ -565,13 +573,19 @@ const Admin = (() => {
         ${skew ? `<p class="notice">The correct answer is ${esc(top[0])} for ${top[1]} of ${good.length} questions. Use the Copy task to vary the answer key.</p>` : ''}
         <div class="scroll" role="region" tabindex="0" aria-label="Import check results"><table><caption class="sr">Result for each question</caption><thead><tr><th scope="col">Question</th><th scope="col">Result</th><th scope="col">Details</th></tr></thead><tbody>${items.map(x => `<tr>
           <td>${esc(x.clean.id || '(no id)')}<div class="muted small">${esc(x.clean.subject || '')}${x.clean.topic ? ' &middot; ' + esc(x.clean.topic) : ''}</div></td>
-          <td>${x.errors.length ? '<span class="tag archived">Needs fixes</span>' : x.replaces ? `<span class="tag draft">Replaces existing</span>${x.replaces.status === 'reviewed' && !keep ? '<div class="muted small">It was reviewed and will return to Draft</div>' : ''}` : '<span class="tag reviewed">New</span>'}</td>
+          <td>${x.errors.length ? '<span class="tag archived">Needs fixes</span>' : x.replaces ? `<span class="tag draft">Replaces existing</span>${x.replaces.status === 'reviewed' && !keep && !Changes.isReviewer() ? '<div class="muted small">It was reviewed and will return to Draft</div>' : ''}` : '<span class="tag reviewed">New</span>'}</td>
           <td>${x.errors.map(m => `<div class="bad">Fix: ${esc(m)}</div>`).join('')}${x.warns.map(m => `<div class="muted">Note: ${esc(m)}</div>`).join('')}${x.dropped.length ? `<div class="muted">Ignored: ${esc(x.dropped.join(', '))}</div>` : ''}</td></tr>`).join('')}</tbody></table></div>
-        <div class="row" style="margin-top:12px"><button class="primary" id="go"${good.length ? '' : ' disabled'}>Save ${good.length} question${good.length === 1 ? '' : 's'}</button></div></div>`;
+        <div class="row" style="margin-top:12px"><button class="primary" id="go"${good.length ? '' : ' disabled'}>${Changes.isReviewer() ? 'Send for approval:' : 'Save'} ${good.length} question${good.length === 1 ? '' : 's'}</button></div></div>`;
       el('go').onclick = async () => {
-        if (reviewedRepl.length && !(await ask(`${reviewedRepl.length} reviewed question${reviewedRepl.length === 1 ? '' : 's'} will be replaced and return to Draft, so they need review again. Continue?`, 'Replace and continue'))) return;
+        if (!Changes.isReviewer() && reviewedRepl.length && !(await ask(`${reviewedRepl.length} reviewed question${reviewedRepl.length === 1 ? '' : 's'} will be replaced and return to Draft, so they need review again. Continue?`, 'Replace and continue'))) return;
         el('go').disabled = true;
         try {
+          if (Changes.isReviewer()) {      // a reviewer's import is a batch of proposals for an admin to accept
+            for (const x of good) await Cloud.submitChange('question', x.clean, existing.has(x.clean.id) ? 'edit' : 'new', '');
+            Changes.refreshAll();
+            out.innerHTML = `<div class="card"><p><b>Sent ${good.length} question${good.length === 1 ? '' : 's'} for approval.</b> Members see no change until an admin accepts ${good.length === 1 ? 'it' : 'them'}.${bad ? ` ${bad} were skipped because they needed fixes.` : ''}</p><div class="row"><a class="btn primary" href="#/admin/changes">See my changes</a><button id="again">Import more</button></div></div>`;
+            el('paste').value = ''; el('pfile').value = ''; el('again').onclick = () => { out.innerHTML = ''; el('paste').focus(); }; toast('Sent for approval.'); return;
+          }
           await Cloud.saveQuestions(good.map(x => x.clean)); refresh();
           good.forEach(x => { const i = c.list.findIndex(q => q.id === x.clean.id); const saved = { ...x.clean, status: keep ? x.clean.status : 'draft' }; if (i >= 0) c.list[i] = saved; else c.list.push(saved); existing.set(saved.id, saved); });   // so "Import more" checks against what was just saved
           out.innerHTML = `<div class="card"><p><b>Saved ${good.length} question${good.length === 1 ? '' : 's'}.</b>${bad ? ` ${bad} were skipped because they needed fixes.` : ''}</p><div class="row"><a class="btn primary" href="#/admin/questions">Go to the list</a><button id="again">Import more</button></div></div>`;
