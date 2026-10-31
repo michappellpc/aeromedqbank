@@ -264,17 +264,18 @@ async function route() {
   clearInterval(tick); $timer.hidden = true; Mascot.stop();
   if (Cloud.enabled && !ready) return;
   const [p, arg, arg2, arg3] = location.hash.replace(/^#\/?/, '').split('/');
+  if (p === 'admin' && profile && profile.role === 'admin' && ViewAs.role() === 'faculty') return (location.hash = '#/');          // an admin looking at the app as faculty has no Admin pages
   if (Cloud.enabled && p !== 'admin' && Admin.changed) {      // questions were edited on the Admin pages; load the new set before practicing
     Admin.changed = false;
     try { setQuestions(await Cloud.questions()); setLessons(await Cloud.lessons()); await loadCards(); } catch {}
     if (location.hash.replace(/^#\/?/, '').split('/')[0] !== p) return;   // the person moved on while it loaded
   }
-  document.querySelectorAll('nav a').forEach(l => l.classList.toggle('on', !l.closest('#progmenu') && ( l.getAttribute('href').split('/').slice(0, 2).join('/') === '#/' + (p === 'test' ? 'create' : p === 'lesson' ? ((bank.skillLessons || []).some(x => x.id === decodeURIComponent(arg || '')) ? 'skills' : 'lessons') : p === 'mine' ? '' : p === 'results' || p === 'review' ? 'history' : p === 'question' ? 'highlights' : p))));
+  document.querySelectorAll('nav a').forEach(l => l.classList.toggle('on', ( l.getAttribute('href').split('/').slice(0, 2).join('/') === '#/' + (p === 'test' ? 'create' : p === 'lesson' ? ((bank.skillLessons || []).some(x => x.id === decodeURIComponent(arg || '')) ? 'skills' : 'lessons') : p === 'mine' ? '' : p === 'results' || p === 'review' ? 'history' : p === 'question' ? 'highlights' : p))));
   document.getElementById('nav-more').classList.toggle('on', !!document.querySelector('#secgroup a.on'));
   if (p === '' || p === 'results') refreshPeer();
   const t = Store.data.active;
   if (p === 'test' && t) return renderTest();
-  ({ '': () => (profile && profile.role === 'faculty' ? Program.dashboard() : dashboard()), mine: dashboard, create: () => create(arg, arg2), flagged: flaggedPage, program: () => (arg === 'insights' ? Program.insightsPage('') : arg2 === 'insights' ? Program.insightsPage(arg) : arg2 === 'dashboard' ? Program.dashboard(arg) : Program.facultyPage(arg)), cards: () => Cards.page(arg, arg2), skills: () => Skills.page(arg), support: () => Support.page(arg), lessons: () => (arg ? Lessons.subjectPage(arg) : Lessons.indexPage()), lesson: () => Lessons.lessonPage(arg), history: historyPage, settings, admin: () => Admin.route(arg, arg2, arg3), results: () => results(arg), review: () => review(arg), highlights: Notebook.page, question: () => Notebook.question(arg) }[p] || dashboard)();
+  ({ '': () => (ViewAs.pid() ? Program.dashboard(ViewAs.pid()) : profile && profile.role === 'faculty' ? Program.dashboard() : dashboard()), mine: dashboard, create: () => create(arg, arg2), flagged: flaggedPage, program: () => (arg === 'insights' ? Program.insightsPage('') : arg2 === 'insights' ? Program.insightsPage(arg) : arg2 === 'dashboard' ? Program.dashboard(arg) : Program.facultyPage(arg)), cards: () => Cards.page(arg, arg2), skills: () => Skills.page(arg), support: () => Support.page(arg), lessons: () => (arg ? Lessons.subjectPage(arg) : Lessons.indexPage()), lesson: () => Lessons.lessonPage(arg), history: historyPage, settings, admin: () => Admin.route(arg, arg2, arg3), results: () => results(arg), review: () => review(arg), highlights: Notebook.page, question: () => Notebook.question(arg) }[p] || dashboard)();
   window.scrollTo(0, 0);
 }
 document.addEventListener('submit', e => { if (e.target.matches && e.target.matches('form.filters')) e.preventDefault(); });   // filter forms never submit (this replaces inline onsubmit handlers, which the Content-Security-Policy does not allow)
@@ -290,24 +291,6 @@ matchMedia('(min-width: 861px)').addEventListener('change', () => { if (location
   window.addEventListener('hashchange', () => close());
 }
 
-// Admin only: the arrow beside Dashboard lists every residency program's dashboard
-const progMenu = (() => {
-  const btn = () => document.getElementById('nav-progs'), box = () => document.getElementById('progmenu');
-  const close = back => { const b = btn(), m = box(); if (!b || !m) return; m.hidden = true; b.setAttribute('aria-expanded', 'false'); if (back) b.focus(); };
-  document.addEventListener('click', e => { const m = box(); if (m && !m.hidden && !e.target.closest('.navdash')) close(); });
-  document.addEventListener('keydown', e => { const m = box(); if (e.key === 'Escape' && m && !m.hidden) { e.stopPropagation(); close(true); } });
-  window.addEventListener('hashchange', () => close());
-  async function setup() {
-    const b = btn(), m = box(); if (!b || !m) return;
-    if (!(profile && profile.role === 'admin')) { b.hidden = true; m.hidden = true; return; }
-    const list = (await Cloud.adminPrograms().catch(() => [])).filter(p => p.active !== false);
-    if (!profile || profile.role !== 'admin') return;
-    m.innerHTML = `<div class="mhead">Dashboard</div><a href="#/">My dashboard</a>${list.length ? `<hr><div class="mhead">As faculty see it</div>${list.map(p => `<a href="#/program/${encodeURIComponent(p.id)}/dashboard">${esc(p.name)}</a>`).join('')}` : ''}`;
-    b.hidden = !list.length;
-    b.onclick = () => { const open = m.hidden; m.hidden = !open; b.setAttribute('aria-expanded', String(open)); if (open) { const first = m.querySelector('a'); if (first) first.focus(); } };
-  }
-  return { setup, close };
-})();
 // ---------- dashboard ----------
 // "Focus areas": the member's weakest subjects (lowest percent correct, at least MIN answers), with the lessons for each and
 // a one-click practice of the questions they missed in it.
@@ -1137,11 +1120,10 @@ async function startSession() {
   Store.hooks.hl = id => Cloud.queueHl(id);
   Store.hooks.mine = id => Cloud.queueMine(id);
   lockUI(false); ready = true;
-  showProBadge(); progMenu.setup();
+  showProBadge();
   document.getElementById('nav-support').hidden = false;
   clearInterval(badgeTimer);
-  const navAdmin = document.getElementById('nav-admin');
-  navAdmin.hidden = !Admin.isEditor(); navAdmin.innerHTML = (profile.role === 'admin' ? 'Admin' : 'Questions') + '<span id="inbox-badge" class="navbadge" hidden></span>'; navAdmin.setAttribute('href', profile.role === 'admin' ? '#/admin' : '#/admin/questions');
+  await ViewAs.setup(); ViewAs.applyNav();                       // the Admin link, and for an admin the View as switch in the header
   Skills.syncNav();
   refreshInboxBadge(); badgeTimer = setInterval(refreshInboxBadge, 120000);
   if (!/^#\/[a-z]/.test(location.hash)) location.hash = '#/';       // keep a deep link (a lesson opened in a new tab, a bookmark, a reload); anything else, such as a reset-password token, goes to the dashboard
@@ -1158,7 +1140,7 @@ async function signOut() {
   const key = Cloud.userKey();
   await Cloud.signOut(); Store.forget(key);
   ['attempt', 'mark', 'test', 'settings', 'reset', 'card', 'hl', 'mine'].forEach(k => delete Store.hooks[k]);
-  profile = null; ready = false; showProBadge(); progMenu.setup(); Store.use('qbank.v1.signedout'); applyTheme();
+  profile = null; ready = false; showProBadge(); ViewAs.setup(); Store.use('qbank.v1.signedout'); applyTheme();
   location.hash = '#/';                       // signing out clears the page, so the next person starts at the dashboard
   renderSignIn();
 }
@@ -1167,6 +1149,7 @@ async function signOut() {
 const RECENT_WINDOWS = [[24, 'Last 24 hours'], [48, 'Last 48 hours'], [72, 'Last 3 days'], [168, 'Last week'], [336, 'Last 2 weeks'], [720, 'Last 30 days'], [2160, 'Last 90 days'], [0, 'All time']];
 async function adminPage() {
   pageTitle('Admin');
+  if (profile && profile.role === 'admin' && ViewAs.role() === 'reviewer') return (location.hash = '#/admin/questions');       // the reviewer view has no Overview
   if (!profile || profile.role !== 'admin') { $app.innerHTML = '<div class="card"><h2>Admin</h2><p class="muted">This page is for administrators.</p></div>'; return; }
   $app.innerHTML = '<div class="card"><p class="muted">Loading the group summary...</p></div>';
   try {

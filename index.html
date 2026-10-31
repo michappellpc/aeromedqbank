@@ -20,7 +20,7 @@
   <h1 class="sr" id="page-title">AeroMedQBank</h1>
   <a class="brand" href="#/"><img class="logo" src="icons/logo.svg" alt="" width="30" height="30"><span class="wordmark">AeroMed<b>QBank</b></span><span class="probadge" id="pro-badge" hidden>PRO<span class="sr"> account</span></span><span class="probadge" id="role-badge" hidden></span></a>
   <nav>
-    <span class="navdash"><a href="#/">Dashboard</a><button type="button" id="nav-progs" class="navprogs" aria-expanded="false" aria-controls="progmenu" title="See the dashboard of each residency program" hidden><span aria-hidden="true">&#9662;</span><span class="sr">Program dashboards</span></button><div id="progmenu" class="progmenu" hidden></div></span>
+    <span class="navdash"><a href="#/">Dashboard</a></span>
     <a href="#/create">New Test</a>
     <a href="#/lessons">Lessons</a>
     <a href="#/cards">Flashcards</a>
@@ -34,6 +34,7 @@
     </div>
     <button type="button" id="nav-more" class="navmore" aria-expanded="false" aria-controls="secgroup">More</button>
   </nav>
+  <div class="viewsw" id="viewsw" hidden><button type="button" id="viewsw-btn" class="viewsw-btn" aria-haspopup="true" aria-expanded="false" aria-controls="viewsw-menu"><span class="viewsw-l">View as</span> <b id="viewsw-cur">Admin</b> <span aria-hidden="true">&#9662;</span></button><div id="viewsw-menu" class="viewmenu" role="menu" aria-label="View the app as" hidden></div></div>
   <div id="timer" class="timer" hidden></div>
 </header>
 <main id="app" aria-live="polite"></main>
@@ -67,6 +68,7 @@
 <script src="js/notebook.js"></script>
 <script src="js/lessons.js"></script>
 <script src="js/skills.js"></script>
+<script src="js/viewas.js"></script>
 <script src="js/cards.js"></script>
 <script src="js/program.js"></script>
 <script src="js/objpicker.js"></script>

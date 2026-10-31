@@ -14,7 +14,7 @@ const Inbox = (() => {
     catch (e) { $app.innerHTML = Admin.tabs('inbox') + (/schema cache|function|404/i.test(e.message || '') || e.status === 404
       ? '<div class="card"><h2>One more setup step</h2><p>The database needs the updated blueprint before the inbox can work. In Supabase, open <b>SQL Editor</b>, paste the latest <code>supabase/schema.sql</code> from GitHub, and click <b>Run</b>. It is safe to run again, and nothing is lost.</p></div>'
       : `<div class="card"><p class="muted">Could not load the inbox: ${esc(e.offline ? 'you are offline' : e.message)}</p></div>`); return; }
-    const admin = profile.role === 'admin', n = rows.filter(r => r.status === 'new').length;
+    const admin = Admin.role() === 'admin', n = rows.filter(r => r.status === 'new').length;
     Admin.unread = n; const shown = () => rows.filter(r => (!view.kind || r.kind === view.kind) && (view.show === 'all' || (view.show === 'resolved' ? r.status === 'resolved' : r.status !== 'resolved' && (view.show !== 'new' || r.status === 'new'))));
     $app.innerHTML = `${Admin.tabs('inbox')}<div class="card"><div class="row spread"><div><h2 style="margin:0">Inbox</h2><p class="muted" style="margin:4px 0 0">${n} new &middot; ${rows.length} in total</p></div>
         <div class="row"><div><label for="ib-show" class="sr">Show</label><select id="ib-show" style="width:auto"><option value="new">New only</option><option value="open">New and read</option><option value="resolved">Resolved</option><option value="all">Everything</option></select></div>

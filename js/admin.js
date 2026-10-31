@@ -13,7 +13,7 @@ const Admin = (() => {
   let size = 50; try { const raw = localStorage.getItem('qbank.admin.pagesize'); if (raw !== null && SIZES.includes(+raw)) size = +raw; } catch {}
   const sizeBox = () => `<div><label for="fpp">Per page</label><select id="fpp">${SIZES.map(n => `<option value="${n}"${n === size ? ' selected' : ''}>${n || 'All'}</option>`).join('')}</select></div>`;
   const setSize = v => { size = +v; try { localStorage.setItem('qbank.admin.pagesize', String(size)); } catch {} };
-  const role = () => (profile && profile.role) || '';
+  const role = () => (typeof ViewAs !== 'undefined' ? ViewAs.role() : (profile && profile.role) || '');          // the role the screens show: an admin may be looking at the app as a reviewer
   const isEditor = () => role() === 'admin' || role() === 'reviewer';
   const myEmail = () => Cloud.session.email.toLowerCase();
   const day = t => (t ? new Date(t).toLocaleDateString() : '-');
