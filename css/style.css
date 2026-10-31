@@ -547,6 +547,7 @@ mark.hl{background:#ffe27a;color:#1c1c1c;border-radius:2px;padding:0 1px;cursor:
 .hllist li,.mylist li{display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap;padding:8px 0;border-top:1px solid var(--line)}
 .hlquote,.mybody{display:flex;flex-direction:column;gap:2px;flex:1;min-width:200px}.hlquote mark.hl{align-self:flex-start;cursor:default;line-height:1.5}
 .mybody .muted,.mybody .small{overflow-wrap:anywhere}
+.navdash{display:contents}
 @media(min-width:601px) and (max-width:1500px){nav a{padding-left:8px;padding-right:8px;font-size:.9rem}.top{gap:10px}}
 @media(min-width:601px) and (max-width:1500px){.viewsw-l{display:none}}
 @media(min-width:601px) and (max-width:1250px){nav a{padding-left:6px;padding-right:6px;font-size:.86rem}.top{gap:8px;padding-left:12px;padding-right:12px}.viewsw-btn{padding:5px 8px}.top .probadge{padding-left:5px;padding-right:5px}}
