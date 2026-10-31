@@ -1,0 +1,4 @@
+const http = require('http'), fs = require('fs'), path = require('path');
+const root = require('path').resolve(__dirname, '..', '..'), T = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.png': 'image/png', '.svg': 'image/svg+xml', '.woff2': 'font/woff2', '.webmanifest': 'application/manifest+json' };
+http.createServer((q, r) => { let u = decodeURIComponent(q.url.split('?')[0]).replace(/^\/qbank/, ''); if (u.endsWith('/')) u += 'index.html'; const f = path.join(root, u);
+  fs.readFile(f, (e, b) => { if (e) { r.writeHead(404); return r.end(); } if (f.endsWith('index.html')) b = Buffer.from(b.toString().replace("connect-src 'self'", "connect-src 'self' http://localhost:9998")); r.writeHead(200, { 'Content-Type': T[path.extname(f)] || 'application/octet-stream', 'Cache-Control': 'no-store' }); r.end(b); }); }).listen(8132);

@@ -248,6 +248,12 @@ A second, separate question bank for keeping clinical skills sharp. Each questio
 - **Admin:** the Questions list has a *Bank* filter (Main bank by default, Clinical skills, Both) and tags skills rows; a skills question's own answer counts show on its row; the section table, bank map and Overview "Live questions" count the main bank only (the Overview mentions the skills count separately). Who sees a skills question follows its *Who can see it* setting (choose *Free members too* for everyone), and drafts stay hidden from members.
 - **Database:** paste `supabase/migrations/20261021000000_clinical_skills_bank.sql` into the Supabase SQL Editor once (it adds `bank` to questions and lessons, the skills answers table and function, and reloads the API schema cache; safe to re-run). The bank values are exactly `main` (the default) and `skills`: other values are refused. If you see "Could not find the 'bank' column of 'lessons' in the schema cache", this has not been run yet. Running the whole `supabase/schema.sql` does the same. Previously: run `supabase/schema.sql` once (adds `questions.bank`, `lessons.bank`, `skill_attempts`, `my_skills_progress()`, and `bank` on `admin_question_stats`). The app needs this before a skills question can be saved.
 
+## View as (admin)
+An admin sees a **View as** switch at the top right of the header: **Admin**, **Reviewer**, or **Faculty** for each active residency program. It replaces the small arrow that used to sit beside Dashboard. It changes only what is shown, never what the account may do (the database still treats the account as an admin):
+- **Reviewer:** the menu link reads *Questions* and the Admin tabs are a reviewer's (Questions, Lessons, Flashcards, Inbox; no Overview). The Overview page redirects to Questions.
+- **Faculty, by program:** the Dashboard shows that program's dashboard exactly as its faculty see it (the existing preview), the Admin link is hidden, and Admin pages redirect to the Dashboard.
+- The choice is remembered on that device (`qbank.viewas.<email>`). Real reviewers, faculty and members do not see the switch. Code: `js/viewas.js` (`ViewAs.role()` is the role the screens show). Browser test: `tools/browser/` (see its README).
+
 ## Features
 Tutor and timed modes, filters (board, subject, unused/incorrect/flagged), option cross-out, flagging, notes, question navigator, keyboard shortcuts (1-9/letters, ←/→, F, Enter), results by subject, test review, history, dark mode, progress backup.
 
