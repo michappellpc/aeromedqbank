@@ -243,7 +243,7 @@ const AdminLessons = (() => {
         el('go').disabled = true;
         try {
           if (Changes.isReviewer()) {      // a reviewer's import is a batch of proposals for an admin to accept
-            for (const x of good) await Cloud.submitChange('lesson', x.clean, existing.has(x.clean.id) ? 'edit' : 'new', '');
+            for (const x of good) { const live = existing.get(x.clean.id); x.clean.tier = live ? live.tier : 'pro'; await Cloud.submitChange('lesson', x.clean, live ? 'edit' : 'new', ''); }      // who can see it (free or pro) is an admin's choice, so a tier in the paste is ignored
             Changes.refreshAll(); out.innerHTML = `<div class="card"><p><b>Sent ${good.length} lesson${good.length === 1 ? '' : 's'} for approval.</b> Members see no change until an admin accepts ${good.length === 1 ? 'it' : 'them'}.${bad ? ` ${bad} were skipped because they needed fixes.` : ''}</p><a class="btn primary" href="#/admin/changes">See my changes</a></div>`; el('paste').value = ''; toast('Sent for approval.'); return;
           }
           await Cloud.saveLessons(good.map(x => x.clean)); refresh(); out.innerHTML = `<div class="card"><p><b>Saved ${good.length} lesson${good.length === 1 ? '' : 's'}</b> as drafts.${bad ? ` ${bad} were skipped because they needed fixes.` : ''}</p><a class="btn primary" href="#/admin/lessons">Go to the list</a></div>`; el('paste').value = ''; toast(`Saved ${good.length}.`); }

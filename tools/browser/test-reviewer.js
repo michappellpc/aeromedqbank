@@ -29,12 +29,14 @@ const getLog = () => new Promise(r => http.get('http://localhost:9998/__log', re
     await go(p, '#/admin/inbox');
     ok('the inbox is not open to a reviewer: it goes back to Questions', /#\/admin\/questions/.test(await hash(p)), await hash(p));
     ok('no "Apply high yield list" or "Apply topic list" for a reviewer', await p.locator('#hyapply, #tpapply').count() === 0);
+    ok('the list has no Tier filter for a reviewer', !(await p.locator('#ft').isVisible()));
     await p.check('[data-sel="q-1"]'); await p.waitForTimeout(200);
     const bulk = (await p.locator('#bulk button').allInnerTexts()).map(x => x.trim());
     ok('selecting a question offers only Copy and Clear (no publish, archive, delete)', bulk.every(x => /Copy|Clear|CSV/i.test(x)) && bulk.length >= 2, bulk.join(','));
     await go(p, '#/admin/questions/edit/q-1');
     ok('the editor says changes go to an admin first', await p.locator('#chg-banner').isVisible());
     ok('the status box is locked', await p.locator('#f-status').isDisabled());
+    ok('there is no free or pro choice for a reviewer', !(await p.locator('#f-tier').isVisible()));
     ok('there is no Archive or Delete button', await p.locator('#archive, #restore, #del').count() === 0);
     ok('the save button says Submit for approval', /Submit for approval/.test(await p.innerText('#save')));
     await axe(p, 'The reviewer editor');

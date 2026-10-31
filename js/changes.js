@@ -38,6 +38,7 @@ const Changes = (() => {
     ['archive', 'restore', 'del'].forEach(id => { const b = q('#' + id); if (b) b.remove(); });
     const st = q('#f-status');
     if (rv && st) { st.disabled = true; const h = st.parentElement.querySelector('.hint'); if (h) h.innerHTML = 'An admin decides what goes live. A new item arrives as a draft, and an edit to a live item keeps its current status until an admin accepts it.'; }
+    const tier = q('#f-tier'); if (rv && tier && tier.parentElement) tier.parentElement.hidden = true;      // free or pro is an admin's choice; the value stays as it was
     if (ed) { const id = q('#f-id'); if (id) id.readOnly = true; }
     const save = q('#save'); if (save) save.textContent = fin ? 'Accept with my changes' : 'Submit for approval';
     const row = save && save.closest('.row');
