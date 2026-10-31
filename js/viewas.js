@@ -48,7 +48,7 @@ const ViewAs = (() => {
     const m = menu(), t = btn();
     m.innerHTML = `<div class="mhead">View the app as</div>
       <button type="button" role="menuitemradio" data-v="admin">Admin<span class="muted small">Everything</span></button>
-      <button type="button" role="menuitemradio" data-v="reviewer">Reviewer<span class="muted small">Questions, lessons, flashcards and the inbox</span></button>
+      <button type="button" role="menuitemradio" data-v="reviewer">Reviewer<span class="muted small">Reads everything and proposes changes for you to accept; no inbox or member data</span></button>
       ${programs.length ? `<hr><div class="mhead">Faculty, by program</div>${programs.map(p => `<button type="button" role="menuitemradio" data-v="faculty:${esc(p.id)}">${esc(p.name)}</button>`).join('')}` : ''}`;
     m.querySelectorAll('[data-v]').forEach(x => { x.onclick = () => choose(x.dataset.v); });
     t.onclick = () => { const open = m.hidden; m.hidden = !open; t.setAttribute('aria-expanded', String(open)); if (open) { const cur = m.querySelector('[aria-checked="true"]') || m.querySelector('[data-v]'); if (cur) cur.focus(); } };

@@ -50,7 +50,7 @@ const AdminCards = (() => {
     $app.innerHTML = `${tabs('cards')}
       <div class="card"><div class="row spread"><div><h2 style="margin:0">Flashcards</h2>
         <p class="muted" style="margin:4px 0 0">${n.live} live for everyone &middot; ${n.draft} draft (hidden) &middot; ${n.arch} archived</p></div>
-        <div class="row"><a class="btn primary" href="#/admin/cards/new">Add a card</a><a class="btn" href="#/admin/cards/import">Import from a chat</a><button id="aicopy" type="button" aria-label="Copy these flashcards to paste into a chat" title="Copy the flashcards you are looking at, to paste into a chat">Copy</button><button id="hyapply" type="button" title="Paste the answer you got for the Sort by high yield Copy task">Apply high yield list</button><button id="tpapply" type="button" title="Paste the answer you got for the Tidy topic names Copy task">Apply topic list</button><button id="backup">Download backup</button></div></div></div>
+        <div class="row"><a class="btn primary" href="#/admin/cards/new">Add a card</a><a class="btn" href="#/admin/cards/import">Import from a chat</a><button id="aicopy" type="button" aria-label="Copy these flashcards to paste into a chat" title="Copy the flashcards you are looking at, to paste into a chat">Copy</button>${Admin.role() === 'admin' ? '<button id="hyapply" type="button" title="Paste the answer you got for the Sort by high yield Copy task">Apply high yield list</button>' : ''}<button id="tpapply" type="button" title="Paste the answer you got for the Tidy topic names Copy task">Apply topic list</button><button id="backup">Download backup</button></div></div></div>
       <div class="card"><form id="flt" class="filters" aria-label="Filter flashcards">
         <div><label for="fq">Search</label><input id="fq" type="search" value="${esc(view.q)}" placeholder="id, topic, or words on the card"></div>
         <div><label for="fs">Subject</label><select id="fs"><option value="">All</option>${subjects.map(s => `<option${s === view.subject ? ' selected' : ''}>${esc(s)}</option>`).join('')}</select></div>
@@ -67,8 +67,8 @@ const AdminCards = (() => {
     el('fhy').onchange = e => { view.hy = e.target.value; view.page = 0; paint(); };
     el('fpp').onchange = e => { setSize(e.target.value); view.page = 0; paint(); };
     el('fsh').onchange = e => { view.show = e.target.value; view.page = 0; paint(); };
-    el('tpapply').onclick = () => Admin.applyTopics({ noun: 'flashcard', items: cache.list, patch: Cloud.patchCards, after: async () => { await ensure(true); list(); } });
-    el('hyapply').onclick = () => Admin.applyHighYield({ noun: 'flashcard', items: cache.list, patch: Cloud.patchCards, after: async () => { await ensure(true); list(); } });
+    if (el('tpapply')) el('tpapply').onclick = () => Admin.applyTopics({ noun: 'flashcard', items: cache.list, patch: Cloud.patchCards, after: async () => { await ensure(true); list(); } });
+    if (el('hyapply')) el('hyapply').onclick = () => Admin.applyHighYield({ noun: 'flashcard', items: cache.list, patch: Cloud.patchCards, after: async () => { await ensure(true); list(); } });
     el('aicopy').onclick = () => Handoff.open({ kind: 'cards', coverage: Links.coverage(cache.list.filter(x => !x.archived)), vocab: cache.list.filter(x => !x.archived), items: lastRows, selected: [...view.sel], importHash: '#/admin/cards/import',
       describe: (() => { const p = []; if (view.q) p.push(`search "${view.q}"`); if (view.subject) p.push(view.subject); if (view.status) p.push(view.status === 'reviewed' ? 'live' : 'draft'); if (view.hy) p.push(view.hy === 'yes' ? 'high yield' : 'not marked high yield'); if (view.show !== 'active') p.push(view.show === 'all' ? 'including archived' : 'archived'); return p.length ? 'filters: ' + p.join(', ') : 'no filters'; })() });
     el('backup').onclick = () => {
@@ -104,6 +104,7 @@ const AdminCards = (() => {
     const chosen = cache.list.filter(c => ids.includes(c.id)), allArch = chosen.every(c => c.archived), n = ids.length, s = n === 1 ? 'card' : 'cards';
     box.innerHTML = `<div class="card bulkbar" role="region" aria-label="Actions for selected cards"><b>${n} selected</b>
       <button data-b="review">Mark reviewed (publish)</button><button data-b="draft">Mark draft (hide)</button>${allArch ? '<button data-b="restore">Restore</button>' : '<button data-b="archive">Archive</button>'}${allArch ? '<button data-b="delete" class="danger">Delete permanently</button>' : ''}<button data-b="hy" title="Mark these as worth a member's time first">Mark high yield</button><button data-b="nohy">Remove high yield</button><button data-b="clear" class="linkish">Clear</button></div>`;
+    if (Admin.role() !== 'admin') box.querySelectorAll('[data-b]').forEach(b => { if (!['copy', 'clear'].includes(b.dataset.b)) b.remove(); });      // a reviewer proposes changes; only an admin publishes, archives or deletes
     box.querySelectorAll('[data-b]').forEach(b => b.onclick = async () => {
       const kind = b.dataset.b;
       if (kind === 'clear') { view.sel.clear(); return paint(); }
@@ -120,11 +121,12 @@ const AdminCards = (() => {
 
   // ------------------------------------------------------------------ add / edit
   async function form(id) {
+    const ed = Changes.consume('card');            // a reviewer's proposal being finished or edited, if that is why the form opened
     pageTitle(id ? 'Edit flashcard' : 'New flashcard');
     const c = await ensure(); if (!c) return;
     const c0 = id ? c.list.find(x => x.id === id) : null;
     if (id && !c0) { $app.innerHTML = tabs('cards') + note('That card was not found. <a href="#/admin/cards">Back to the list</a>', ''); return; }
-    const q0 = c0 || { id: '', status: 'draft', boards: ['aem'], subject: '', topic: '', front: '', back: '', references: [] };
+    const q0 = ed ? JSON.parse(JSON.stringify(ed.item)) : c0 || { id: '', status: 'draft', boards: ['aem'], subject: '', topic: '', front: '', back: '', references: [] };
     const lessons = (bank.lessons || []).slice().sort((a, b) => a.title.localeCompare(b.title));
     $app.innerHTML = `${tabs('cards')}<div class="card"><div class="row spread"><h2 style="margin:0">${id ? 'Edit ' + esc(id) : 'New flashcard'}</h2><a href="#/admin/cards">Back to the list</a></div>
       ${c0 && c0.status === 'reviewed' && !c0.archived ? '<p class="notice">This card is live. Changing its wording sends it back to Draft until someone marks it reviewed again.</p>' : ''}
@@ -145,6 +147,7 @@ const AdminCards = (() => {
       <div class="row" style="margin-top:12px"><button class="primary" id="save">Save</button><a class="btn" href="#/admin/cards">Cancel</a></div></div>
       <div class="card" id="prev"></div>`;
     const el = i => document.getElementById(i);
+    Changes.shapeForm($app, 'card', ed);
     const boards = () => [...document.querySelectorAll('[name=board]:checked')].map(b => b.value);
     const fillSubjects = () => { const keep = el('f-subject').value || q0.subject; el('f-subject').innerHTML = '<option value="">Choose...</option>' + subjectsFor(boards()).map(s => `<option${s === keep ? ' selected' : ''}>${esc(s)}</option>`).join(''); };
     fillSubjects();
@@ -162,7 +165,10 @@ const AdminCards = (() => {
       el('warns').hidden = !warns.length; el('warns').innerHTML = warns.length ? `<b>Notes:</b><ul>${warns.map(m => `<li>${esc(m)}</li>`).join('')}</ul>` : '';
       if (errors.length) return el('errs').scrollIntoView({ block: 'nearest' });
       el('save').disabled = true;
-      try { await Cloud.saveCards([clean]); refresh(); toast('Saved.'); location.hash = '#/admin/cards'; }
+      try {
+        if (await Changes.send('card', clean, ed, { isNew: !id, note: Changes.noteValue($app), status: clean.status })) return;      // a reviewer's save is a proposal
+        await Cloud.saveCards([clean]); refresh(); toast('Saved.'); location.hash = '#/admin/cards';
+      }
       catch (e) { el('save').disabled = false; toast(e.offline ? 'No connection. Nothing was saved.' : 'Could not save: ' + e.message); }
     };
   }
@@ -203,11 +209,16 @@ const AdminCards = (() => {
           <td>${esc(x.clean.id || '(no id)')}<div class="muted small">${esc((x.clean.front || '').slice(0, 80))}</div></td>
           <td>${x.errors.length ? '<span class="tag archived">Needs fixes</span>' : x.replaces ? `<span class="tag draft">Replaces existing</span>${x.replaces.status === 'reviewed' ? '<div class="muted small">It was live and will return to Draft</div>' : ''}` : '<span class="tag reviewed">New</span>'}</td>
           <td>${x.errors.map(m => `<div class="bad">Fix: ${esc(m)}</div>`).join('')}${x.warns.map(m => `<div class="muted">Note: ${esc(m)}</div>`).join('')}${x.dropped.length ? `<div class="muted">Ignored: ${esc(x.dropped.join(', '))}</div>` : ''}</td></tr>`).join('')}</tbody></table></div>
-        <div class="row" style="margin-top:12px"><button class="primary" id="go"${good.length ? '' : ' disabled'}>Save ${good.length} card${good.length === 1 ? '' : 's'}</button></div></div>`;
+        <div class="row" style="margin-top:12px"><button class="primary" id="go"${good.length ? '' : ' disabled'}>${Changes.isReviewer() ? 'Send for approval:' : 'Save'} ${good.length} card${good.length === 1 ? '' : 's'}</button></div></div>`;
       el('go').onclick = async () => {
-        if (liveRepl.length && !(await ask(`${liveRepl.length} live card${liveRepl.length === 1 ? '' : 's'} will be replaced and return to Draft, so ${liveRepl.length === 1 ? 'it needs' : 'they need'} review again. Continue?`, 'Replace and continue'))) return;
+        if (!Changes.isReviewer() && liveRepl.length && !(await ask(`${liveRepl.length} live card${liveRepl.length === 1 ? '' : 's'} will be replaced and return to Draft, so ${liveRepl.length === 1 ? 'it needs' : 'they need'} review again. Continue?`, 'Replace and continue'))) return;
         el('go').disabled = true;
         try {
+          if (Changes.isReviewer()) {      // a reviewer's import is a batch of proposals for an admin to accept
+            for (const x of good) await Cloud.submitChange('card', x.clean, existing.has(x.clean.id) ? 'edit' : 'new', '');
+            Changes.refreshAll(); out.innerHTML = `<div class="card"><p><b>Sent ${good.length} card${good.length === 1 ? '' : 's'} for approval.</b> Members see no change until an admin accepts ${good.length === 1 ? 'it' : 'them'}.${bad ? ` ${bad} were skipped because they needed fixes.` : ''}</p><div class="row"><a class="btn primary" href="#/admin/changes">See my changes</a><button id="again">Import more</button></div></div>`;
+            el('paste').value = ''; el('pfile').value = ''; el('again').onclick = () => { out.innerHTML = ''; el('paste').focus(); }; toast('Sent for approval.'); return;
+          }
           await Cloud.saveCards(good.map(x => x.clean)); refresh();
           out.innerHTML = `<div class="card"><p><b>Saved ${good.length} card${good.length === 1 ? '' : 's'}.</b>${bad ? ` ${bad} were skipped because they needed fixes.` : ''}</p><div class="row"><a class="btn primary" href="#/admin/cards">Go to the list</a><button id="again">Import more</button></div></div>`;
           el('paste').value = ''; el('pfile').value = ''; toast(`Saved ${good.length} card${good.length === 1 ? '' : 's'}.`);
@@ -220,5 +231,5 @@ const AdminCards = (() => {
     el('pfile').addEventListener('change', async e => { const f = e.target.files[0]; if (!f) return; if (f.size > 5 * 1024 * 1024) { el('res').innerHTML = '<div class="card"><div class="errbox" role="alert">That file is too large.</div></div>'; return; } el('paste').value = await f.text(); analyse(); });
   }
 
-  return { route(b, c) { if (!b) return list(); if (b === 'import') return importPage(); if (b === 'new') return form(null); if (b === 'edit' && c) return form(decodeURIComponent(c)); return list(); } };
+  return { formFor: form, route(b, c) { if (!b) return list(); if (b === 'import') return importPage(); if (b === 'new') return form(null); if (b === 'edit' && c) return form(decodeURIComponent(c)); return list(); } };
 })();

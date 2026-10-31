@@ -1086,7 +1086,10 @@ let badgeTimer = null;
 async function refreshInboxBadge() {                       // red numbers on the menu: new messages for the team, new replies for a member
   if (!Cloud.enabled || !profile) return;
   const put = (id, n, word) => { const b = document.getElementById(id); if (b) { b.hidden = !n; b.innerHTML = n ? `<span aria-hidden="true">${n > 99 ? '99+' : n}</span><span class="sr"> ${n} ${word}${n === 1 ? '' : 's'}</span>` : ''; } };
-  if (Admin.isEditor()) { const n = await Cloud.unreadFeedback(); Admin.unread = n; put('inbox-badge', n, 'new message'); }
+  if (Admin.isEditor()) {          // red numbers for the team: member messages and reviewers' changes waiting (admins), or just the reviewer's own waiting changes
+    const admin = Admin.role() === 'admin', n = admin ? await Cloud.unreadFeedback() : 0, w = await Cloud.pendingChanges();
+    Admin.unread = n; Admin.waiting = w; put('inbox-badge', n + (admin ? w : 0), admin ? 'item waiting' : 'new message');
+  }
   const before = bank.unreadReplies || 0, r = await Cloud.myUnreadReplies(); bank.unreadReplies = r; put('support-badge', r, 'new reply');
   if (r !== before && ready && !Store.data.active && /^#?\/?$/.test(location.hash)) route();       // refresh the dashboard notice
 }
@@ -1180,7 +1183,7 @@ async function adminPage() {
       <div class="card"><h2>Sign-up</h2><label class="chk"><input type="checkbox" id="su-open"${signupOn ? ' checked' : ''}> Let anyone create a free account on the sign-in page</label>
         <p class="muted">Anyone who signs up gets a <b>free</b> member account at once and appears in the list below, so you can upgrade or remove them. Free accounts only see questions set to <b>Free members too</b>; questions set to Pro members stay private. Turn this off to make the site invitation-only.</p></div>
       <div class="card"><h2>Approved emails</h2>
-        <p class="muted">Only these emails can use the app. <b>Reviewers</b> can edit and review questions but cannot see members. <b>Add member</b> approves the email and creates their account with a temporary password for you to send them privately; they choose their own password the first time they sign in. Removing an email locks that person out at once.</p>
+        <p class="muted">Only these emails can use the app. <b>Reviewers</b> can read every question, lesson and flashcard and see overall performance, and they propose changes that you accept before anything goes live. They cannot see members, the inbox or anyone's scores. <b>Add member</b> approves the email and creates their account with a temporary password for you to send them privately; they choose their own password the first time they sign in. Removing an email locks that person out at once.</p>
         <div class="scroll" role="region" tabindex="0" aria-label="Data table"><table><caption class="sr">Approved emails</caption><thead><tr><th scope="col">Email</th><th scope="col">Role</th><th scope="col">Plan</th><th scope="col">Program</th><th scope="col">Note</th><th scope="col"><span class="sr">Actions</span></th></tr></thead><tbody id="al">${allowed.map(r =>
         `<tr><td>${esc(r.email)}${(memBy[r.email] || {}).display_name ? `<div class="muted small">${esc(memBy[r.email].display_name)}</div>` : ''}</td><td>${esc(r.role)}</td><td>${proTag(r.plan, r.pro_until)}</td><td>${r.program_id ? progCell(r.program_id) : progCell((memBy[r.email] || {}).program_id, (memBy[r.email] || {}).program_status)}</td><td>${esc(r.note || '')}</td>
         <td>${r.email === me ? '<span class="muted">you</span>' : `<button data-memb="${esc(r.email)}" aria-label="Change membership for ${esc(r.email)}">Membership</button> <button data-edit="${esc(r.email)}" aria-label="Edit ${esc(r.email)}">Edit</button> <button data-reset="${esc(r.email)}" aria-label="Reset password for ${esc(r.email)}">Reset password</button> <button data-rm="${esc(r.email)}" aria-label="Remove ${esc(r.email)}">Remove</button>`}</td></tr>`).join('')}</tbody></table></div>
