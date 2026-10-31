@@ -176,7 +176,7 @@
       <label for="hf-prev">The message (you can read it before you copy)</label><textarea id="hf-prev" rows="9" readonly style="font:12px/1.4 ui-monospace,Menlo,Consolas,monospace"></textarea>
       <p class="muted small" id="hf-size" aria-live="polite"></p>
       <div class="row"><button class="primary" id="hf-copy" type="button">Copy to clipboard</button><button id="hf-dl" type="button">Download as a file</button><button id="hf-x" type="button">Close</button></div>
-      <p class="muted small">Then paste it into your chat. When it replies, copy its JSON and ${o.importHash ? `<a href="${o.importHash}" id="hf-imp">bring it back with Import from a chat</a>` : 'use it to update the items'}. Everything comes back as a draft for you to review.</p></div>`;
+      <p class="muted small">Then paste it into your chat. When it replies, copy its JSON and ${o.importHash && !(typeof Admin !== 'undefined' && Admin.role() === 'reviewer') ? `<a href="${o.importHash}" id="hf-imp">bring it back with Import from a chat</a>` : 'use it to update the items'}. Everything comes back as a draft for you to review.</p></div>`;
     const prev = doc.activeElement, E = id => d.querySelector('#' + id);
     const close = () => { d.remove(); doc.removeEventListener('keydown', onKey, true); if (prev && doc.body.contains(prev)) prev.focus(); };
     const onKey = e => { if (e.key === 'Escape') { e.stopPropagation(); close(); } };

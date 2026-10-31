@@ -47,11 +47,19 @@ const getLog = () => new Promise(r => http.get('http://localhost:9998/__log', re
     ok('nothing was written to the question bank directly', !log.some(x => /questions/.test(x)), log.join(','));
     ok('My changes lists the waiting change', /q-1/.test(await p.innerText('#ch-list')) && /Waiting/i.test(await p.innerText('#ch-list')));
     await axe(p, 'My changes');
-    // a reviewer's import is a batch of proposals
-    await go(p, '#/admin/questions/import'); await p.fill('#paste', IMPORT); await p.waitForTimeout(900);
-    ok('the import button says Send for approval', /Send for approval/i.test(await p.innerText('#go')), await p.innerText('#go'));
-    await p.click('#go'); await p.waitForTimeout(900);
-    ok('the import reports it was sent for approval', /for approval/i.test(await p.innerText('#res')));
+    // importing from a chat is for admins: no button, and the page is not reachable
+    await go(p, '#/admin/questions');
+    ok('the reviewer has no "Import from a chat" button', await p.locator('a[href$="/import"]').count() === 0);
+    await go(p, '#/admin/questions/import'); ok('the import page sends a reviewer back to the list', /#\/admin\/questions$/.test(await hash(p)), await hash(p));
+    for (const k of ['lessons', 'cards']) { await go(p, '#/admin/' + k); const n = await p.locator('a[href$="/import"]').count(); await go(p, '#/admin/' + k + '/import'); ok(`${k}: no import button, and the page sends a reviewer back`, n === 0 && new RegExp('#/admin/' + k + '$').test(await hash(p)), n + ' ' + await hash(p)); }
+    // a brand new question, written in the editor
+    await go(p, '#/admin/questions/new');
+    await p.fill('#f-id', 'aem-rev-001'); await p.selectOption('#f-subject', 'Altitude & Decompression');
+    await p.fill('#f-stem', 'Which gas law explains why trapped gas expands as a pilot climbs?');
+    const o = ["Boyle's law", "Dalton's law", "Henry's law", "Graham's law"]; for (let i = 0; i < 4; i++) { await p.fill('#ot' + i, o[i]); await p.fill('#on' + i, i ? 'Not this law.' : 'Gas volume rises as pressure falls.'); }
+    await p.fill('#f-expl', "Boyle's law: at constant temperature, gas volume is inversely related to pressure, so trapped gas expands as ambient pressure falls.");
+    await p.click('#save'); await p.waitForTimeout(900);
+    ok('a new question is sent for approval too', /#\/admin\/changes/.test(await hash(p)) && /aem-rev-001/.test(await p.innerText('#ch-list')), await hash(p));
     // an edit to another question, to be declined
     await go(p, '#/admin/questions/edit/q-3'); await p.fill('#f-stem', 'Question 3 reworded?'); await p.click('#save'); await p.waitForTimeout(800);
     // and one the admin will edit first
