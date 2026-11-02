@@ -801,3 +801,7 @@ form#skf fieldset.plain{border:0;padding:0;margin:0 0 10px}form#skf legend{font-
 @media(max-width:700px){.chgcols{grid-template-columns:1fr}}
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .chgtxt del{background:#5a2420;color:#ffd9d4}:root:not([data-theme="light"]) .chgtxt ins{background:#1f4a27;color:#d4f5d8}}
 :root[data-theme="dark"] .chgtxt del{background:#5a2420;color:#ffd9d4}:root[data-theme="dark"] .chgtxt ins{background:#1f4a27;color:#d4f5d8}
+/* Winter season banner (December to February): northern lights, same layout */
+.cover.winter .cover-shade{background:linear-gradient(90deg,rgba(5,12,28,.72) 0,rgba(5,12,28,.3) 50%,rgba(5,12,28,0) 100%)}
+.cover.winter{background:linear-gradient(180deg,#050f24 0,#10284a 70%,#1c3f63 100%)}
+@media(max-width:700px){.cover.winter{background:linear-gradient(180deg,transparent 86%,#dce8f4 86%,#dce8f4 94%,#fff 94%),linear-gradient(180deg,#050f24 0,#10284a 70%,#1c3f63 100%)}.cover.winter .cover-art{transform:translateX(34%)}}
