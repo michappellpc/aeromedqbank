@@ -129,6 +129,10 @@ The home page shows a "This day in history" card with one to three events for to
 
 From October 1 through November 1 the dashboard banner is a harvest moon with a white plane and contrail, bats and a bare tree, with an orange button. It switches back to the usual banner on its own on November 2. A custom cover image set in the config always wins. The art and the date rule are in `js/mascot.js` (`Mascot.halloween`).
 
+## Winter banner
+
+From December 1 through the end of February the dashboard banner is northern lights over snowy pines with a jet and its contrail. It switches back to the usual banner on its own on March 1. A custom cover image set in the config always wins, and Halloween (October to November 1) never overlaps it. The art and the date rule are in `js/mascot.js` (`Mascot.winter`); `node tools/test-seasons.js` checks the dates.
+
 ## Compare with everyone
 
 On the Score trend chart, "Compare with everyone" (on by default, shown when group averages exist) adds a dotted line: the first-try average of all members on the same questions the member answered. In Recent mode it is test by test; in Overall and Both it runs across the same tests. Questions without enough members to show an average (the Admin peer minimum) are left out, and a test with none shows a gap. The choice syncs with the account. Logic: `Perf.trendGroup`.
