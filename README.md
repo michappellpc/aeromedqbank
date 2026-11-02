@@ -131,7 +131,7 @@ From October 1 through November 1 the dashboard banner is a harvest moon with a 
 
 ## Winter banner
 
-From December 1 through the end of February the dashboard banner is northern lights over snowy pines with a jet and its contrail. It switches back to the usual banner on its own on March 1. A custom cover image set in the config always wins, and Halloween (October to November 1) never overlaps it. The art and the date rule are in `js/mascot.js` (`Mascot.winter`); `node tools/test-seasons.js` checks the dates.
+From November 2 (the day after Halloween) through the end of January the dashboard banner is northern lights over snowy pines with a jet and its contrail. It switches back to the usual banner on its own on February 1. A custom cover image set in the config always wins, and Halloween (October to November 1) never overlaps it. The art and the date rule are in `js/mascot.js` (`Mascot.winter`); `node tools/test-seasons.js` checks the dates.
 
 ## Compare with everyone
 
