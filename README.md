@@ -249,6 +249,8 @@ The database returns at most 1,000 rows per call, however many are asked for. An
 
 **Practice from a lesson.** The lesson page's *Set up a practice test for this lesson* button opens New test (it no longer starts a quiz) with that lesson's board ticked and, if the lesson is tagged to the board outline, those learning objectives ticked under *Learning objectives*, otherwise its subject under *Subjects*. Everything stays editable before *Start test*. The route is `#/create/~l:<lesson id>`.
 
+**Newest first.** *Sort by > Newest and recently rewritten* lists the newest additions first, and a question that was rewritten counts from the day of the rewrite (a new question counts from the day it was added).
+
 **Oldest untouched first.** Admin > Questions > Sort by has *Oldest untouched first (by Updated date)*, which orders questions by the *Updated* column, oldest first, so a question that is saved again (rewritten, redone or edited) takes its new date and moves to the bottom, and *Recently rewritten*, which lists questions whose wording changed most recently first. The Updated date moves for every save, including bulk ones (tagging, topic cleanup, marking high yield), so a question that was only tagged also counts as touched. `created_at` (added to the schema for new questions) is the fallback when a question has no updated date.
 
 ## Clinical skills bank

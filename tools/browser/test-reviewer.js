@@ -30,6 +30,10 @@ const getLog = () => new Promise(r => http.get('http://localhost:9998/__log', re
     ok('the inbox is not open to a reviewer: it goes back to Questions', /#\/admin\/questions/.test(await hash(p)), await hash(p));
     ok('no "Apply high yield list" or "Apply topic list" for a reviewer', await p.locator('#hyapply, #tpapply').count() === 0);
     ok('the list has no Tier filter for a reviewer', !(await p.locator('#ft').isVisible()));
+    await p.selectOption('#fo', 'rewritten'); await p.waitForTimeout(400);
+    const order = await p.locator('#qres tbody tr td:nth-child(2) a').allInnerTexts();
+    ok('"Newest and recently rewritten" puts the newest question first (a new question counts, not only rewrites)', order[0] === 'q-2' && order.indexOf('q-3') < order.indexOf('q-1'), order.join(','));
+    await p.selectOption('#fo', '');
     await p.check('[data-sel="q-1"]'); await p.waitForTimeout(200);
     const bulk = (await p.locator('#bulk button').allInnerTexts()).map(x => x.trim());
     ok('selecting a question offers only Copy and Clear (no publish, archive, delete)', bulk.every(x => /Copy|Clear|CSV/i.test(x)) && bulk.length >= 2, bulk.join(','));
