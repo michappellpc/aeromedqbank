@@ -129,6 +129,10 @@ The home page shows a "This day in history" card with one to three events for to
 
 From October 1 through November 1 the dashboard banner is a harvest moon with a white plane and contrail, bats and a bare tree, with an orange button. It switches back to the usual banner on its own on November 2. A custom cover image set in the config always wins. The art and the date rule are in `js/mascot.js` (`Mascot.halloween`).
 
+## Opening animation (sign-in page)
+
+Visitors who are not signed in see a short opening animation over the sign-in form, about eight seconds: the aircraft from the logo climbs through clouds, faster and faster, breaks through into the night sky, the name lands, and it fades into the form. It plays once per browser session, has a **Skip intro** button (Escape works too), never plays for signed-in members, and does not play at all for anyone whose device asks for reduced motion. Open the site at `#/intro` while signed out to watch it again. Drawn on a canvas in `js/intro.js`, so it adds nothing to download; `tools/browser/test-intro.js` checks it.
+
 ## Winter banner
 
 From November 2 (the day after Halloween) through the end of January the dashboard banner is northern lights over snowy pines with a jet and its contrail. It switches back to the usual banner on its own on February 1. A custom cover image set in the config always wins, and Halloween (October to November 1) never overlaps it. The art and the date rule are in `js/mascot.js` (`Mascot.winter`); `node tools/test-seasons.js` checks the dates.

@@ -805,3 +805,25 @@ form#skf fieldset.plain{border:0;padding:0;margin:0 0 10px}form#skf legend{font-
 .cover.winter .cover-shade{background:linear-gradient(90deg,rgba(5,12,28,.72) 0,rgba(5,12,28,.3) 50%,rgba(5,12,28,0) 100%)}
 .cover.winter{background:linear-gradient(180deg,#050f24 0,#10284a 70%,#1c3f63 100%)}
 @media(max-width:700px){.cover.winter{background:linear-gradient(180deg,transparent 86%,#dce8f4 86%,#dce8f4 94%,#fff 94%),linear-gradient(180deg,#050f24 0,#10284a 70%,#1c3f63 100%)}.cover.winter .cover-art{transform:translateX(34%)}}
+
+/* Opening animation on the sign-in page (js/intro.js) */
+.intro{position:fixed;inset:0;z-index:60;background:#02060f;color:#fff;overflow:hidden;opacity:1;transition:opacity .6s ease}
+.intro.out{opacity:0;pointer-events:none}
+.intro-sky{position:absolute;inset:0;width:100%;height:100%;display:block}
+.intro-hud{position:absolute;right:26px;top:50%;transform:translateY(-50%);text-align:right;transition:opacity .25s}
+.intro-hud b{display:block;font-size:2.4rem;font-weight:800;font-variant-numeric:tabular-nums;text-shadow:0 0 18px rgba(127,209,211,.6)}.intro-hud span{font-size:.78rem;letter-spacing:.18em;text-transform:uppercase;opacity:.8}
+.intro-final{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:0 22px;pointer-events:none}
+.intro-logo{width:104px;height:104px;border-radius:22px;transform:scale(0);filter:drop-shadow(0 8px 26px rgba(20,163,166,.6))}
+.intro-final.go .intro-logo{animation:intro-pop .7s cubic-bezier(.2,1.6,.4,1) forwards}
+@keyframes intro-pop{0%{transform:scale(0) rotate(-25deg)}100%{transform:scale(1) rotate(0)}}
+.intro-name{margin:14px 0 0;font-size:2.6rem;font-weight:700;letter-spacing:.3px;display:flex;color:#fff}
+.intro-name span{display:inline-block;opacity:0;transform:translateY(-46px) scale(1.4)}.intro-name span.q{color:#7fd1d3}
+.intro-final.go .intro-name span{animation:intro-drop .5s cubic-bezier(.2,1.4,.4,1) forwards;animation-delay:calc(.35s + var(--i) * .045s)}
+@keyframes intro-drop{0%{opacity:0;transform:translateY(-46px) scale(1.4)}100%{opacity:1;transform:none}}
+.intro-tag{margin:8px 0 0;color:rgba(255,255,255,.92);max-width:520px;opacity:0;transform:translateY(12px)}
+.intro-final.go .intro-tag{animation:intro-up .6s ease-out 1.05s forwards}
+@keyframes intro-up{to{opacity:1;transform:none}}
+.intro-skip{position:absolute;left:16px;top:calc(14px + env(safe-area-inset-top,0px));background:rgba(8,24,52,.72);color:#fff;border:1px solid rgba(255,255,255,.55);border-radius:20px;padding:7px 14px;font:inherit;font-size:.9rem;min-height:36px}
+.intro .intro-skip:hover:not(:disabled),.intro .intro-skip:focus-visible{background:rgba(31,111,139,.9);border-color:#7fd1d3;color:#fff}
+@media(max-width:600px){.intro-hud b{font-size:1.7rem}.intro-name{font-size:1.9rem}.intro-logo{width:84px;height:84px}}
+@media (prefers-reduced-motion: reduce){.intro{display:none}}

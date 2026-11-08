@@ -12,7 +12,7 @@ const AXE = fs.readFileSync(require.resolve('axe-core/axe.min.js'), 'utf8');
 (async () => {
   fs.writeFileSync(CFG, JSON.stringify(cfg));
   const b = await chromium.launch({ executablePath: process.env.CHROMIUM || undefined }), errs = [];
-  const open = async (vp = { width: 1200, height: 800 }) => { const c = await b.newContext({ viewport: vp }), p = await c.newPage(); p.setDefaultTimeout(8000); p.on('pageerror', e => errs.push(e.message)); p.on('console', m => { if (/Content Security Policy/i.test(m.text())) errs.push(m.text().slice(0, 120)); }); return [c, p]; };
+  const open = async (vp = { width: 1200, height: 800 }) => { const c = await b.newContext({ viewport: vp , reducedMotion: 'reduce' }), p = await c.newPage(); p.setDefaultTimeout(8000); p.on('pageerror', e => errs.push(e.message)); p.on('console', m => { if (/Content Security Policy/i.test(m.text())) errs.push(m.text().slice(0, 120)); }); return [c, p]; };
   const login = async (p, e, w) => { await p.goto(BASE); await p.waitForSelector('#si'); await p.fill('#si-email', e); await p.fill('#si-pw', w); await p.click('#si-go'); await p.waitForSelector('.cover, h2'); await p.waitForTimeout(700); };
   const axe = async (p, label) => { for (const s of ['light', 'dark']) { await p.emulateMedia({ colorScheme: s }); await p.waitForTimeout(300); await p.evaluate(AXE); const v = await p.evaluate(async () => (await axe.run(document)).violations.map(x => x.id + ':' + x.nodes.length)); ok(`${label} accessible (${s})`, v.length === 0, v.join(',')); } };
   const items = p => p.locator('#viewsw-menu [data-v]').allInnerTexts();
