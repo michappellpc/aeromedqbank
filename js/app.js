@@ -1005,6 +1005,7 @@ function renderSignIn(note = '') {
     <p class="notice" id="si-err" hidden></p>
     <div class="row"><button class="primary" type="submit" id="si-go">Sign in</button><button type="button" class="linkish" id="si-forgot">Forgot password?</button></div></form>
     <p class="muted" id="si-foot">Ask your program lead if you need an account. By signing in you agree to the <a href="terms.html" target="_blank" rel="noopener">Terms</a> and <a href="privacy.html" target="_blank" rel="noopener">Privacy Policy</a>.</p></div>`;
+  if (!note && typeof Intro !== 'undefined') Intro.maybe();          // the opening animation, once per visit, over the form
   const err = document.getElementById('si-err'), go = document.getElementById('si-go');
   const fail = m => { err.textContent = m; err.hidden = false; go.disabled = false; };
   document.getElementById('si').onsubmit = async e => {

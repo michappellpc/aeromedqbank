@@ -13,7 +13,7 @@ const getLog = () => new Promise(r => http.get('http://localhost:9998/__log', re
 (async () => {
   fs.writeFileSync(CFG, JSON.stringify(cfg));
   const b = await chromium.launch({ executablePath: process.env.CHROMIUM || undefined }), errs = [];
-  const open = async () => { const c = await b.newContext({ viewport: { width: 1280, height: 900 } }), p = await c.newPage(); p.setDefaultTimeout(8000); p.on('pageerror', e => errs.push(e.message)); return [c, p]; };
+  const open = async () => { const c = await b.newContext({ viewport: { width: 1280, height: 900 } , reducedMotion: 'reduce' }), p = await c.newPage(); p.setDefaultTimeout(8000); p.on('pageerror', e => errs.push(e.message)); return [c, p]; };
   const login = async (p, e, w) => { await p.goto(BASE); await p.waitForSelector('#si'); await p.fill('#si-email', e); await p.fill('#si-pw', w); await p.click('#si-go'); await p.waitForSelector('.cover, h2'); await p.waitForTimeout(700); };
   const go = async (p, h) => { await p.evaluate(x => { location.hash = x; }, h); await p.waitForTimeout(700); };
   const hash = p => p.evaluate(() => location.hash);
