@@ -135,7 +135,7 @@ Visitors who are not signed in see a short opening animation over the sign-in fo
 
 ## Winter banner
 
-From November 2 (the day after Halloween) through the end of January the dashboard banner is northern lights over snowy pines with a jet and its contrail. It switches back to the usual banner on its own on February 1. A custom cover image set in the config always wins, and Halloween (October to November 1) never overlaps it. The art and the date rule are in `js/mascot.js` (`Mascot.winter`); `node tools/test-seasons.js` checks the dates.
+From November 2 (the day after Halloween) through the end of January the dashboard banner is northern lights over snowy pines with a jet and its contrail. It switches back to the usual banner on its own on February 1. The banner moves: snow falls, the stars twinkle, the aurora sways and a jet glides across every 20 seconds. The motion pauses while the tab is hidden and is off for anyone whose device asks for reduced motion (the snow is hidden then too). A custom cover image set in the config always wins, and Halloween (October to November 1) never overlaps it. The art and the date rule are in `js/mascot.js` (`Mascot.winter`); `node tools/test-seasons.js` checks the dates.
 
 ## Compare with everyone
 
