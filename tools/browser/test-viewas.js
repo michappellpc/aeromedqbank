@@ -72,6 +72,16 @@ const AXE = fs.readFileSync(require.resolve('axe-core/axe.min.js'), 'utf8');
     for (const [e, w, label, adminLink] of [['rev@x', 'pw-rev-1', 'a real reviewer', 'Questions'], ['fac@x', 'pw-fac-1', 'real faculty', null], ['m@x', 'pw-m-1', 'a member', null]]) {
       [c, p] = await open(); await login(p, e, w);
       ok(`${label} has no View as switch`, await p.locator('#viewsw').isHidden());
+      if (e === 'm@x') {      // flashcards: **bold**, *italic* and line breaks render, with no markup leaking through
+        await p.evaluate(() => { location.hash = '#/cards'; }); await p.waitForTimeout(700); await p.click('text="Study 1 card"'); await p.waitForSelector('.flash-side');
+        const front = await p.innerHTML('.flash-side');
+        ok('a flashcard front shows **bold** as bold', /<strong>trapped gas<\/strong>/.test(front) && !/\*\*/.test(front), front);
+        await p.click('button:text("Show answer"), button:text("Show the answer"), #flip, button[data-flip]').catch(() => {}); await p.waitForTimeout(300);
+        const back = (await p.locator('.flash-back').count()) ? await p.innerHTML('.flash-back') : '';
+        ok('its back shows *italic* and a line break', /<em>volume<\/em>/.test(back) && /<br>/.test(back), back || '(no back shown)');
+        await p.evaluate(() => { location.hash = '#/cards'; }); await p.waitForTimeout(700); await p.click('text="Browse all cards"'); await p.waitForTimeout(500);
+        ok('the browse list shows it as bold too', (await p.locator('#app .flash-side strong').count()) >= 1);
+      }
       ok(`${label} sees ${adminLink ? 'a Questions link' : 'no Admin link'}`, adminLink ? /^Questions/.test((await p.innerText('#nav-admin')).trim()) : await p.locator('#nav-admin').isHidden());
       await c.close();
     }

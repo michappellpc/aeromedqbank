@@ -4,7 +4,7 @@
 const Lessons = (() => {
   const X = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   // **bold**, *italic* and line breaks only. Everything else is shown as plain text, so pasted content cannot inject markup.
-  const inline = s => X(s).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/(^|[^*])\*(?!\s)(.+?)(?<!\s)\*(?!\*)/g, '$1<em>$2</em>').replace(/\n/g, '<br>');
+  const inline = s => RichText.inline(s);
   const fmt = v => Number.isInteger(v) ? v.toLocaleString('en-US') : String(+v.toFixed(2));
   const CALLOUT = { pearl: 'Clinical pearl', key: 'Key point', warning: 'Watch out', tip: 'Test-taking tip' };
   let uid = 0;
