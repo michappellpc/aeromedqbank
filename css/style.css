@@ -827,17 +827,17 @@ form#skf fieldset.plain{border:0;padding:0;margin:0 0 10px}form#skf legend{font-
 .intro .intro-skip:hover:not(:disabled),.intro .intro-skip:focus-visible{background:rgba(31,111,139,.9);border-color:#7fd1d3;color:#fff}
 @media(max-width:600px){.intro-hud b{font-size:1.7rem}.intro-name{font-size:1.9rem}.intro-logo{width:84px;height:84px}}
 @media (prefers-reduced-motion: reduce){.intro{display:none}}
-/* Winter banner motion: falling snow, twinkling stars, a swaying aurora and a gliding plane (js/mascot.js classes the pieces) */
-.cover.winter .cover-art *{transform-box:fill-box}
-.cover.winter .wstars circle{animation:w-twinkle var(--d,4s) ease-in-out var(--l,0s) infinite}
-@keyframes w-twinkle{0%,100%{opacity:.25}50%{opacity:1}}
+/* Winter banner motion: two snow layers, three star groups, two aurora bands and a gliding plane (js/mascot.js classes the pieces). Few moving parts, so it stays cheap. */
+.cover.winter .wstars .wg0{animation:w-twinkle 3.1s ease-in-out infinite}.cover.winter .wstars .wg1{animation:w-twinkle 4.3s ease-in-out -1.7s infinite}.cover.winter .wstars .wg2{animation:w-twinkle 5.2s ease-in-out -3.1s infinite}
+@keyframes w-twinkle{0%,100%{opacity:.35}50%{opacity:1}}
 .cover.winter .wau1{transform-box:view-box;transform-origin:800px 170px;animation:w-sway1 11s ease-in-out infinite alternate}
 .cover.winter .wau2{transform-box:view-box;transform-origin:900px 190px;animation:w-sway2 14s ease-in-out infinite alternate}
 @keyframes w-sway1{0%{transform:translateX(-40px) scaleY(.92);opacity:.85}100%{transform:translateX(50px) scaleY(1.12);opacity:1}}
 @keyframes w-sway2{0%{transform:translateX(60px) scaleY(1.1);opacity:.35}100%{transform:translateX(-50px) scaleY(.9);opacity:.8}}
 .cover.winter .wplane{transform-box:view-box;transform:translate(986px,65px) rotate(-12deg);animation:w-fly 20s linear infinite}
 @keyframes w-fly{0%{transform:translate(430px,128px) rotate(-6deg)}100%{transform:translate(1420px,40px) rotate(-12deg)}}
-.cover.winter .wsnow circle{transform-box:view-box;animation:w-fall var(--t,9s) linear var(--w,0s) infinite}
-@keyframes w-fall{0%{transform:translate(0,-12px)}50%{transform:translate(var(--x,10px),120px)}100%{transform:translate(0,252px)}}
-body.tab-hidden .cover.winter .cover-art *{animation-play-state:paused}
+.cover.winter .ws0{animation:w-fall0 13s linear infinite}.cover.winter .ws1{animation:w-fall1 9s linear infinite}
+@keyframes w-fall0{0%{transform:translate(0,0)}50%{transform:translate(14px,120px)}100%{transform:translate(0,240px)}}
+@keyframes w-fall1{0%{transform:translate(0,0)}50%{transform:translate(-10px,120px)}100%{transform:translate(0,240px)}}
+body.tab-hidden .cover.winter .cover-art *,.cover.winter.offscreen .cover-art *{animation-play-state:paused}
 @media (prefers-reduced-motion: reduce){.cover.winter .cover-art *{animation:none!important}.cover.winter .wplane{transform:translate(986px,65px) rotate(-12deg)}.cover.winter .wsnow{display:none}}

@@ -219,6 +219,10 @@ The **Support** tab lets any signed-in member send the team a question (optional
 ## Question feedback (demo site)
 Without accounts, every question's **Feedback** button (during a test and on the review page) opens the member's own email app with a message to the team, the question's reference already filled in (the address is `contactEmail` in `data/config.json`; with no address set it says feedback is not set up). With accounts, feedback stays in the app and goes to Admin > Inbox. No outside form service is used.
 
+## Opening quickly (the saved copy, refreshed in the background)
+
+Every device keeps a copy of the bank (questions, lessons, flashcards) in the browser's storage. The app opens from that copy at once, then refreshes it in the background: it asks the database only for every row's id and last-changed stamp, fetches in full just the rows that are new or changed (in batches of 100), and drops rows that are gone or archived. The dashboard redraws if anything changed. The first sign-in on a device still downloads everything, in parallel. The group averages (peer statistics) load in the background too, after the first screen. Logic in `js/syncmerge.js` (tests: `tools/test-syncmerge.js`) and `Cloud.syncList`; browser test `tools/browser/test-sync.js`.
+
 ## Phones and offline
 The app is installable ("Add to Home Screen") and works offline after the first visit. `sw.js` keeps a cached copy; when online it always fetches fresh files. Fonts are hosted in `fonts/` (SIL OFL license) so nothing loads from outside sites. `node tools/make-icons.js` regenerates the app icons.
 

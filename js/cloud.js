@@ -252,6 +252,28 @@ const Cloud = (() => {
   const mineFromRow = r => ({ id: r.id, front: r.front, back: r.back, sk: r.src_kind || undefined, si: r.src_id || undefined });
   const noCardsTable = e => e && (e.status === 404 || e.status === 400) && /flashcards|card_reviews|schema cache|relation/i.test(e.message || '');
   const noLessonsTable = e => e && (e.status === 404 || e.status === 400) && /lessons|schema cache|relation/i.test(e.message || '');
+  // ---- the bank lists, kept on the device and refreshed by fetching only what changed (see js/syncmerge.js) ----
+  const SYNC = {
+    questions: { path: '/rest/v1/questions', filter: '&archived=eq.false', map: r => toQuestion(r), sort: (a, b) => a.id.localeCompare(b.id) },
+    lessons: { path: '/rest/v1/lessons', filter: '&archived=eq.false', map: r => toLesson(r), sort: (a, b) => ((a.order === undefined ? 100 : a.order) - (b.order === undefined ? 100 : b.order)) || String(a.title || '').localeCompare(String(b.title || '')) || a.id.localeCompare(b.id) },
+    cards: { path: '/rest/v1/flashcards', filter: '&archived=eq.false', map: r => toCard(r), sort: (a, b) => String(a.subject || '').localeCompare(String(b.subject || '')) || a.id.localeCompare(b.id) }
+  };
+  async function syncList(key) {
+    const S = SYNC[key], c = await cacheGet(key), usable = c && c.uid === uid() && c.stamps && Array.isArray(c.list);
+    let list, stamps, changed = true;
+    if (!usable) {                                                      // first time on this device (or an old copy without stamps): the whole list
+      const rows = await pagedGet(`${S.path}?select=*${S.filter}&order=id.asc`);
+      list = rows.map(S.map); stamps = SyncMerge.stamps(rows);
+    } else {                                                            // since then: ids and stamps only, then just the rows that are new or changed
+      const index = await pagedGet(`${S.path}?select=id,updated_at${S.filter}&order=id.asc`), plan = SyncMerge.plan(c.stamps, index);
+      const got = [];
+      for (let i = 0; i < plan.fetch.length; i += 100) got.push(...await api(`${S.path}?select=*&id=in.${encodeURIComponent(inList(plan.fetch.slice(i, i + 100)))}`));
+      list = SyncMerge.apply(c.list, got.map(S.map), plan.remove); stamps = SyncMerge.stamps(index); changed = !plan.same;
+    }
+    list.sort(S.sort);
+    await cacheSet(key, { uid: uid(), at: Date.now(), list, stamps });
+    return { list, changed };
+  }
   async function allLessons(filter) {
     return pagedGet(`/rest/v1/lessons?select=*${filter}&order=position.asc,title.asc,id.asc`);
   }
@@ -400,19 +422,28 @@ const Cloud = (() => {
       } catch (e) { if (e.offline) return jget(pKey()); throw e; }
     },
     async questions() {
-      try {
-        let rows;
-        try { rows = await allQuestions('&archived=eq.false'); }
-        catch (e) { if (!missingColumn(e)) throw e; rows = await allQuestions(''); }     // database not upgraded yet
-        const list = rows.map(toQuestion);
-        await cacheSet('questions', { uid: uid(), at: Date.now(), list });
-        return list;
-      } catch (e) {
+      try { return (await syncList('questions')).list; }
+      catch (e) {
+        if (missingColumn(e)) { const list = (await allQuestions('')).map(toQuestion); await cacheSet('questions', { uid: uid(), at: Date.now(), list }); return list; }     // database not upgraded yet
         if (!e.offline) throw e;
         const c = await cacheGet('questions');
         if (c && c.uid === uid()) return c.list;
         throw e;
       }
+    },
+    // The device's saved copy of the bank, to open from at once (null until the first full download). peer and choices may be missing.
+    async cachedBank() {
+      const get = async k => { const c = await cacheGet(k); return c && c.uid === uid() ? c : null; };
+      const q = await get('questions'); if (!q || !Array.isArray(q.list) || !q.list.length) return null;
+      const [l, c, p, ch] = await Promise.all([get('lessons'), get('cards'), get('peer'), get('choices')]);
+      return { questions: q.list, lessons: l ? l.list : [], cards: c ? c.list : [], cardsKnown: !!c, peer: p ? p.m : null, choices: ch ? ch.m : null, at: q.at };
+    },
+    // Brings the saved copy up to date, fetching only what changed. Resolves to the new lists when anything changed, else null (also on any error).
+    async refreshBank() {
+      try {
+        const [q, l, c] = await Promise.all([syncList('questions'), syncList('lessons').catch(e => { if (noLessonsTable(e)) return { list: [], changed: false }; throw e; }), syncList('cards').catch(e => { if (noCardsTable(e)) return { list: [], changed: false }; throw e; })]);
+        return q.changed || l.changed || c.changed ? { questions: q.list, lessons: l.list, cards: c.list } : null;
+      } catch { return null; }
     },
     // ---- residency programs ----
     async programs() { try { return (await raw('/rest/v1/rpc/program_list', { method: 'POST', body: {} })) || []; } catch { return []; } },          // public: shown while signing up
@@ -479,7 +510,7 @@ const Cloud = (() => {
     async setPeerMin(n) { await api('/rest/v1/rpc/set_peer_min_users', { method: 'POST', body: { n } }); },
     // ---- flashcards (members read reviewed ones; editors read and write all) ----
     async cards() {
-      try { const list = (await pagedGet('/rest/v1/flashcards?select=*&archived=eq.false&order=subject.asc,id.asc')).map(toCard); await cacheSet('cards', { uid: uid(), at: Date.now(), list }); return list; }
+      try { return (await syncList('cards')).list; }
       catch (e) {
         if (noCardsTable(e)) return [];                                     // database not upgraded yet
         if (!e.offline) throw e;
@@ -493,7 +524,7 @@ const Cloud = (() => {
     deleteCards: ids => api('/rest/v1/flashcards?id=in.' + encodeURIComponent(inList(ids)), { method: 'DELETE', headers: { Prefer: 'return=minimal' } }),
     // ---- lessons (members read reviewed ones; editors read and write all) ----
     async lessons() {
-      try { const list = (await allLessons('&archived=eq.false')).map(toLesson); await cacheSet('lessons', { uid: uid(), at: Date.now(), list }); return list; }
+      try { return (await syncList('lessons')).list; }
       catch (e) {
         if (noLessonsTable(e)) return [];                                   // database not upgraded yet
         if (!e.offline) throw e;
