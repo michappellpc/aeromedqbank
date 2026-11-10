@@ -1098,14 +1098,15 @@ async function startSession() {
   ready = false; lockUI(true);
   $app.innerHTML = '<div class="card"><p class="muted">Loading your questions...</p></div>';
   if (Cloud.mustChangePassword) return renderSetPassword('temp');
+  let saved = null;                                                   // the device's saved copy of the bank, when it has one
   try {
     Store.use(Cloud.userKey()); applyTheme();
     profile = await Cloud.profile();
     if (!profile || !profile.active) return renderBlocked(Cloud.session.email);
-    setQuestions(await Cloud.questions());
-    setLessons(await Cloud.lessons().catch(() => []));
-    await loadCards();
-    bank.peer = await Cloud.peerStats(); bank.choices = await Cloud.peerChoices(); peerAt = Date.now();
+    // Open from the device's saved copy when there is one (then refresh in the background below); otherwise download everything, in parallel
+    saved = await Cloud.cachedBank().catch(() => null);
+    if (saved) { setQuestions(saved.questions); setLessons(saved.lessons); bank.cards = saved.cards; bank.cardsMissing = false; bank.peer = saved.peer || {}; bank.choices = saved.choices || {}; }
+    else { const [qs, ls] = await Promise.all([Cloud.questions(), Cloud.lessons().catch(() => []), loadCards()]); setQuestions(qs); setLessons(ls); bank.peer = {}; bank.choices = {}; }
     bank.program = await Cloud.myProgram();
     Cloud.prefetchImages(bank.questions.concat(bank.skills || []).filter(privImg).map(privImg));   // in the background, so pictures also work offline
   } catch (e) {
@@ -1133,6 +1134,13 @@ async function startSession() {
   if (!/^#\/[a-z]/.test(location.hash)) location.hash = '#/';       // keep a deep link (a lesson opened in a new tab, a bookmark, a reload); anything else, such as a reset-password token, goes to the dashboard
   route();
   Cloud.sync().then(() => { applyTheme(); if (ready && /^#?\/?$/.test(location.hash)) route(); }).catch(() => {});       // on the dashboard, so a quiz that arrives from the account shows up
+  // In the background: bring the bank up to date (only what changed is fetched) and load the group averages
+  const session = Cloud.session;
+  const still = () => ready && Cloud.session === session;
+  const onDash = () => /^#?\/?$/.test(location.hash);
+  if (saved) Cloud.refreshBank().then(fresh => { if (!fresh || !still()) return; setQuestions(fresh.questions); setLessons(fresh.lessons); bank.cards = fresh.cards; bank.cardsMissing = false; Skills.syncNav(); if (onDash()) route(); Cloud.prefetchImages(bank.questions.concat(bank.skills || []).filter(privImg).map(privImg)); });
+  peerAt = Date.now();
+  Promise.all([Cloud.peerStats(), Cloud.peerChoices()]).then(([p, c]) => { if (!still()) return; bank.peer = p; bank.choices = c; if (onDash()) route(); }).catch(() => {});
 }
 
 async function signOut() {

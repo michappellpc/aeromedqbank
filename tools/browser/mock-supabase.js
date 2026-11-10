@@ -9,7 +9,7 @@ const Q = [1, 2, 3].map(i => ({ id: 'q-' + i, status: 'reviewed', reviewed_by: '
 const byToken = req => { const t = (req.headers.authorization || '').replace('Bearer ', ''); try { const c = JSON.parse(Buffer.from(t.split('.')[1], 'base64url').toString()); return Object.entries(USERS).find(([e]) => e === c.email); } catch { return null; } };
 const send = (res, code, body) => { res.writeHead(code, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': '*', 'Access-Control-Allow-Methods': '*' }); res.end(body === undefined ? '' : JSON.stringify(body)); };
 const ADDED = { 'q-1': '2026-01-01T00:00:00Z', 'q-2': '2026-11-05T00:00:00Z', 'q-3': '2026-03-01T00:00:00Z' }; Q.forEach(q => { q.created_at = ADDED[q.id]; }); Q[0].objectives = ['aem:K2.A.5']; Q[1].objectives = ['aem:K1.E.1']; Q[2].objectives = [];      // q-2 comes first by learning objective; q-3 is untagged      // q-2 is the newest question
-const CR = [], LOG = []; let CRID = 1;       // reviewer proposals (like the change_requests table) and a log of direct writes to the bank
+const CR = [], LOG = [], GETS = []; let CRID = 1;       // reviewer proposals (like the change_requests table) and a log of direct writes to the bank
 http.createServer((req, res) => {
   if (req.method === 'OPTIONS') return send(res, 204);
   let data = ''; req.on('data', c => data += c); req.on('end', () => {
@@ -20,8 +20,12 @@ http.createServer((req, res) => {
     if (p === '/rest/v1/profiles') return send(res, 200, me ? [{ email: me.email, display_name: null, role: me.role, plan: 'pro', pro_until: null, active: true }] : []);
     if (p === '/rest/v1/programs') return send(res, 200, PROGS);
     if (p === '/__log') return send(res, 200, LOG);
-    if (p === '/rest/v1/flashcards') return send(res, 200, [{ id: 'c-1', status: 'reviewed', boards: ['aem'], subject: 'Altitude & Decompression', topic: 'T1', front: 'Which law explains **trapped gas** expansion?', back: 'Boyle\'s law: *volume* rises as pressure falls.\nSecond line.', refs: [], archived: false, updated_at: '2026-01-01T00:00:00Z' }]);
-    if (p === '/rest/v1/questions') { if (req.method !== 'GET') { LOG.push(req.method + ' questions'); return send(res, 204); } return send(res, 200, Q); }
+    if (p === '/__gets') return send(res, 200, GETS);
+    if (p === '/__touch') { const q = Q.find(x => x.id === url.searchParams.get('id')); if (q) { q.stem = q.stem.replace('?', '') + ' (updated)?'; q.updated_at = new Date().toISOString(); } return send(res, 200, !!q); }
+    const shape = rows => { const sel = url.searchParams.get('select') || '*', inq = (url.searchParams.get('id') || '').replace(/^in\.\(|\)$/g, ''); let out = rows; if (inq) { const ids = inq.split(',').map(x => x.replace(/"/g, '')); out = out.filter(r => ids.includes(r.id)); } if (sel !== '*') { const ks = sel.split(','); out = out.map(r => Object.fromEntries(ks.map(k => [k, r[k]]))); } return out; };
+    if (req.method === 'GET' && /^\/rest\/v1\/(questions|lessons|flashcards)$/.test(p)) GETS.push(p.slice(9) + '?' + url.search.slice(1));
+    if (p === '/rest/v1/flashcards') return send(res, 200, shape([{ id: 'c-1', status: 'reviewed', boards: ['aem'], subject: 'Altitude & Decompression', topic: 'T1', front: 'Which law explains **trapped gas** expansion?', back: 'Boyle\'s law: *volume* rises as pressure falls.\nSecond line.', refs: [], archived: false, updated_at: '2026-01-01T00:00:00Z' }]));
+    if (p === '/rest/v1/questions') { if (req.method !== 'GET') { LOG.push(req.method + ' questions'); return send(res, 204); } return send(res, 200, shape(Q)); }
     if (p === '/rest/v1/change_requests') { const st = (url.searchParams.get('status') || '').replace('eq.', ''); return send(res, 200, CR.filter(r => me && (me.role === 'admin' || r.author_email === me.email) && (!st || r.status === st)).slice().reverse()); }
     if (p.startsWith('/rest/v1/rpc/')) {
       const n = p.slice(13);
