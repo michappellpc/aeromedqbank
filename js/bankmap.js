@@ -1,6 +1,7 @@
 'use strict';
-// The "bank map": every question reduced to its categorization and tagging (no choices, answer or explanation), plus a summary of how the bank covers the
-// board outline against the exam weights, so the whole bank can be seen at a glance or handed to a chat. Pure logic, no page code. Runs in the browser and in Node.
+// The "bank map": every question (or lesson, or flashcard) reduced to its categorization and tagging (no choices, answer, explanation, lesson text or card
+// back), plus a summary of how the bank covers the board outline against the exam weights, so the whole bank can be seen at a glance or handed to a chat.
+// build(list, { kind: 'questions' | 'lessons' | 'cards' }). Pure logic, no page code. Runs in the browser and in Node.
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) module.exports = factory(typeof require === 'function' ? require('./outlines-data.js') : root.OutlinesData); else root.BankMap = factory(root.OutlinesData);
 })(typeof self !== 'undefined' ? self : this, function (DATA) {
@@ -8,9 +9,13 @@
   const partKey = i => (i.sub ? i.domain + '.' + String(i.sub).trim().charAt(0) : i.domain);
   const round1 = x => Math.round(x * 10) / 10;
   const short = (s, n) => { s = String(s || '').replace(/\s+/g, ' ').trim(); return s.length <= n ? s : s.slice(0, n - 1).trimEnd() + '…'; };
+  const KIND = { questions: { noun: 'questions', one: 'question', ids: 'untagged_question_ids' }, lessons: { noun: 'lessons', one: 'lesson', ids: 'untagged_lesson_ids' }, cards: { noun: 'flashcards', one: 'flashcard', ids: 'untagged_card_ids' } };
+  const ABOUT_L = 'One entry per lesson with only its categorization and tagging (no lesson text: just the title, the start of the summary, and what kinds of blocks it has). "objectives" are the board outline items the lesson is tagged with ("board:code"); "domains" are the outline domains those tags fall in. "coverage" compares each outline domain\'s share of the exam with its share of the tagged lessons, and lists the outline statements no lesson covers.';
+  const ABOUT_C = 'One entry per flashcard with only its categorization and tagging (no back: just the start of the front). "objectives" are the board outline items the card is tagged with ("board:code"); "domains" are the outline domains those tags fall in. "coverage" compares each outline domain\'s share of the exam with its share of the tagged flashcards, and lists the outline statements no card covers.';
   const ABOUT = 'One entry per question with only its categorization and tagging (no answer choices, answer key or explanation). "objectives" are the board outline items the question is tagged with ("board:code"); "domains" are the outline domains those tags fall in. "coverage" compares, for each board, the percent of the exam each domain is worth with the share of this bank\'s tagged questions that touch it (a question tagged in two domains counts in both). "statements_without_questions" are the board\'s knowledge statements that no question is tagged to, at or below them. Archived questions are listed but left out of the coverage figures.';
 
   function build(questions, opts = {}) {
+    const K = KIND[opts.kind] || KIND.questions, N = K.noun;
     const list = (questions || []).filter(Boolean), live = list.filter(q => !q.archived);
     const stats = opts.stats || null;                       // optional { id: { attempts, pct } } from the measured numbers
     // what each question's tags point at, per board
@@ -28,9 +33,14 @@
     const placed = new Map(list.map(q => [q.id, place(q)]));
     const rows = list.map(q => {
       const p = placed.get(q.id), st = stats && stats[q.id];
-      const o = { id: q.id, boards: q.boards || [], subject: q.subject || '', topic: q.topic || '', difficulty: q.difficulty || null, status: q.status || '', tier: q.tier || '', archived: !!q.archived,
-        high_yield: !!q.highYield, lesson_id: q.lessonId || null, objectives: (q.objectives || []).slice(), objective_count: (q.objectives || []).length, domains: [...p.domains].sort(),
-        stem_start: short(q.stem, opts.stemChars || 120), updated: q.updatedAt ? String(q.updatedAt).slice(0, 10) : null };
+      const tags = { objectives: (q.objectives || []).slice(), objective_count: (q.objectives || []).length, domains: [...p.domains].sort() }, upd = q.updatedAt ? String(q.updatedAt).slice(0, 10) : null;
+      const o = N === 'lessons' ? { id: q.id, boards: q.boards || [], subject: q.subject || '', status: q.status || '', tier: q.tier || '', archived: !!q.archived, high_yield: !!q.highYield, order: q.order === undefined ? null : q.order,
+          title: String(q.title || ''), summary_start: short(q.summary, opts.stemChars || 120), block_count: (q.blocks || []).length, block_types: [...new Set((q.blocks || []).map(b => b && b.type).filter(Boolean))], ...tags, updated: upd }
+        : N === 'flashcards' ? { id: q.id, boards: q.boards || [], subject: q.subject || '', topic: q.topic || '', status: q.status || '', archived: !!q.archived, high_yield: !!q.highYield, lesson_id: q.lessonId || null, ...tags,
+          front_start: short(q.front, opts.stemChars || 120), updated: upd }
+        : { id: q.id, boards: q.boards || [], subject: q.subject || '', topic: q.topic || '', difficulty: q.difficulty || null, status: q.status || '', tier: q.tier || '', archived: !!q.archived,
+        high_yield: !!q.highYield, lesson_id: q.lessonId || null, ...tags,
+        stem_start: short(q.stem, opts.stemChars || 120), updated: upd };
       if (p.bad.length) o.unrecognized_tags = p.bad;
       if (st) { o.answers = st.attempts; o.percent_correct = st.pct; }
       return o;
@@ -41,43 +51,47 @@
       const raw = DATA[b], weights = raw.weights || {}, byCode = new Map(raw.items.map(i => [i.code, i]));
       const tagged = live.filter(q => placed.get(q.id).boards.has(b));
       const domains = [], seen = new Map();
-      raw.items.forEach(i => { if (!seen.has(i.domain)) { const d = { key: i.domain, name: i.domainName, weight_percent: 0, parts: [], questions: 0 }; seen.set(i.domain, d); domains.push(d); } });
-      raw.items.forEach(i => { if (i.sub) { const d = seen.get(i.domain), k = partKey(i); if (!d.parts.some(p => p.key === k)) d.parts.push({ key: k, name: String(i.sub).replace(/^[A-Z]\.\s*/, ''), weight_percent: weights[k] || 0, questions: 0 }); } });
+      raw.items.forEach(i => { if (!seen.has(i.domain)) { const d = { key: i.domain, name: i.domainName, weight_percent: 0, parts: [], [N]: 0 }; seen.set(i.domain, d); domains.push(d); } });
+      raw.items.forEach(i => { if (i.sub) { const d = seen.get(i.domain), k = partKey(i); if (!d.parts.some(p => p.key === k)) d.parts.push({ key: k, name: String(i.sub).replace(/^[A-Z]\.\s*/, ''), weight_percent: weights[k] || 0, [N]: 0 }); } });
       domains.forEach(d => { d.weight_percent = d.parts.length ? d.parts.reduce((a, p) => a + p.weight_percent, 0) : (weights[d.key] || 0); });
-      tagged.forEach(q => { const p = placed.get(q.id); domains.forEach(d => { if (p.domains.has(b + ':' + d.key)) d.questions++; d.parts.forEach(pt => { if (p.parts.has(b + ':' + pt.key)) pt.questions++; }); }); });
+      tagged.forEach(q => { const p = placed.get(q.id); domains.forEach(d => { if (p.domains.has(b + ':' + d.key)) d[N]++; d.parts.forEach(pt => { if (p.parts.has(b + ':' + pt.key)) pt[N]++; }); }); });
       const total = tagged.length, share = n => (total ? round1(100 * n / total) : null);
-      domains.forEach(d => { d.share_of_tagged_percent = share(d.questions); d.difference_points = total ? round1(d.share_of_tagged_percent - d.weight_percent) : null; d.parts.forEach(pt => { pt.share_of_tagged_percent = share(pt.questions); pt.difference_points = total ? round1(pt.share_of_tagged_percent - pt.weight_percent) : null; }); });
+      domains.forEach(d => { d.share_of_tagged_percent = share(d[N]); d.difference_points = total ? round1(d.share_of_tagged_percent - d.weight_percent) : null; d.parts.forEach(pt => { pt.share_of_tagged_percent = share(pt[N]); pt.difference_points = total ? round1(pt.share_of_tagged_percent - pt.weight_percent) : null; }); });
       const count = new Map(); tagged.forEach(q => placed.get(q.id).nodes.get(b).forEach(c => count.set(c, (count.get(c) || 0) + 1)));
       const ks = raw.items.filter(i => i.kind === 'K'), hasChild = new Set(); ks.forEach(i => { const p = i.code.split('.'); p.pop(); while (p.length > 1) { const c = p.join('.'); if (byCode.has(c)) { hasChild.add(c); break; } p.pop(); } });
-      const statements = ks.map(i => ({ code: i.code, domain: i.domain, text: short(i.text, 110), questions: count.get(i.code) || 0, leaf: !hasChild.has(i.code) }));
-      coverage[b] = { name: raw.name, tagged_questions: total, weights_note: raw.weightsNote || '', domains,
-        statements_without_questions: statements.filter(s => s.leaf && !s.questions).map(s => ({ code: s.code, text: s.text })),
-        statement_counts: statements.map(s => ({ code: s.code, questions: s.questions, text: s.text })) };
+      const statements = ks.map(i => ({ code: i.code, domain: i.domain, text: short(i.text, 110), [N]: count.get(i.code) || 0, leaf: !hasChild.has(i.code) }));
+      coverage[b] = { name: raw.name, ['tagged_' + N]: total, weights_note: raw.weightsNote || '', domains,
+        ['statements_without_' + N]: statements.filter(s => s.leaf && !s[N]).map(s => ({ code: s.code, text: s.text })),
+        statement_counts: statements.map(s => ({ code: s.code, [N]: s[N], text: s.text })) };
     });
     const byStatus = {}; list.forEach(q => { byStatus[q.status || 'unknown'] = (byStatus[q.status || 'unknown'] || 0) + 1; });
     const untagged = live.filter(q => !placed.get(q.id).domains.size);
-    return { about: ABOUT, generated: opts.now || new Date().toISOString(),
-      counts: { questions: list.length, not_archived: live.length, archived: list.length - live.length, by_status: byStatus, tagged: live.length - untagged.length, untagged: untagged.length, high_yield: live.filter(q => q.highYield).length },
-      coverage, untagged_question_ids: untagged.map(q => q.id), questions: rows };
+    return { about: N === 'lessons' ? ABOUT_L : N === 'flashcards' ? ABOUT_C : ABOUT, kind: N, generated: opts.now || new Date().toISOString(),
+      counts: { [N]: list.length, not_archived: live.length, archived: list.length - live.length, by_status: byStatus, tagged: live.length - untagged.length, untagged: untagged.length, high_yield: live.filter(q => q.highYield).length },
+      coverage, [K.ids]: untagged.map(q => q.id), [N]: rows };
   }
 
   const cell = v => { const s = v === null || v === undefined ? '' : Array.isArray(v) ? v.join('; ') : String(v); return /[",\r\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
   const csv = (head, rows) => '﻿' + [head, ...rows].map(r => r.map(cell).join(',')).join('\r\n') + '\r\n';
+  // one row per item (questions, lessons or flashcards, whichever the map holds)
   function questionsCsv(map) {
-    const stats = map.questions.some(q => q.answers !== undefined);
+    const N = map.kind || 'questions', rows = map[N] || [];
+    if (N === 'lessons') return csv(['id', 'boards', 'subject', 'status', 'tier', 'archived', 'high_yield', 'order', 'title', 'summary_start', 'block_count', 'block_types', 'objective_count', 'objectives', 'domains', 'updated'], rows.map(l => [l.id, l.boards, l.subject, l.status, l.tier, l.archived ? 'yes' : '', l.high_yield ? 'yes' : '', l.order, l.title, l.summary_start, l.block_count, l.block_types, l.objective_count, l.objectives, l.domains, l.updated]));
+    if (N === 'flashcards') return csv(['id', 'boards', 'subject', 'topic', 'status', 'archived', 'high_yield', 'lesson_id', 'objective_count', 'objectives', 'domains', 'front_start', 'updated'], rows.map(c => [c.id, c.boards, c.subject, c.topic, c.status, c.archived ? 'yes' : '', c.high_yield ? 'yes' : '', c.lesson_id, c.objective_count, c.objectives, c.domains, c.front_start, c.updated]));
+    const stats = rows.some(q => q.answers !== undefined);
     const head = ['id', 'boards', 'subject', 'topic', 'difficulty', 'status', 'tier', 'archived', 'high_yield', 'lesson_id', 'objective_count', 'objectives', 'domains', 'stem_start', 'updated'].concat(stats ? ['answers', 'percent_correct'] : []);
     return csv(head, map.questions.map(q => [q.id, q.boards, q.subject, q.topic, q.difficulty, q.status, q.tier, q.archived ? 'yes' : '', q.high_yield ? 'yes' : '', q.lesson_id, q.objective_count, q.objectives, q.domains, q.stem_start, q.updated].concat(stats ? [q.answers, q.percent_correct] : [])));
   }
   function coverageCsv(map) {
-    const rows = [];
+    const N = map.kind || 'questions', rows = [];
     Object.entries(map.coverage).forEach(([b, c]) => {
       c.domains.forEach(d => {
-        rows.push([b, 'domain', d.key, d.name, d.weight_percent, d.questions, d.share_of_tagged_percent, d.difference_points]);
-        d.parts.forEach(p => rows.push([b, 'part', p.key, p.name, p.weight_percent, p.questions, p.share_of_tagged_percent, p.difference_points]));
+        rows.push([b, 'domain', d.key, d.name, d.weight_percent, d[N], d.share_of_tagged_percent, d.difference_points]);
+        d.parts.forEach(p => rows.push([b, 'part', p.key, p.name, p.weight_percent, p[N], p.share_of_tagged_percent, p.difference_points]));
       });
-      c.statement_counts.forEach(s => rows.push([b, 'statement', s.code, s.text, '', s.questions, '', '']));
+      c.statement_counts.forEach(s => rows.push([b, 'statement', s.code, s.text, '', s[N], '', '']));
     });
-    return csv(['board', 'level', 'code', 'name_or_text', 'exam_weight_percent', 'questions', 'share_of_tagged_percent', 'difference_points'], rows);
+    return csv(['board', 'level', 'code', 'name_or_text', 'exam_weight_percent', N, 'share_of_tagged_percent', 'difference_points'], rows);
   }
-  return { build, questionsCsv, coverageCsv };
+  return { build, questionsCsv, itemsCsv: questionsCsv, coverageCsv, KIND };
 });

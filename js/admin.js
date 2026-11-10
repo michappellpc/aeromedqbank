@@ -304,23 +304,25 @@ const Admin = (() => {
   // ------------------------------------------------------------------ bank map
   // The whole bank at a glance: each question's categorization and tags only (no choices, answer or explanation) and the coverage of the board outline
   // against the exam weights. JSON is the easiest to paste into a chat; the two spreadsheets open in Excel.
-  function bankMap(listAll) {
-    const stats = AdminItems.ready() ? Object.fromEntries(listAll.map(q => { const i = AdminItems.get(q.id); return [q.id, i && i.attempts ? { attempts: i.attempts, pct: i.pct } : null]; }).filter(x => x[1])) : null;
-    const map = BankMap.build(listAll, { stats }), day = new Date().toISOString().slice(0, 10);
+  function bankMap(listAll, kind = 'questions') {
+    const K = BankMap.KIND[kind] || BankMap.KIND.questions, N = K.noun, one = K.one;
+    const stats = kind === 'questions' && AdminItems.ready() ? Object.fromEntries(listAll.map(q => { const i = AdminItems.get(q.id); return [q.id, i && i.attempts ? { attempts: i.attempts, pct: i.pct } : null]; }).filter(x => x[1])) : null;
+    const map = BankMap.build(listAll, { stats, kind }), day = new Date().toISOString().slice(0, 10), n = map.counts[N];
     const d = document.createElement('div'), prev = document.activeElement; d.className = 'modal';
-    const cov = Object.values(map.coverage).filter(c => c.tagged_questions > 0);
-    d.innerHTML = `<div class="card" role="dialog" aria-modal="true" aria-labelledby="bm-h" style="max-width:640px;width:100%;max-height:92vh;overflow:auto"><h2 id="bm-h" style="margin-top:0">Bank map</h2>
-      <p class="muted">Every question reduced to its subject, topic, difficulty, status, high yield mark, lesson and board outline tags, with a short start of the question to recognize it by. No answer choices, answer key or explanations. It also compares each outline domain's share of the exam with its share of your tagged questions, and lists the outline statements no question is tagged to.</p>
-      <p><b>${map.counts.questions}</b> question${map.counts.questions === 1 ? '' : 's'} (${map.counts.archived} archived): <b>${map.counts.tagged}</b> tagged to the outline, <b>${map.counts.untagged}</b> not tagged yet.${cov.length ? ' ' + cov.map(c => `${esc(c.name)}: ${c.tagged_questions} tagged, ${c.statements_without_questions.length} statements with no question.`).join(' ') : ''}</p>
-      <div class="row"><button class="primary" id="bm-json" type="button">Download JSON (best for pasting into a chat)</button><button id="bm-q" type="button">Questions as a spreadsheet (CSV)</button><button id="bm-c" type="button">Outline coverage as a spreadsheet (CSV)</button><button id="bm-x" type="button">Close</button></div>
-      <p class="muted small">The JSON has everything: the questions, the counts and the coverage. The two spreadsheets (CSV) open in Excel: one has a row per question, the other a row per outline domain and statement.</p></div>`;
+    const cov = Object.values(map.coverage).filter(c => c['tagged_' + N] > 0);
+    const what = kind === 'lessons' ? 'Every lesson reduced to its subject, status, tier, high yield mark, order, title, the start of its summary, what kinds of blocks it has and its board outline tags. No lesson text.' : kind === 'cards' ? 'Every flashcard reduced to its subject, topic, status, high yield mark, lesson and board outline tags, with the start of the front to recognize it by. No backs.' : 'Every question reduced to its subject, topic, difficulty, status, high yield mark, lesson and board outline tags, with a short start of the question to recognize it by. No answer choices, answer key or explanations.';
+    d.innerHTML = `<div class="card" role="dialog" aria-modal="true" aria-labelledby="bm-h" style="max-width:640px;width:100%;max-height:92vh;overflow:auto"><h2 id="bm-h" style="margin-top:0">Bank map: ${N}</h2>
+      <p class="muted">${what} It also compares each outline domain's share of the exam with its share of your tagged questions, and lists the outline statements no question is tagged to.</p>
+      <p><b>${n}</b> ${n === 1 ? one : N} (${map.counts.archived} archived): <b>${map.counts.tagged}</b> tagged to the outline, <b>${map.counts.untagged}</b> not tagged yet.${cov.length ? ' ' + cov.map(c => `${esc(c.name)}: ${c['tagged_' + N]} tagged, ${c['statements_without_' + N].length} statements with no ${one}.`).join(' ') : ''}</p>
+      <div class="row"><button class="primary" id="bm-json" type="button">Download JSON (best for pasting into a chat)</button><button id="bm-q" type="button">${N.replace(/^./, c => c.toUpperCase())} as a spreadsheet (CSV)</button><button id="bm-c" type="button">Outline coverage as a spreadsheet (CSV)</button><button id="bm-x" type="button">Close</button></div>
+      <p class="muted small">The JSON has everything: the ${N}, the counts and the coverage. The two spreadsheets (CSV) open in Excel: one has a row per ${one}, the other a row per outline domain and statement.</p></div>`;
     const E = id => d.querySelector('#' + id), close = () => { d.remove(); document.removeEventListener('keydown', onKey, true); if (prev && document.body.contains(prev)) prev.focus(); };
     const onKey = e => { if (e.key === 'Escape') { e.stopPropagation(); close(); } };
     document.addEventListener('keydown', onKey, true); d.onclick = e => { if (e.target === d) close(); }; E('bm-x').onclick = close;
     const save = (text, type, name, msg) => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], { type })); a.download = name; a.click(); toast(msg); };
-    E('bm-json').onclick = () => save(JSON.stringify(map, null, 1) + '\n', 'application/json', `bank-map-${day}.json`, `Downloaded the bank map (${map.counts.questions} questions).`);
-    E('bm-q').onclick = () => save(BankMap.questionsCsv(map), 'text/csv', `bank-questions-${day}.csv`, 'Downloaded the questions spreadsheet.');
-    E('bm-c').onclick = () => save(BankMap.coverageCsv(map), 'text/csv', `bank-outline-coverage-${day}.csv`, 'Downloaded the outline coverage spreadsheet.');
+    E('bm-json').onclick = () => save(JSON.stringify(map, null, 1) + '\n', 'application/json', `bank-map${kind === 'questions' ? '' : '-' + N}-${day}.json`, `Downloaded the bank map (${n} ${N}).`);
+    E('bm-q').onclick = () => save(BankMap.questionsCsv(map), 'text/csv', `bank-${N}-${day}.csv`, `Downloaded the ${N} spreadsheet.`);
+    E('bm-c').onclick = () => save(BankMap.coverageCsv(map), 'text/csv', `bank-outline-coverage${kind === 'questions' ? '' : '-' + N}-${day}.csv`, 'Downloaded the outline coverage spreadsheet.');
     document.body.appendChild(d); E('bm-json').focus();
   }
 
@@ -332,7 +334,7 @@ const Admin = (() => {
     toast(`Downloaded ${out.length} questions. Keep this file somewhere safe.`);
   }
 
-  return { tabs, askText, applyHighYield, applyTopics, ensure, refresh, list, view, subjectsFor, LETTERS, note, myEmail, isEditor, role, get cache() { return cache; },
+  return { tabs, askText, applyHighYield, applyTopics, bankMap, ensure, refresh, list, view, subjectsFor, LETTERS, note, myEmail, isEditor, role, get cache() { return cache; },
     route(a, b, c) {
       if (!a) return role() === 'admin' ? adminPage() : (location.hash = '#/admin/questions');
       if (a === 'lessons' && typeof AdminLessons !== 'undefined') return AdminLessons.route(b, c);
