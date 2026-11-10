@@ -114,6 +114,7 @@ const getLog = () => new Promise(r => http.get('http://localhost:9998/__log', re
     log = await getLog();
     ok('the admin\'s edited version is accepted', log.includes('accepted q-2 as reviewed') && /#\/admin\/changes/.test(await hash(p)), log.join(',') + ' ' + await hash(p));
     ok('nothing is left waiting', /Nothing is waiting/.test(await p.innerText('#ch-list')));
+    for (const k of ['lessons', 'cards']) { await go(p, '#/admin/' + k); await p.click('#bankmap'); await p.waitForSelector('#bm-h'); const h = await p.innerText('#bm-h'); ok(`${k}: Bank map opens its own map`, new RegExp(k === 'cards' ? 'flashcards' : 'lessons', 'i').test(h), h); await axe(p, `Bank map on ${k}`); await p.click('#bm-x'); await p.waitForTimeout(200); }
     await go(p, '#/admin/inbox'); ok('the admin can still open the inbox', /#\/admin\/inbox/.test(await hash(p)));
     await c.close();
 

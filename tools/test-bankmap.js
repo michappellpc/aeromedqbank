@@ -40,4 +40,16 @@ t('the coverage file has domain, part and statement rows', cc[0].includes('exam_
 t('the JSON is plain data that survives a round trip', JSON.stringify(JSON.parse(JSON.stringify(M))) === JSON.stringify(M));
 const withStats = BM.build([q('a1', { objectives: ['aem:K1.E.1'] })], { stats: { a1: { attempts: 40, pct: 62 } } });
 t('measured numbers are included when they are available', withStats.questions[0].answers === 40 && withStats.questions[0].percent_correct === 62 && /answers,percent_correct/.test(BM.questionsCsv(withStats)));
+
+console.log('Lessons and flashcards');
+const L = BM.build([{ id: 'l1', boards: ['aem'], subject: 'Altitude & Decompression', status: 'reviewed', tier: 'free', order: 3, title: 'Hypoxia', summary: 'Why oxygen matters at altitude and what to do about it.', blocks: [{ type: 'heading', text: 'x' }, { type: 'text', text: 'SECRET LESSON TEXT' }, { type: 'text', text: 'more' }], objectives: ['aem:K1.E.1'], highYield: true, updatedAt: '2026-11-01T10:00:00Z' },
+  { id: 'l2', boards: ['aem'], subject: 'Altitude & Decompression', status: 'draft', tier: 'pro', title: 'Untagged', blocks: [], objectives: [] }], { kind: 'lessons', now: '2026-11-10T00:00:00Z' });
+t('a lessons map lists lessons, not questions, with title, summary start, block count and types, and no lesson text', L.kind === 'lessons' && L.lessons.length === 2 && !('questions' in L) && L.lessons[0].title === 'Hypoxia' && L.lessons[0].block_count === 3 && L.lessons[0].block_types.join() === 'heading,text' && !JSON.stringify(L).includes('SECRET'), JSON.stringify(L.lessons[0]));
+t('its counts and coverage are named for lessons', L.counts.lessons === 2 && L.untagged_lesson_ids.join() === 'l2' && L.coverage.aem.tagged_lessons === 1 && L.coverage.aem.domains[0].lessons === 1 && Array.isArray(L.coverage.aem.statements_without_lessons) && /lesson/.test(L.about));
+t('the lessons spreadsheet has a row per lesson and the coverage sheet counts lessons', /^\uFEFFid,boards,subject,status,tier,archived,high_yield,order,title,summary_start,block_count,block_types/.test(BM.itemsCsv(L)) && BM.itemsCsv(L).split('\r\n').length === 4 && /,lessons,share_of_tagged_percent/.test(BM.coverageCsv(L)));
+const C = BM.build([{ id: 'c1', boards: ['om'], subject: 'Toxicology', topic: 'Metals', status: 'reviewed', front: 'What is the half-life of lead in bone?', back: 'SECRET BACK', lessonId: 'l1', objectives: ['om:K1.2'] }], { kind: 'cards', now: '2026-11-10T00:00:00Z' });
+t('a flashcards map lists cards with the start of the front only, and no backs', C.kind === 'flashcards' && C.flashcards.length === 1 && C.flashcards[0].front_start.startsWith('What is the half-life') && C.flashcards[0].lesson_id === 'l1' && !JSON.stringify(C).includes('SECRET') && C.counts.flashcards === 1 && C.coverage.om.tagged_flashcards === 1 && C.untagged_card_ids.length === 0);
+t('the flashcards spreadsheet has the card columns', /^\uFEFFid,boards,subject,topic,status,archived,high_yield,lesson_id,objective_count,objectives,domains,front_start,updated/.test(BM.itemsCsv(C)));
+t('the question map is unchanged: same keys as before', M.kind === 'questions' && 'questions' in M && 'untagged_question_ids' in M && M.coverage.aem.tagged_questions !== undefined && M.coverage.aem.domains[0].questions !== undefined);
+
 console.log(`\n${pass} passed, ${fail} failed`); process.exit(fail ? 1 : 0);
