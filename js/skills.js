@@ -13,14 +13,19 @@ const Skills = (() => {
   const keep = { unused: q => !seenOf(q), missed: q => { const s = stat(q.id); return !!(s && s.last === 'w'); }, all: () => true };
   const done = () => { bindZoom(); hydrateImages(); };
 
+  // Switched off for now: the menu link stays hidden for everyone and the page sends people to the dashboard. Admins can still write and
+  // review skills questions and lessons under Admin (Bank: Clinical skills), so the bank is ready when this is turned back on.
+  const SHOWN = false;
   // The menu link: shown when the bank has questions for this person (editors always, so they can find the page while it is empty)
   function syncNav() {
     const a = document.getElementById('nav-skills'); if (!a) return;
+    if (!SHOWN) { a.hidden = true; return; }
     let editor = false; try { editor = !!(typeof Admin !== 'undefined' && Admin.isEditor && Admin.isEditor()); } catch { /* not signed in yet */ }
     a.hidden = !(live().length || liveLessons().length || editor);
   }
 
   function page(arg) {
+    if (!SHOWN) return (location.hash = '#/');
     if (arg === 'quiz') return run();
     if (arg === 'done') return summary();
     return home();
