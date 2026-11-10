@@ -33,6 +33,9 @@ const getLog = () => new Promise(r => http.get('http://localhost:9998/__log', re
     await p.selectOption('#fo', 'rewritten'); await p.waitForTimeout(400);
     const order = await p.locator('#qres tbody tr td:nth-child(2) a').allInnerTexts();
     ok('"Newest and recently rewritten" puts the newest question first (a new question counts, not only rewrites)', order[0] === 'q-2' && order.indexOf('q-3') < order.indexOf('q-1'), order.join(','));
+    await p.selectOption('#fo', 'g-item'); await p.waitForTimeout(400);
+    const byObj = await p.locator('#qres tbody tr:not(.grouprow) td:nth-child(2) a').allInnerTexts(), heads = await p.locator('#qres .grouprow th').allInnerTexts();
+    ok('"Learning objective (each item)" orders by outline code, untagged last, with a heading per objective', byObj.join(',') === 'q-2,q-1,q-3' && heads.length === 3 && /K1\.E\.1/i.test(heads[0]) && /K2\.A\.5/i.test(heads[1]) && /not tagged/i.test(heads[2]), byObj.join(',') + ' | ' + heads.join(' | '));
     await p.selectOption('#fo', '');
     await p.check('[data-sel="q-1"]'); await p.waitForTimeout(200);
     const bulk = (await p.locator('#bulk button').allInnerTexts()).map(x => x.trim());

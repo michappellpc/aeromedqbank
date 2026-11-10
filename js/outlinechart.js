@@ -90,5 +90,17 @@
     });
     return out.sort((a, b) => a.board.localeCompare(b.board) || a.order - b.order);
   }
-  return { layout, rollup, partKey, REF, coverSet, domainsOf };
+  // The outline items an item is tagged with, each once, in outline order: [{ board, code, text, domain, order }] (order = position in the board's outline)
+  function itemsOf(item) {
+    const out = [], seen = new Set();
+    ((item && item.objectives) || []).forEach(r => {
+      const m = REF.exec(String(r)); if (!m || !DATA[m[1]]) return;
+      const idx = DATA[m[1]].items.findIndex(i => i.code === m[2]); if (idx < 0) return;
+      const k = m[1] + ':' + m[2]; if (seen.has(k)) return; seen.add(k);
+      const raw = DATA[m[1]].items[idx];
+      out.push({ board: m[1], code: raw.code, text: String(raw.text || '').replace(/\s+/g, ' ').trim(), domain: raw.domain, order: idx });
+    });
+    return out.sort((a, b) => a.board.localeCompare(b.board) || a.order - b.order);
+  }
+  return { layout, rollup, partKey, REF, coverSet, domainsOf, itemsOf };
 });

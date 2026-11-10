@@ -24,6 +24,18 @@ t('each objective group carries its board and its percent of the exam', go[0].su
 t('an item tagged in two domains is in both groups, and every item is somewhere', go[0].items.map(x => x.id).join() === 'a,b,e' && go[1].items.map(x => x.id).join() === 'b' && go[3].items.map(x => x.id).join() === 'd');
 t('items inside a group can be ordered', GB.groups(items, 'objective', ctx, (a, b) => b.id.localeCompare(a.id))[0].items.map(x => x.id).join() === 'e,b,a');
 
+console.log('Each learning objective');
+const io = OC.itemsOf(items[1]);
+t('an item lists each outline item it is tagged with, in outline order, with the item\'s wording', io.map(x => x.code).join() === 'K1.F.1,K2.A.5' && io[0].text.length > 3 && io[0].order < io[1].order, JSON.stringify(io));
+t('a tag that is not an outline item is skipped', OC.itemsOf({ objectives: ['aem:K9.9', 'junk', 'aem:K1.E.1', 'aem:K1.E.1'] }).length === 1);
+const gi = GB.groups(items, 'item', ctx);
+t('by learning objective (each item): one group per code, outline order, boards in the bank\'s order, untagged last', gi.map(g => g.label.split(' ')[0]).join('|') === 'K1.E.1|K1.F.1|K2.A.5|K4.22|Not', gi.map(g => g.label).join('|'));
+t('each group names its code and wording, and carries its board', /^K1\.E\.1 \S/.test(gi[0].label) && gi[0].sub === 'Aerospace Medicine' && gi[3].sub === 'Occupational Medicine', gi[0].label);
+t('an item tagged with two codes is in both groups', gi[1].items.map(x => x.id).join() === 'b' && gi[2].items.map(x => x.id).join() === 'b');
+t('sorted by each item: first code, outline order, untagged last', GB.sortItems(items, 'item', ctx, (a, b) => a.id.localeCompare(b.id)).map(x => x.id).join() === 'a,e,b,c,d', GB.sortItems(items, 'item', ctx, (a, b) => a.id.localeCompare(b.id)).map(x => x.id).join());
+const hi = GB.heading('item', ctx), hrows = GB.sortItems(items, 'item', ctx).map(hi).filter(Boolean);
+t('table headings read board: code wording, once per group (an item sorts under its first code)', hrows[0].startsWith('Aerospace Medicine: K1.E.1 ') && hrows.length === 4, hrows.join('|'));
+
 console.log('Sorting one list');
 t('by subject, topic and objective each keep every item once', ['subject', 'topic', 'objective'].every(m => GB.sortItems(items, m, ctx).length === items.length && new Set(GB.sortItems(items, m, ctx).map(x => x.id)).size === items.length));
 t('sorted by topic: subject order, then topic A to Z', GB.sortItems(items, 'topic', ctx).map(x => x.id).join() === 'e,b,a,d,c', GB.sortItems(items, 'topic', ctx).map(x => x.id).join());

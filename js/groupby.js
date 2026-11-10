@@ -4,7 +4,7 @@
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) module.exports = factory(typeof require === 'function' ? require('./outlinechart.js') : root.OutlineChart); else root.GroupBy = factory(root.OutlineChart);
 })(typeof self !== 'undefined' ? self : this, function (OC) {
-  const MODES = { subject: 'Subject', topic: 'Topic', objective: 'Learning objective' };
+  const MODES = { subject: 'Subject', topic: 'Topic', objective: 'Outline domain', item: 'Learning objective' };
   const NONE = 'Not tagged to the outline yet';
   // ctx: { boards: [{ id, name }], subjects: { boardId: [subject, ...] } } (the bank's own order); boards name the objective groups
   const boardName = (ctx, id) => ((ctx && ctx.boards || []).find(b => b.id === id) || { name: id }).name;
@@ -15,6 +15,11 @@
   // The groups an item belongs to: [{ key, label, sub, sort }]. An item tagged in two domains is in both; one with no tag is in the last group.
   function keys(item, mode, ctx) {
     if (mode === 'topic') return [{ key: 'T|' + item.subject + '|' + (item.topic || ''), label: item.topic || '(no topic)', sub: item.subject, sort: [subjIdx(ctx, item.subject), item.topic ? 0 : 1, String(item.topic || '').toLowerCase()] }];
+    if (mode === 'item') {      // each specific learning objective (K1.E Hypoxia), in outline order, boards in the bank's order
+      const os = OC && OC.itemsOf ? OC.itemsOf(item) : [];
+      if (!os.length) return [{ key: 'I|none', label: NONE, sub: '', sort: [999, 0, ''] }];
+      return os.map(o => ({ key: 'I|' + o.board + '|' + o.code, label: o.code + ' ' + (o.text.length > 90 ? o.text.slice(0, 88).replace(/\s+\S*$/, '') + '...' : o.text), sub: boardName(ctx, o.board), sort: [boardIdx(ctx, o.board), o.order, ''] }));
+    }
     if (mode === 'objective') {
       const ds = OC ? OC.domainsOf(item) : [];
       if (!ds.length) return [{ key: 'O|none', label: NONE, sub: '', sort: [999, 0, '']}];
@@ -40,7 +45,7 @@
   // For a table already ordered by sortItems: heading(item) returns the group's heading the first time it appears in a row, else ''.
   function heading(mode, ctx) {
     let last = null;
-    return it => { const k = keys(it, mode, ctx)[0]; if (k.key === last) return ''; last = k.key; return (mode === 'topic' && k.sub ? k.sub + ': ' : '') + k.label + (k.weight != null ? ' (' + k.weight + '% of the exam)' : ''); };
+    return it => { const k = keys(it, mode, ctx)[0]; if (k.key === last) return ''; last = k.key; return ((mode === 'topic' || mode === 'item') && k.sub ? k.sub + ': ' : '') + k.label + (k.weight != null ? ' (' + k.weight + '% of the exam)' : ''); };
   }
   // One look for a group everywhere: the name, a badge with its percent of the exam when it has one, and a small grey line (board or subject) under it.
   const esc = t => String(t == null ? '' : t).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));

@@ -49,6 +49,8 @@ The New Test screen has Easy, Medium and Hard checkboxes (all on by default), ea
 When you import or save a question, the app compares its wording with every question you already have. If it shares most of its words with one that has a different id, it adds a note ("reads like a reworded copy of ..."), because saving it would add a second question rather than replace the first. Use the same id to replace, or archive the old one. `node tools/validate.js` also reports near-copies inside the bank. It is a warning only; nothing is blocked.
 
 ## Sorting the question list
+
+**By learning objective.** Admin > Questions, Lessons and Flashcards each have two outline sorts under Sort by: *Outline domain (percent of the exam)* groups items by the broad domain (K1, K2 ...) with its exam weight, and *Learning objective (each item)* groups them by the specific outline code they are tagged with (K1.E.1 Hypobaric exposures, say), in outline order, with a heading per objective and untagged items last. An item tagged with several codes sorts under its first. Logic in `js/groupby.js` (mode `item`) and `OutlineChart.itemsOf`; tests in `tools/test-groupby.js`.
 Admin > Questions has a Difficulty column, a **Difficulty** filter (Easy, Medium, Hard) and a **Sort by** choice (ID, Hardest first, Easiest first).
 
 ## Exam countdown
