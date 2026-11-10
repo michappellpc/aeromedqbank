@@ -84,6 +84,9 @@ const getLog = () => new Promise(r => http.get('http://localhost:9998/__log', re
     ok('the admin tabs include Changes with the count, and Inbox', at.some(x => /^Changes 4/.test(x)) && at.includes('Inbox'), at.join(','));
     ok('the list shows who sent each change', /rev@x/.test(await p.innerText('#ch-list')) && (await p.locator('#ch-list tbody tr').count()) === 4);
     await axe(p, 'Changes to review');
+    await p.click('#ch-copy'); await p.waitForSelector('#hf-prev'); const copyText = await p.inputValue('#hf-prev');
+    ok('Copy on the Changes page builds a chat message with every waiting proposal, the live version and the reviewer', /4 proposed changes/.test(copyText) && /change \d+ \(question q-1, an edit, from rev@x\)/.test(copyText) && /Current live version:/.test(copyText) && /Proposed version:/.test(copyText) && /a new item/.test(copyText), copyText.slice(0, 300));
+    await axe(p, 'The Copy window on Changes'); await p.click('#hf-x'); await p.waitForTimeout(200);
     await p.click('#ch-list a[href$="/1"]'); await p.waitForTimeout(700);
     ok('the detail shows the word changes', await p.locator('.chg.changed ins').count() > 0 && await p.locator('.chg.changed del').count() > 0);
     ok('it shows the reviewer\'s note', /Clearer wording/.test(await p.innerText('#app')));

@@ -6,9 +6,9 @@
   if (typeof module === 'object' && module.exports) module.exports = factory(root); else root.Handoff = factory(root);
 })(typeof self !== 'undefined' ? self : this, function (root) {
   // How many fit comfortably in one message to a chat
-  const CHUNK = { questions: 20, lessons: 5, cards: 40, feedback: 25 };               // how many go in one message by default
-  const SIZES = { questions: [10, 20, 40, 60, 100], lessons: [3, 5, 10, 15, 25], cards: [20, 40, 80, 150, 250], feedback: [10, 25, 50, 100] };   // the choices offered
-  const NOUN = { questions: ['question', 'questions'], lessons: ['lesson', 'lessons'], cards: ['flashcard', 'flashcards'], feedback: ['message', 'messages'] };
+  const CHUNK = { questions: 20, lessons: 5, cards: 40, feedback: 25, changes: 10 };               // how many go in one message by default
+  const SIZES = { questions: [10, 20, 40, 60, 100], lessons: [3, 5, 10, 15, 25], cards: [20, 40, 80, 150, 250], feedback: [10, 25, 50, 100], changes: [5, 10, 20, 40] };   // the choices offered
+  const NOUN = { questions: ['question', 'questions'], lessons: ['lesson', 'lessons'], cards: ['flashcard', 'flashcards'], feedback: ['message', 'messages'], changes: ['proposed change', 'proposed changes'] };
   const IMPORT = { questions: '#/admin/questions/import', lessons: '#/admin/lessons/import', cards: '#/admin/cards/import' };
   // The "Sort by high yield" instruction. noun is what is being sorted ("questions"), unit what one of them tests ("question", "lesson", "card").
   // The point: high yield means concepts a board exam keeps returning to, not memorized trivia, however neatly the trivia can be written as an item.
@@ -72,6 +72,11 @@
       ['fix', 'Fix the questions members flagged', 'For each message about a question (read the conversation under it too, when there is one), decide whether the member is right. Where a question needs a change, return a corrected version of that question. Do not change questions where the member is mistaken.'],
       ['group', 'Summarize and group the feedback', 'Group the messages by theme (for example unclear wording, wrong answer key, typos, pictures, requests for features) and summarize each group. List what to fix first.'],
       ['reply', 'Draft replies to members', 'Draft a short, kind, plain reply to each member message that I can post in the app. Where a message has a conversation under it, read all of it first and write the next reply in that conversation, without repeating what the team already said and without answering things that were already settled. Do not promise changes that I have not decided on.'],
+      ['custom', 'Only do what my note says', 'Do what my note below says.']],
+    changes: [
+      ['judge', 'Review each proposal: accept, improve or decline', 'For each proposed change, compare the proposed version with the current one (when there is one) and decide whether it is an improvement. Check it for factual accuracy, clear wording, a single defensible correct answer, and the question-writing rules. Give a verdict for each: accept as written, accept with changes, or decline, with the reason in a sentence. Where you say accept with changes, return your improved version of the item.'],
+      ['check', 'Fact-check the proposals only', 'For each proposed change, check only the facts it introduces or changes against current, authoritative sources (regulations, guidelines, standard references). Say for each whether the new facts are right, wrong, or unverifiable, and cite the source. Do not comment on style.'],
+      ['reply', 'Draft a note back to each reviewer', 'Draft a short, kind, plain note to the reviewer for each proposal that I can paste as my decision note: what was good, what I changed or why I declined. No names.'],
       ['custom', 'Only do what my note says', 'Do what my note below says.']]
   };
   const HEAD = 'I run a private board-prep question bank for aerospace, occupational and preventive medicine residents.';
@@ -90,6 +95,24 @@
     const [, , instruction] = task(kind, opts.task), part = opts.part && opts.part[1] > 1 ? `This is part ${opts.part[0] + 1} of ${opts.part[1]}. ` : '';
     const note = (opts.note || '').trim(), n = items.length;
     const lines = [];
+    if (kind === 'changes') {      // reviewers' proposals: the current version, the proposed one, and the reviewer's note
+      const F = { question: QF, lesson: LF, card: CF };
+      lines.push(`${HEAD} Reviewers can propose edits and new items, which I accept or decline. ${part}Below are ${plural(kind, n)}, each with the current live version (when the item already exists) and the reviewer's proposed version, as JSON, in the exact format my app imports.`, '', 'TASK: ' + instruction);
+      if (note) lines.push('', 'MY NOTE: ' + note);
+      lines.push('', 'HOW TO ANSWER:');
+      if (!opts.task || opts.task === 'judge') lines.push('1. First, one line per proposal: its change number and item id, your verdict (accept as written, accept with changes, or decline), and why in a sentence.', '2. Then ONE JSON array containing only the items you marked "accept with changes", each as your final version in exactly the same format as the proposed version, with "status": "draft" and the same "id" (so I can import and compare them).', '3. Then a short list of what you changed and why. I will accept or decline each proposal in my app myself.');
+      else if (opts.task === 'reply') lines.push('Answer in plain text: the change number, then the note, one per proposal.');
+      else lines.push('Answer in plain text, one short section per change number.');
+      lines.push('', 'PROPOSED CHANGES:');
+      items.forEach(c => {
+        const k = c.kind, fields = F[k] || QF;
+        lines.push('', `--- change ${c.id} (${k} ${c.itemId}, ${c.action === 'new' ? 'a new item' : 'an edit'}${c.author ? ', from ' + c.author : ''}) ---`);
+        if (c.note) lines.push(`Reviewer's note: ${String(c.note).replace(/\s+/g, ' ').trim()}`);
+        if (c.action === 'new' || !c.live) lines.push('Current version: none (this is a new item).'); else lines.push('Current live version:', json(pick(c.live, fields)));
+        lines.push('Proposed version:', json(draft(pick(c.proposed || {}, fields))));
+      });
+      return lines.join('\n');
+    }
     if (kind === 'feedback') {
       lines.push(`${HEAD} ${part}Below are ${plural(kind, n)} that members sent through the app (and the question each one is about, as JSON).`, '', 'TASK: ' + instruction);
       if (note) lines.push('', 'MY NOTE: ' + note);
