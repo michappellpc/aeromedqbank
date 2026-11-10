@@ -233,6 +233,17 @@ const Cloud = (() => {
     if (q.highYield !== undefined) row.high_yield = !!q.highYield;           // same
     return row;
   };
+  // A bulk upsert must give every row in one request the same columns ("All object keys must match").
+  // The row builders leave optional columns out when unset, so an existing value is not overwritten,
+  // which means one batch can mix shapes (e.g. one question with highYield, the rest without).
+  // Send rows that have the same columns together, in chunks.
+  async function upsertRows(table, rows, size) {
+    const groups = new Map();
+    rows.forEach(r => { const k = Object.keys(r).sort().join(','); if (!groups.has(k)) groups.set(k, []); groups.get(k).push(r); });
+    for (const g of groups.values())
+      for (let i = 0; i < g.length; i += size)
+        await api('/rest/v1/' + table + '?on_conflict=id', { method: 'POST', headers: { Prefer: 'resolution=merge-duplicates,return=minimal' }, body: g.slice(i, i + size) });
+  }
   let noChosenColumn = false;
   const inList = ids => '(' + ids.map(i => '"' + String(i).replace(/"/g, '') + '"').join(',') + ')';
   // ---- flashcards ----
@@ -488,7 +499,7 @@ const Cloud = (() => {
     },
     async cardsReady() { try { await api('/rest/v1/flashcards?select=id&limit=1'); return true; } catch (e) { if (noCardsTable(e)) return false; throw e; } },
     async editorCards() { return (await pagedGet('/rest/v1/flashcards?select=*&order=subject.asc,id.asc')).map(toEditorCard); },
-    async saveCards(list) { for (let i = 0; i < list.length; i += 50) await api('/rest/v1/flashcards?on_conflict=id', { method: 'POST', headers: { Prefer: 'resolution=merge-duplicates,return=minimal' }, body: list.slice(i, i + 50).map(toCardRow) }); },
+    saveCards: list => upsertRows('flashcards', list.map(toCardRow), 50),
     patchCards: (ids, patch) => api('/rest/v1/flashcards?id=in.' + encodeURIComponent(inList(ids)), { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: patch }),
     deleteCards: ids => api('/rest/v1/flashcards?id=in.' + encodeURIComponent(inList(ids)), { method: 'DELETE', headers: { Prefer: 'return=minimal' } }),
     // ---- lessons (members read reviewed ones; editors read and write all) ----
@@ -502,17 +513,14 @@ const Cloud = (() => {
     },
     async lessonsReady() { try { await api('/rest/v1/lessons?select=id&limit=1'); return true; } catch (e) { if (noLessonsTable(e)) return false; throw e; } },
     async editorLessons() { return (await allLessons('')).map(toEditorLesson); },
-    async saveLessons(list) { for (let i = 0; i < list.length; i += 50) await api('/rest/v1/lessons?on_conflict=id', { method: 'POST', headers: { Prefer: 'resolution=merge-duplicates,return=minimal' }, body: list.slice(i, i + 50).map(toLessonRow) }); },
+    saveLessons: list => upsertRows('lessons', list.map(toLessonRow), 50),
     patchLessons: (ids, patch) => api('/rest/v1/lessons?id=in.' + encodeURIComponent(inList(ids)), { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: patch }),
     deleteLessons: ids => api('/rest/v1/lessons?id=in.' + encodeURIComponent(inList(ids)), { method: 'DELETE', headers: { Prefer: 'return=minimal' } }),
     async lessonUpdatedAt(id) { const r = await api('/rest/v1/lessons?select=updated_at&id=eq.' + encodeURIComponent(id)); return r && r[0] ? r[0].updated_at : null; },
     // ---- for admins and reviewers (the database refuses everyone else) ----
     async editorReady() { try { await api('/rest/v1/questions?select=archived,updated_by&limit=1'); return true; } catch (e) { if (missingColumn(e)) return false; throw e; } },
     async editorQuestions() { return (await allQuestions('')).map(toEditorQuestion); },
-    async saveQuestions(list) {
-      for (let i = 0; i < list.length; i += 100)
-        await api('/rest/v1/questions?on_conflict=id', { method: 'POST', headers: { Prefer: 'resolution=merge-duplicates,return=minimal' }, body: list.slice(i, i + 100).map(toRow) });
-    },
+    saveQuestions: list => upsertRows('questions', list.map(toRow), 100),
     patchQuestions: (ids, patch) => api('/rest/v1/questions?id=in.' + encodeURIComponent(inList(ids)), { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: patch }),
     deleteQuestions: ids => api('/rest/v1/questions?id=in.' + encodeURIComponent(inList(ids)), { method: 'DELETE', headers: { Prefer: 'return=minimal' } }),
     // ---- changes a reviewer sends for an admin to accept (kind: 'question' | 'lesson' | 'card') ----
