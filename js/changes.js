@@ -102,9 +102,16 @@ const Changes = (() => {
     const shown = () => rows.filter(r => view.show === 'all' || r.status === view.show);
     $app.innerHTML = `${Admin.tabs('changes')}<div class="card"><div class="row spread"><div><h2 style="margin:0">${admin ? 'Changes to review' : 'My changes'}</h2>
         <p class="muted" style="margin:4px 0 0">${admin ? `${cnt('pending')} waiting for you` : `${cnt('pending')} waiting for an admin`} &middot; ${cnt('accepted')} accepted &middot; ${cnt('rejected')} not accepted</p></div>
-        <div><label for="ch-show" class="sr">Show</label><select id="ch-show" style="width:auto"><option value="pending">Waiting</option><option value="accepted">Accepted</option><option value="rejected">Not accepted</option><option value="all">All</option></select></div></div>
+        <div><label for="ch-show" class="sr">Show</label><select id="ch-show" style="width:auto"><option value="pending">Waiting</option><option value="accepted">Accepted</option><option value="rejected">Not accepted</option><option value="all">All</option></select></div>
+        <button id="ch-copy" type="button" aria-label="Copy these changes to paste into a chat" title="Copy the changes you are looking at, with the current and proposed versions, to paste into a chat">Copy</button></div></div>
       ${admin ? '' : '<p class="muted">Anything you edit or write is sent here first. Members keep seeing the current version until an admin accepts your change.</p>'}</div><div id="ch-list"></div>`;
     const sel = document.getElementById('ch-show'); sel.value = view.show;
+    document.getElementById('ch-copy').onclick = async () => {      // the proposals shown, each with its live version, for a chat to judge
+      const l = shown(); if (!l.length) return toast('There are no changes to copy. Change what is shown first.');
+      const live = {}; for (const k of new Set(l.filter(r => r.action === 'edit').map(r => r.kind))) { try { live[k] = await ({ question: Cloud.editorQuestions, lesson: Cloud.editorLessons, card: Cloud.editorCards })[k].call(Cloud); } catch { live[k] = []; } }
+      const items = l.map(r => ({ id: r.id, kind: r.kind, itemId: r.item_id, action: r.action, author: admin ? r.author_email : '', note: r.note, live: r.action === 'edit' ? (live[r.kind] || []).find(x => x.id === r.item_id) || null : null, proposed: Cloud.changeItem(r.kind, r.payload) }));
+      Handoff.open({ kind: 'changes', items, importHash: items.every(i => i.kind === 'question') ? '#/admin/questions/import' : items.every(i => i.kind === 'lesson') ? '#/admin/lessons/import' : items.every(i => i.kind === 'card') ? '#/admin/cards/import' : '', describe: { pending: 'waiting', accepted: 'accepted', rejected: 'not accepted', all: 'all' }[view.show] });
+    };
     const paint = () => {
       const l = shown(), box = document.getElementById('ch-list');
       box.innerHTML = l.length ? `<div class="card"><div class="scroll" role="region" tabindex="0" aria-label="Changes"><table><thead><tr><th scope="col">Item</th><th scope="col">What</th>${admin ? '<th scope="col">From</th>' : ''}<th scope="col">Sent</th><th scope="col">Status</th><th scope="col"><span class="sr">Actions</span></th></tr></thead><tbody>${l.map(r => {

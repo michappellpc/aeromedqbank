@@ -22,6 +22,8 @@ A **reviewer** can read every question, lesson and flashcard (drafts and archive
 - **Reviewer > Performance** shows totals only: live questions, answers, % correct overall and by subject, and the hardest and easiest questions. No names, emails or individual scores.
 - **Database.** `change_requests` holds the proposals; reviewers can only write through `submit_change` / `withdraw_change`, and only admins can `accept_change` / `reject_change`. Writes to `questions`, `lessons` and `flashcards` are admin-only; reviewers keep read access. The member inbox functions are admin-only. Accepting a change does not send a live item back to draft (the admin is the reviewer). One-time setup on an existing database: run `supabase/migrations/20261101000000_reviewer_changes.sql` in the Supabase SQL Editor (or the whole `supabase/schema.sql`). Tests: `supabase/tests/run.sh` (Reviewer proposals) and `tools/browser/test-reviewer.js`. Code: `js/changes.js`, `js/reviewperf.js`.
 
+**Changes.** Admin > Changes (and a reviewer's My changes) has the same Copy button: each proposal shown goes into the message with its change number, the current live version (for an edit), the reviewer's proposed version and their note. Tasks: review each proposal (a verdict per change, then a JSON array of only the improved items as drafts, to import and compare), fact-check only, or draft a decision note back to each reviewer. You still accept or decline each proposal in the app yourself.
+
 ## Question feedback (in-app inbox)
 With accounts on, the **Feedback** button on every question opens a short form (what it is about, and a message). Messages go to **Admin > Inbox** (admins only), where admins mark them read or resolved, add an internal note, and jump to the question. The Admin menu shows a red count of new messages. Only admins see who sent each message; a member can send at most 30 a day. Offline messages are saved and sent later. Without accounts (the demo site) the button opens the member's own email app addressed to `contactEmail` in `data/config.json`.
 
@@ -69,7 +71,7 @@ The Overview page's **Recent activity** card shows how many questions members an
 
 A question's "Study this" link normally picks the best lesson automatically, and improves as you add lessons. To override it, open the question in Admin and choose a **Lesson to study**; choose "best match automatically" to go back. The choice is metadata, so changing it keeps a live question live, and it is also accepted as `lessonId` in Import from a chat (a `lessonId` that matches no lesson is a warning). If the chosen lesson is later deleted, the question goes back to the automatic pick. Run the latest `supabase/schema.sql` to add it.
 
-## Copy (Questions, Lessons, Flashcards, Inbox)
+## Copy (Questions, Lessons, Flashcards, Inbox, Changes)
 
 Each admin list has a **Copy** button. It builds one message from exactly what the list is showing, so your filters decide what goes (on Questions, the Copy selected button in the selection bar sends just the rows you ticked), and lets you pick what the chat should do and add a note about how you like things done:
 

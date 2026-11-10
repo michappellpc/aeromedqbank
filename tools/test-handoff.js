@@ -26,7 +26,7 @@ t('each task has its own instruction', ['review', 'harder', 'easier', 'match', '
 t('performance lines are added when given', /HOW THEY HAVE BEEN PERFORMING/.test(H.build('questions', qs, { task: 'harder', stats: { 'q-1': 'q-1: 92% correct' } })) && /- q-1: 92% correct/.test(H.build('questions', qs, { task: 'harder', stats: { 'q-1': 'q-1: 92% correct' } })));
 t('and left out when not', !/PERFORMING/.test(text));
 t('a part says which part it is', /This is part 2 of 3\./.test(H.build('questions', qs, { task: 'review', part: [1, 3] })) && !/This is part/.test(H.build('questions', qs, { task: 'review', part: [0, 1] })));
-t('the size choices include the default, and bigger ones', ['questions', 'lessons', 'cards', 'feedback'].every(k => H.SIZES[k].includes(H.CHUNK[k]) && Math.max(...H.SIZES[k]) > H.CHUNK[k]));
+t('the size choices include the default, and bigger ones', ['questions', 'lessons', 'cards', 'feedback', 'changes'].every(k => H.SIZES[k].includes(H.CHUNK[k]) && Math.max(...H.SIZES[k]) > H.CHUNK[k]));
 t('a long list is split into parts of a sensible size', H.chunk(Array.from({ length: 45 }, (_, i) => i), H.CHUNK.questions).map(p => p.length).join() === '20,20,5');
 
 console.log('Lessons and flashcards');
@@ -135,4 +135,17 @@ console.log('High yield');
   t('flashcards have the task too, sending the front', /"front": "Front text"/.test(y) && !/"back"/.test(y.split('THE FLASHCARDS:')[1]));
   t('lessons do not have it', !H.TASKS.lessons.some(r => r[0] === 'topics'));
 }
+
+console.log('Reviewer changes');
+const chg = [{ id: 12, kind: 'question', itemId: 'q-1', action: 'edit', author: 'rev@x', note: 'Clearer stem.', live: mq(1), proposed: { ...mq(1), stem: 'A clearer stem?' } },
+  { id: 13, kind: 'question', itemId: 'q-9', action: 'new', author: 'rev@x', note: '', live: null, proposed: { ...mq(9), status: 'reviewed' } }];
+text = H.build('changes', chg, { task: 'judge', note: 'Be strict.' });
+t('each proposal is in, with its number, item, kind of change and who sent it', /change 12 \(question q-1, an edit, from rev@x\)/.test(text) && /change 13 \(question q-9, a new item, from rev@x\)/.test(text) && /Reviewer's note: Clearer stem\./.test(text) && /MY NOTE: Be strict\./.test(text));
+t('an edit shows the current live version and the proposed one; a new item says there is nothing live', /Current live version:/.test(text) && /A clearer stem\?/.test(text) && /Current version: none \(this is a new item\)/.test(text));
+const prop = JSON.parse(text.slice(text.lastIndexOf('Proposed version:\n') + 'Proposed version:\n'.length));
+t('the proposed version is sent as a draft in the import format, without internal fields', prop.status === 'draft' && prop.id === 'q-9' && !('reviewedBy' in prop) && !('updatedAt' in prop) && !('archived' in prop));
+t('it asks for a verdict per proposal and a JSON array of only the improved items, as drafts', /accept as written, accept with changes, or decline/.test(text) && /ONE JSON array containing only the items you marked "accept with changes"/.test(text) && /"status": "draft"/.test(text));
+t('the reply task asks for plain notes instead', !/ONE JSON array/.test(H.build('changes', chg, { task: 'reply' })) && /Draft a short, kind, plain note/.test(H.build('changes', chg, { task: 'reply' })));
+t('no author line when none is given (a reviewer copying their own)', /change 12 \(question q-1, an edit\) ---/.test(H.build('changes', [{ ...chg[0], author: '' }], {})));
+
 console.log(`\n${pass} passed, ${fail} failed`); process.exit(fail ? 1 : 0);
