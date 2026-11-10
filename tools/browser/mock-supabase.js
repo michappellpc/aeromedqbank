@@ -20,6 +20,7 @@ http.createServer((req, res) => {
     if (p === '/rest/v1/profiles') return send(res, 200, me ? [{ email: me.email, display_name: null, role: me.role, plan: 'pro', pro_until: null, active: true }] : []);
     if (p === '/rest/v1/programs') return send(res, 200, PROGS);
     if (p === '/__log') return send(res, 200, LOG);
+    if (p === '/rest/v1/flashcards') return send(res, 200, [{ id: 'c-1', status: 'reviewed', boards: ['aem'], subject: 'Altitude & Decompression', topic: 'T1', front: 'Which law explains **trapped gas** expansion?', back: 'Boyle\'s law: *volume* rises as pressure falls.\nSecond line.', refs: [], archived: false, updated_at: '2026-01-01T00:00:00Z' }]);
     if (p === '/rest/v1/questions') { if (req.method !== 'GET') { LOG.push(req.method + ' questions'); return send(res, 204); } return send(res, 200, Q); }
     if (p === '/rest/v1/change_requests') { const st = (url.searchParams.get('status') || '').replace('eq.', ''); return send(res, 200, CR.filter(r => me && (me.role === 'admin' || r.author_email === me.email) && (!st || r.status === st)).slice().reverse()); }
     if (p.startsWith('/rest/v1/rpc/')) {

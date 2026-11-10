@@ -112,8 +112,8 @@ const Cards = (() => {
         <div class="card flash" aria-label="Flashcard ${Math.min(idx + 1, queue.length)} of ${queue.length}">
           <div class="row spread"><span class="muted">${esc(c.subject)}${c.topic ? ' &middot; ' + esc(c.topic) : ''}${c.highYield ? ' <span class="tag hy" title="Marked high yield">High yield</span>' : ''}</span><span class="muted" aria-live="polite">${idx + 1} of ${queue.length}</span></div>
           <div class="bar" aria-hidden="true"><i style="width:${Math.round(100 * idx / queue.length)}%"></i></div>
-          <p class="flash-side"><span class="sr">${pr.reverse ? 'Answer' : 'Front'}: </span>${pr.reverse ? esc(c.back).replace(/\n/g, '<br>') : esc(c.front)}</p>
-          ${shown ? `<div class="flash-back" id="flash-back" tabindex="-1"><span class="sr">${pr.reverse ? 'Prompt' : 'Back'}: </span>${pr.reverse ? esc(c.front) : esc(c.back).replace(/\n/g, '<br>')}
+          <p class="flash-side"><span class="sr">${pr.reverse ? 'Answer' : 'Front'}: </span>${pr.reverse ? RichText.inline(c.back) : RichText.inline(c.front)}</p>
+          ${shown ? `<div class="flash-back" id="flash-back" tabindex="-1"><span class="sr">${pr.reverse ? 'Prompt' : 'Back'}: </span>${pr.reverse ? RichText.inline(c.front) : RichText.inline(c.back)}
             ${c.references && c.references.length ? `<p class="muted small">${c.references.map(esc).join('; ')}</p>` : ''}${ObjPicker.show(c.objectives)}
             ${lesson ? `<p class="small"><a href="#/lesson/${encodeURIComponent(lesson.id)}" target="_blank" rel="noopener">Study the lesson: ${esc(lesson.title)}<span class="sr"> (opens in a new tab)</span></a></p>` : ''}${relatedQuestions(c)}</div>
             <div class="rate" role="group" aria-label="How well did you know it?">${RATINGS.map(([r, l]) => `<button class="rate-${r}" data-rate="${r}"><b>${l}</b>${pr.intervals ? `<span class="small">${CardSched.preview(st, r, t)}</span>` : ''}<span class="sr"> (key ${r})</span></button>`).join('')}</div>`
@@ -181,10 +181,10 @@ const Cards = (() => {
       el('blist').innerHTML = rows.length ? `<p class="muted" aria-live="polite">${rows.length} card${rows.length === 1 ? '' : 's'}</p>${slice.map(c => {
         const open = v.all || v.open.has(c.id), lesson = open ? lessonFor(c) : null, gk = GroupBy.keys(c, v.sort, gctx())[0], head = gk.key !== lastKey ? `<h3 class="browsehead">${GroupBy.cell({ name: gk.label, sub: gk.sub, weight: v.sort === 'objective' ? gk.weight : null })}</h3>` : ''; lastKey = gk.key;
         return `${head}<article class="card browsecard"><div class="row spread"><span class="muted small">${esc(c.subject)}${c.topic ? ' &middot; ' + esc(c.topic) : ''}</span><span>${c.highYield ? '<span class="tag hy" title="Marked high yield">High yield</span> ' : ''}<span class="tag">${esc(status(c))}</span></span></div>
-          <p class="flash-side" style="margin:8px 0">${esc(c.front)}</p>
-          <div id="bk-${esc(c.id)}"${open ? '' : ' hidden'} class="flash-back">${esc(c.back).replace(/\n/g, '<br>')}${c.references && c.references.length ? `<p class="muted small">${c.references.map(esc).join('; ')}</p>` : ''}${ObjPicker.show(c.objectives)}
+          <p class="flash-side" style="margin:8px 0">${RichText.inline(c.front)}</p>
+          <div id="bk-${esc(c.id)}"${open ? '' : ' hidden'} class="flash-back">${RichText.inline(c.back)}${c.references && c.references.length ? `<p class="muted small">${c.references.map(esc).join('; ')}</p>` : ''}${ObjPicker.show(c.objectives)}
             ${lesson ? `<p class="small"><a href="#/lesson/${encodeURIComponent(lesson.id)}" target="_blank" rel="noopener">Study the lesson: ${esc(lesson.title)}<span class="sr"> (opens in a new tab)</span></a></p>` : ''}${open ? relatedQuestions(c) : ''}</div>
-          <div class="row" style="margin-top:8px"><button type="button" data-sus="${esc(c.id)}" aria-pressed="${isSus(c)}">${isSus(c) ? 'Turn back on' : 'Suspend'}<span class="sr"> card: ${esc(c.front.slice(0, 40))}</span></button></div>
+          <div class="row" style="margin-top:8px"><button type="button" data-sus="${esc(c.id)}" aria-pressed="${isSus(c)}">${isSus(c) ? 'Turn back on' : 'Suspend'}<span class="sr"> card: ${esc(RichText.strip(c.front).slice(0, 40))}</span></button></div>
           ${v.all ? '' : `<div class="row" style="margin-top:8px"><button data-flip="${esc(c.id)}" aria-expanded="${open}" aria-controls="bk-${esc(c.id)}">${open ? 'Hide answer' : 'Show answer'}<span class="sr"> for ${esc(c.front.slice(0, 40))}</span></button></div>`}</article>`; }).join('')}
         ${rows.length > v.shown ? `<div class="row" style="justify-content:center"><button id="bmore">Show ${Math.min(STEP, rows.length - v.shown)} more</button></div>` : ''}`
         : '<div class="card"><p class="muted">No cards match.</p></div>';
