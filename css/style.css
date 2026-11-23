@@ -841,3 +841,6 @@ form#skf fieldset.plain{border:0;padding:0;margin:0 0 10px}form#skf legend{font-
 @keyframes w-fall1{0%{transform:translate(0,0)}50%{transform:translate(-10px,120px)}100%{transform:translate(0,240px)}}
 body.tab-hidden .cover.winter .cover-art *,.cover.winter.offscreen .cover-art *{animation-play-state:paused}
 @media (prefers-reduced-motion: reduce){.cover.winter .cover-art *{animation:none!important}.cover.winter .wplane{transform:translate(986px,65px) rotate(-12deg)}.cover.winter .wsnow{display:none}}
+
+/* the "I am human" check on the sign-in forms (js/captcha.js) */
+.captcha{margin:12px 0 4px;min-height:78px}

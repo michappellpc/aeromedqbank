@@ -979,15 +979,18 @@ function settings() {
     paint();
     document.getElementById('syncnow').onclick = async () => { line.textContent = 'Syncing...'; try { await Cloud.sync(); } catch (e) { toast(e.offline ? 'No connection. Your changes are saved on this device.' : 'Could not sync. Try again shortly.'); } paint(); };
     document.getElementById('signout').onclick = () => signOut();
+    const pwGo = document.getElementById('pw-go'), pwBox = document.createElement('div'); pwGo.closest('.row') ? pwGo.closest('.row').before(pwBox) : pwGo.before(pwBox);
+    const pwCap = Captcha.mount(pwBox);                    // changing a password re-checks the current one at the sign-in door, so it needs the check too
     document.getElementById('pw').onsubmit = async e => {
       e.preventDefault(); const msg = document.getElementById('pw-msg'), go = document.getElementById('pw-go');
       const cur = document.getElementById('pw-cur').value, n1 = document.getElementById('pw-new').value, n2 = document.getElementById('pw-new2').value;
       const say = t => { msg.textContent = t; msg.hidden = false; };
       if (n1 !== n2) return say('The two new passwords do not match.');
       if (n1 === cur) return say('Choose a password that is different from your current one.');
+      const need = Captcha.missing(pwCap); if (need) return say(need);
       go.disabled = true; msg.hidden = true;
-      try { await Cloud.changePassword(cur, n1); e.target.reset(); toast('Password changed.'); } catch (x) { say(x.message); }
-      go.disabled = false;
+      try { await Cloud.changePassword(cur, n1, pwCap.token()); e.target.reset(); toast('Password changed.'); } catch (x) { say(x.message); }
+      pwCap.reset(); go.disabled = false;
     };
   }
   document.getElementById('reset').onclick = async () => { if (await ask('Delete ALL progress? This cannot be undone.', 'Delete everything')) { Store.reset(); location.hash = '#/'; route(); } };
@@ -1002,16 +1005,19 @@ function renderSignIn(note = '') {
   $app.innerHTML = `<div class="card signin"><div class="signin-brand"><img class="logo" src="icons/logo.svg" alt="" width="44" height="44"><span class="wordmark big">AeroMed<b>QBank</b></span></div><h2>Sign in</h2>${note ? `<p class="notice">${esc(note)}</p>` : ''}
     <form id="si"><label for="si-email">Email</label><input id="si-email" type="email" autocomplete="username" required>
     <label for="si-pw">Password</label><input id="si-pw" type="password" autocomplete="current-password" required>
+    <div id="si-cap"></div>
     <p class="notice" id="si-err" hidden></p>
     <div class="row"><button class="primary" type="submit" id="si-go">Sign in</button><button type="button" class="linkish" id="si-forgot">Forgot password?</button></div></form>
     <p class="muted" id="si-foot">Ask your program lead if you need an account. By signing in you agree to the <a href="terms.html" target="_blank" rel="noopener">Terms</a> and <a href="privacy.html" target="_blank" rel="noopener">Privacy Policy</a>.</p></div>`;
   if (!note && typeof Intro !== 'undefined') Intro.maybe();          // the opening animation, once per visit, over the form
-  const err = document.getElementById('si-err'), go = document.getElementById('si-go');
+  const err = document.getElementById('si-err'), go = document.getElementById('si-go'), cap = Captcha.mount(document.getElementById('si-cap'));
   const fail = m => { err.textContent = m; err.hidden = false; go.disabled = false; };
   document.getElementById('si').onsubmit = async e => {
-    e.preventDefault(); err.hidden = true; go.disabled = true;
-    try { await Cloud.signIn(document.getElementById('si-email').value.trim(), document.getElementById('si-pw').value); await startSession(); }
-    catch (x) { fail(x.message); }
+    e.preventDefault(); err.hidden = true;
+    const need = Captcha.missing(cap); if (need) return fail(need);
+    go.disabled = true;
+    try { await Cloud.signIn(document.getElementById('si-email').value.trim(), document.getElementById('si-pw').value, cap.token()); cap.reset(); await startSession(); }
+    catch (x) { cap.reset(); fail(x.message); }
   };
   Cloud.signupOpen().then(open => {                       // the admin can switch self sign-up on or off
     const foot = document.getElementById('si-foot'); if (!open || !foot) return;
@@ -1021,8 +1027,9 @@ function renderSignIn(note = '') {
   document.getElementById('si-forgot').onclick = async () => {
     const em = document.getElementById('si-email').value.trim();
     if (!em) { fail('Type your email above first, then choose Forgot password.'); return document.getElementById('si-email').focus(); }
-    try { await Cloud.recover(em); err.hidden = false; err.textContent = 'If that email has an account, a reset link is on its way. It can take a few minutes.'; }
-    catch (x) { fail(x.message); }
+    const need = Captcha.missing(cap); if (need) return fail(need);
+    try { await Cloud.recover(em, cap.token()); cap.reset(); err.hidden = false; err.textContent = 'If that email has an account, a reset link is on its way. It can take a few minutes.'; }
+    catch (x) { cap.reset(); fail(x.message); }
   };
 }
 
@@ -1035,10 +1042,11 @@ function renderSignUp() {
     <label for="su-pw2">Type the password again</label><input id="su-pw2" type="password" autocomplete="new-password" minlength="8" required>
     <div id="su-prog" hidden><label for="su-pick">Residency program (optional)</label><select id="su-pick"><option value="">I am not in a program / not listed</option></select>
       <p class="muted small">${esc(Program.NOTICE)} Faculty must approve you first.</p></div>
+    <div id="su-cap"></div>
     <p class="notice" id="su-err" hidden role="alert"></p>
     <div class="row"><button class="primary" type="submit" id="su-go">Create account</button><button type="button" class="linkish" id="su-back">Back to sign in</button></div></form>
     <p class="muted">By creating an account you agree to the <a href="terms.html" target="_blank" rel="noopener">Terms</a> and <a href="privacy.html" target="_blank" rel="noopener">Privacy Policy</a>. Free accounts include the free questions. Your program lead can upgrade you.</p></div>`;
-  const err = document.getElementById('su-err'), go = document.getElementById('su-go');
+  const err = document.getElementById('su-err'), go = document.getElementById('su-go'), cap = Captcha.mount(document.getElementById('su-cap'));
   const fail = m => { err.textContent = m; err.hidden = false; go.disabled = false; };
   Cloud.programs().then(list => { const box = document.getElementById('su-prog'); if (!list.length || !box) return; document.getElementById('su-pick').insertAdjacentHTML('beforeend', Program.options(list, '')); box.hidden = false; });
   document.getElementById('su-back').onclick = () => renderSignIn();
@@ -1046,13 +1054,14 @@ function renderSignUp() {
     e.preventDefault(); err.hidden = true;
     const email = document.getElementById('su-email').value.trim(), a = document.getElementById('su-pw').value, b = document.getElementById('su-pw2').value;
     if (a !== b) return fail('The two passwords do not match.');
+    const need = Captcha.missing(cap); if (need) return fail(need);
     go.disabled = true;
     try {
-      const r = await Cloud.signUp(email, a, (document.getElementById('su-pick') || {}).value || '');
+      const r = await Cloud.signUp(email, a, (document.getElementById('su-pick') || {}).value || '', cap.token()); cap.reset();
       if (r.signedIn) return await startSession();
       $app.innerHTML = '<div class="card signin"><h2>Check your email</h2><p>We sent a link to confirm your address. Open it, then come back and sign in.</p><div class="row"><button class="primary" id="su-ok">Go to sign in</button></div></div>';
       document.getElementById('su-ok').onclick = () => renderSignIn();
-    } catch (x) { fail(x.message); }
+    } catch (x) { cap.reset(); fail(x.message); }
   };
 }
 
@@ -1358,7 +1367,7 @@ async function boot() {
   try {
     const files = await loadMeta();
     if (window.__QBANK_DATA) { setQuestions(files); ready = true; return route(); }          // single-file preview
-    Cloud.init(bank.config.supabase);
+    Cloud.init(bank.config.supabase); Captcha.init(bank.config.captchaSiteKey);
     if (!Cloud.enabled) { await loadStatic(files); ready = true; return route(); }          // demo mode: no accounts
     Cloud.onAuthLost(() => renderSignIn('Your session ended. Please sign in again.'));
     const link = Cloud.consumeLink();
