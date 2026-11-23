@@ -154,7 +154,7 @@ eq  "reviewer cannot promote themselves"         "permission denied" "$(as rev "
 has "member cannot edit a question"              "" "$(as a "update questions set stem='hacked' where id='q-free';")"
 eq  "...and it did not change"                   "stem" "$(root "select stem from questions where id='q-free'" | sed 's/^changed$/stem/')"
 eq  "editors can add a picture"                  "1" "$(as rev "insert into storage.objects (bucket_id, name) values ('question-images','new.png'); select count(*) from storage.objects where name='new.png';")"
-eq  "editors can remove a picture"               "0" "$(as admin "delete from storage.objects where name='orphan.png'; select count(*) from storage.objects where name='orphan.png';")"
+eq  "admins can remove a picture (reviewers cannot)"               "0" "$(as admin "delete from storage.objects where name='orphan.png'; select count(*) from storage.objects where name='orphan.png';")"
 eq  "member cannot see an archived question's picture" "0" "$(as a "select count(*) from storage.objects where name='arch.png';")"
 eq  "editor can see it"                          "1" "$(as rev "select count(*) from storage.objects where name='arch.png';")"
 eq  "reviewer is accepted as a role"             "reviewer" "$(root "select role from profiles where email='rev@x'")"
@@ -843,5 +843,24 @@ echo "Reviewers do not see members"
 eq  "a reviewer cannot see attempts, profiles or members" "0/1" "$(as rev "select (select count(*) from attempts)||'/'||(select count(*) from profiles);")"
 has "a reviewer cannot open a conversation list"          "admins only" "$(as rev "select * from feedback_inbox();")"
 eq  "the reviewer's unread count is zero"                 "0" "$(as rev "select feedback_unread_count();")"
+
+echo; echo "Hardening against abuse"
+eq  "the picture bucket itself allows only small images"      "2097152/image/png,image/jpeg,image/webp,image/gif" "$(root "select file_size_limit||'/'||array_to_string(allowed_mime_types, ',') from storage.buckets where id='question-images'")"
+eq  "a reviewer can add a picture"                            "1" "$(as rev "insert into storage.objects (bucket_id, name) values ('question-images','h-new.png'); select count(*) from storage.objects where name='h-new.png';")"
+eq  "a reviewer cannot delete a picture"                      "1" "$(as rev "delete from storage.objects where name='pro.png'; select count(*) from storage.objects where name='pro.png';")"
+eq  "a reviewer cannot replace a picture"                     "1" "$(as rev "update storage.objects set name='h-x.png' where name='pro.png'; select count(*) from storage.objects where name='pro.png';")"
+eq  "an admin can delete a picture"                           "0" "$(as admin "delete from storage.objects where name='pro.png'; select count(*) from storage.objects where name='pro.png';")"
+has "a test record cannot be absurdly large"                  "tests_sane" "$(as a "insert into tests (id, taken_at, mode, qids, answers, correct, total, seconds) values ('h-t1', now(), 'tutor', (select array_agg('q'||g) from generate_series(1,401) g), '{}', 0, 401, 10);")"
+eq  "a normal test record is fine"                            "h-t2" "$(as a "insert into tests (id, taken_at, mode, qids, answers, correct, total, seconds) values ('h-t2', now(), 'tutor', '{q-free,q-pro}', '{\"q-free\":\"A\"}', 1, 2, 30) returning id;")"
+has "settings cannot be used as a dump"                       "user_settings_size" "$(as a "insert into user_settings (user_id, data) values (auth.uid(), jsonb_build_object('x', repeat('a', 600000))) on conflict (user_id) do update set data = excluded.data;")"
+has "a client id cannot be a novel"                           "attempts_client_id_len" "$(as a "insert into attempts (user_id, question_id, ok, client_id) values (auth.uid(), 'q-free', true, repeat('c', 81));")"
+root "insert into attempts (user_id, question_id, ok, client_id) select '${U[a]}', 'q-free', true, 'h-vol-'||g from generate_series(1,4000) g;" >/dev/null
+has "a person cannot record more than 4000 answers in a day"  "too many answers today" "$(as a "insert into attempts (user_id, question_id, ok, client_id) values (auth.uid(), 'q-free', true, 'h-vol-x');")"
+root "delete from attempts where client_id like 'h-vol-%';" >/dev/null
+eq  "after that, answering works again"                       "1" "$(as a "insert into attempts (user_id, question_id, ok, client_id) values (auth.uid(), 'q-free', true, 'h-vol-y'); select count(*) from attempts where client_id='h-vol-y';")"
+root "insert into tests (id, user_id, taken_at, mode, qids, answers, correct, total, seconds) select 'h-tv-'||g, '${U[a]}', now(), 'tutor', '{q-free}', '{}', 1, 1, 5 from generate_series(1,300) g;" >/dev/null
+has "a person cannot save more than 300 tests in a day"       "too many tests today" "$(as a "insert into tests (id, taken_at, mode, qids, answers, correct, total, seconds) values ('h-tv-x', now(), 'tutor', '{q-free}', '{}', 1, 1, 5);")"
+root "delete from tests where id like 'h-tv-%';" >/dev/null
+eq  "the upload tool (no signed-in user) is not capped"       "t" "$(root "select count(*) >= 0 from attempts")"
 
 echo; echo "$PASS passed, $FAIL failed"; [[ $FAIL -eq 0 ]]
