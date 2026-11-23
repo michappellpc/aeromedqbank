@@ -9,11 +9,14 @@ const Q = [1, 2, 3].map(i => ({ id: 'q-' + i, status: 'reviewed', reviewed_by: '
 const byToken = req => { const t = (req.headers.authorization || '').replace('Bearer ', ''); try { const c = JSON.parse(Buffer.from(t.split('.')[1], 'base64url').toString()); return Object.entries(USERS).find(([e]) => e === c.email); } catch { return null; } };
 const send = (res, code, body) => { res.writeHead(code, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': '*', 'Access-Control-Allow-Methods': '*' }); res.end(body === undefined ? '' : JSON.stringify(body)); };
 const ADDED = { 'q-1': '2026-01-01T00:00:00Z', 'q-2': '2026-11-05T00:00:00Z', 'q-3': '2026-03-01T00:00:00Z' }; Q.forEach(q => { q.created_at = ADDED[q.id]; }); Q[0].objectives = ['aem:K2.A.5']; Q[1].objectives = ['aem:K1.E.1']; Q[2].objectives = [];      // q-2 comes first by learning objective; q-3 is untagged      // q-2 is the newest question
-const CR = [], LOG = [], GETS = []; let CRID = 1;       // reviewer proposals (like the change_requests table) and a log of direct writes to the bank
+const CR = [], LOG = [], GETS = [], CAPS = []; let CRID = 1;       // reviewer proposals (like the change_requests table) and a log of direct writes to the bank
 http.createServer((req, res) => {
   if (req.method === 'OPTIONS') return send(res, 204);
   let data = ''; req.on('data', c => data += c); req.on('end', () => {
     const url = new URL(req.url, 'http://x'), p = url.pathname; let body = {}; try { body = JSON.parse(data || '{}'); } catch { /* none */ }
+    const capTok = body && body.gotrue_meta_security && body.gotrue_meta_security.captcha_token;
+    if (/^\/auth\/v1\/(token|signup|recover)/.test(p) && req.method === 'POST' && !/refresh_token/.test(req.url)) { CAPS.push(p.slice(9) + ':' + (capTok || '-')); if (capTok === 'bad') return send(res, 400, { error: 'invalid_grant', msg: 'captcha verification process failed' }); }
+    if (p === '/__caps') return send(res, 200, CAPS);
     if (p === '/auth/v1/token') { const u = USERS[(body.email || '').toLowerCase()]; if (!u || u.pw !== body.password) return send(res, 400, { error: 'invalid_grant', msg: 'bad' }); return send(res, 200, { access_token: jwt(u.id, body.email), refresh_token: 'r', expires_in: 36000, user: { id: u.id, email: body.email } }); }
     if (p === '/auth/v1/user') { const w = byToken(req); return w ? send(res, 200, { id: w[1].id, email: w[0] }) : send(res, 401, { msg: 'no' }); }
     const w = byToken(req), me = w ? { email: w[0], ...w[1] } : null;

@@ -304,6 +304,10 @@ const Cloud = (() => {
       if (page.length < 1000) return rows; offset += 1000;
     }
   }
+  // The "I am human" answer (js/captcha.js) rides along to Supabase's sign-in door, which checks it when CAPTCHA protection is on there
+  const withCaptcha = (body, captcha) => (captcha ? { ...body, gotrue_meta_security: { captcha_token: captcha } } : body);
+  const capFail = e => e && (e.status === 400 || e.status === 401 || e.status === 403) && /captcha/i.test(e.message || '');
+  const CAP_MSG = 'The "I am human" check did not go through. Tick the box again and retry.';
   async function allQuestions(filter) {                        // pages of 1000, oldest id first
     const rows = []; let offset = 0;
     for (;;) {
@@ -331,10 +335,11 @@ const Cloud = (() => {
     },
     onAuthLost(fn) { onAuthLost = fn; },
 
-    async signIn(email, password) {
-      try { setSession(await raw('/auth/v1/token?grant_type=password', { method: 'POST', body: { email, password } })); }
+    async signIn(email, password, captcha) {
+      try { setSession(await raw('/auth/v1/token?grant_type=password', { method: 'POST', body: withCaptcha({ email, password }, captcha) })); }
       catch (e) {
         if (e.offline) throw new Error('No connection. You need internet to sign in.');
+        if (capFail(e)) throw new Error(CAP_MSG);
         if (e.status === 400) throw new Error('Email or password is incorrect.');
         if (e.status === 429) throw new Error('Too many attempts. Wait a minute and try again.');
         throw new Error('Could not sign in. Please try again.');
@@ -343,11 +348,12 @@ const Cloud = (() => {
     // Open sign-up: anyone may make their own free account while the admin has this switched on.
     async signupOpen() { try { return (await raw('/rest/v1/rpc/signup_open', { method: 'POST', body: {} })) === true; } catch { return false; } },
     async setSignupOpen(open) { await api('/rest/v1/rpc/set_signup_open', { method: 'POST', body: { open } }); },
-    async signUp(email, password, programId) {
+    async signUp(email, password, programId, captcha) {
       let r;
-      try { r = await raw('/auth/v1/signup', { method: 'POST', body: programId ? { email, password, data: { program_id: programId } } : { email, password } }); }
+      try { r = await raw('/auth/v1/signup', { method: 'POST', body: withCaptcha(programId ? { email, password, data: { program_id: programId } } : { email, password }, captcha) }); }
       catch (e) {
         if (e.offline) throw new Error('No connection. You need internet to create an account.');
+        if (capFail(e)) throw new Error(CAP_MSG);
         if (e.status === 429) throw new Error('Too many attempts. Wait a minute and try again.');
         if (/registered|exists/i.test(e.message || '')) throw new Error('That email already has an account. Sign in instead, or use Forgot password.');
         if (e.status === 422 || e.status === 400) throw new Error(e.message || 'Could not create the account.');
@@ -356,9 +362,9 @@ const Cloud = (() => {
       if (r && r.access_token) { setSession(r); return { signedIn: true }; }
       return { signedIn: false };              // the project asks people to confirm their email first
     },
-    async recover(email) {
-      try { await raw('/auth/v1/recover', { method: 'POST', body: { email } }); }
-      catch (e) { if (e.offline) throw new Error('No connection.'); if (e.status === 429) throw new Error('Please wait a minute before asking again.'); }
+    async recover(email, captcha) {
+      try { await raw('/auth/v1/recover', { method: 'POST', body: withCaptcha({ email }, captcha) }); }
+      catch (e) { if (e.offline) throw new Error('No connection.'); if (capFail(e)) throw new Error(CAP_MSG); if (e.status === 429) throw new Error('Please wait a minute before asking again.'); }
     },
     // A new account made by an admin starts with a temporary password; this is the first-sign-in screen's way out.
     get mustChangePassword() { return !!(session && session.must); },
@@ -382,9 +388,9 @@ const Cloud = (() => {
       catch (e) { throw new Error(e.offline ? 'No connection.' : (e.message || 'Could not set the password.')); }
     },
     // Verifies the current password first, so a borrowed, unlocked device can't be used to take over the account.
-    async changePassword(current, next) {
-      try { setSession(await raw('/auth/v1/token?grant_type=password', { method: 'POST', body: { email: session.email, password: current } })); }
-      catch (e) { throw new Error(e.offline ? 'No connection.' : e.status === 400 ? 'Your current password is not correct.' : 'Could not check your password. Try again.'); }
+    async changePassword(current, next, captcha) {
+      try { setSession(await raw('/auth/v1/token?grant_type=password', { method: 'POST', body: withCaptcha({ email: session.email, password: current }, captcha) })); }
+      catch (e) { throw new Error(e.offline ? 'No connection.' : capFail(e) ? CAP_MSG : e.status === 400 ? 'Your current password is not correct.' : 'Could not check your password. Try again.'); }
       try { await api('/auth/v1/user', { method: 'PUT', body: { password: next } }); }
       catch (e) { throw new Error(e.offline ? 'No connection.' : (e.message || 'Could not change the password.')); }
     },

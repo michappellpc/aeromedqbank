@@ -4,7 +4,7 @@
 // The stand-in must be freshly started (it keeps its question list in memory and this test edits it).
 const fs = require('fs'), { chromium } = require('playwright'), path = require('path'), http = require('http');
 const REPO = path.resolve(__dirname, '..', '..'), CFG = REPO + '/data/config.json', BASE = 'http://localhost:8132/qbank/';
-const orig = fs.readFileSync(CFG, 'utf8'), cfg = JSON.parse(orig); cfg.supabase = { url: 'http://localhost:9998', anonKey: 'anon-test-key' };
+const orig = fs.readFileSync(CFG, 'utf8'), cfg = JSON.parse(orig); cfg.supabase = { url: 'http://localhost:9998', anonKey: 'anon-test-key' }; delete cfg.captchaSiteKey;      // these tests are not about the "I am human" check (test-captcha.js is)
 const restore = () => { try { fs.writeFileSync(CFG, orig); } catch { /* done */ } };
 process.on('exit', restore); process.on('SIGINT', () => process.exit(1));
 let pass = 0, fail = 0; const ok = (d, c, x = '') => { c ? pass++ : fail++; console.log(`  ${c ? 'pass' : 'FAIL'}  ${d}${c ? '' : '   ' + String(x).slice(0, 400)}`); };
