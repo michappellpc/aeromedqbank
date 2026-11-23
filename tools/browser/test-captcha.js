@@ -23,8 +23,9 @@ const STUB = `(function(){var n=0,w={};window.hcaptcha={render:function(el,o){va
     console.log('Sign in');
     let [c, p] = await open(); await p.goto(BASE); await p.waitForSelector('#si-cap .hc-stub');
     ok('the sign-in form shows the "I am human" check', await p.locator('#si-cap .hc-stub').isVisible());
+    const before = (await caps()).length;
     await p.fill('#si-email', 'm@x'); await p.fill('#si-pw', 'pw-m-1'); await p.click('#si-go'); await p.waitForTimeout(300);
-    ok('signing in without ticking it is stopped with a clear message, and nothing is sent', /tick the "I am human" box/i.test(await p.innerText('#si-err')) && !(await caps()).some(x => /^token/.test(x)));
+    ok('signing in without ticking it is stopped with a clear message, and nothing is sent', /tick the "I am human" box/i.test(await p.innerText('#si-err')) && (await caps()).length === before);
     await p.fill('#si-email', 'nobody@x'); await solve(p, '#si-cap'); await p.click('#si-go'); await p.waitForTimeout(500);
     ok('a wrong password still says so, and the answer was sent to Supabase', /incorrect/i.test(await p.innerText('#si-err')) && /^token:tok-/.test(await last()), await last());
     ok('the check is reset after every try, so a used answer is not sent twice', /I am human/.test(await p.innerText('#si-cap')));
